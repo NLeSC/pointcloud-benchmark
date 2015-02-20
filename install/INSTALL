@@ -1,0 +1,20 @@
+In order to use the benchmark platform you need to install all the software related 
+to the DBs/solutions you want to use.
+
+See the instructions of these ones in different OSs in the sub-folders in this folder.
+
+In addition to install the current project, i.e. the benchmark platform you also need:
+
+# CentOS
+yum install python-devel freetype freetype-devel libxml2 libxml2-devel libxslt libxslt-devel libpng-devel python-pip python-psycopg2 python-matplotlib
+
+pip install --upgrade setuptools
+# This may give problems, in that case install from:
+wget https://bootstrap.pypa.io/ez_setup.py -O - | python
+
+#Requirements:
+pip install lxml
+pip install psutil
+pip install numpy --upgrade 
+
+The directory with this code must be added to the PYTHONPATH
