@@ -14,178 +14,212 @@ pcre pcre-devel ant bison bison-devel openssl openssl-devel gettext-devel libtoo
 hg readline readline-devel unixODBC unixODBC-devel
  
 touch /opt/sw/export.sh
-  392  wget http://download.osgeo.org/geos/geos-3.4.2.tar.bz2
-  393  tar xjf geos-3.4.2.tar.bz2 
-  394  cd geos-3.4.2
-  395  mkdir build
-  396  mkdir makefiles
-  397  cd makefiles
-  398  ../configure --prefix=/opt/sw/geos-3.4.2/build --enable-python
-  399  make -j16
-  400  make install
-  401  cd /opt/sw/
-  402  vim export.sh 
-  403  source export.sh 
-  404  geos-config --version
-  405  wget http://download.osgeo.org/proj/proj-4.8.0.tar.gz
-  406  tar xvfz proj-4.8.0.tar.gz 
-  407  cd proj-4.8.0
-  408  mkdir build
-  409  ./configure --prefix=/opt/sw/proj-4.8.0/build
-  410  make -j16
-  411  make install
-  412  cd /opt/sw/
-  413  vim export.sh 
-  414  source export.sh 
-  415  proj
-  416  echo "338730 4679730" | cs2cs -v +init=epsg:26919 +to +init=epsg:4269
-  417  yum install gcc-c++ zlib-devel libjpeg-turbo-devel
-  418  wget http://download.osgeo.org/libtiff/tiff-4.0.3.tar.gz
-  419  tar xvzf tiff-4.0.3.tar.gz 
-  420  cd tiff-4.0.3
-  421  mkdir makefiles
-  422  cd makefiles/
-  423  ../configure --prefix=/opt/sw/tiff-4.0.3/build --exec-prefix=/opt/sw/tiff-4.0.3/build/
-  424  make -j16
-  425  make install
-  426  cd /opt/sw/
-  427  vim export.sh 
-  428  source export.sh 
-  429  wget wget http://download.osgeo.org/geotiff/libgeotiff/libgeotiff-1.4.1.tar.gz
-  430  tar xvzf libgeotiff-1.4.1.tar.gz 
-  431  cd libgeotiff-1.4.1
-  432  mkdir build
-  433  ./configure --prefix=/opt/sw/libgeotiff-1.4.1/build --with-proj=/opt/sw/proj-4.8.0/build --with-libtiff=/opt/sw/tiff-4.0.3/build --with-zlib --with-jpeg
-  434  make -j16
-  435  make install
-  436  cd /opt/sw/
-  437  vim export.sh 
-  438  svn checkout https://svn.osgeo.org/gdal/trunk/gdal gdal-trunk
-  439  cd gdal-trunk
-  440  mkdir build
-  441  ./configure --prefix=/opt/sw/gdal-trunk/build --with-jpeg=external --with-jpeg12 --without-libtool --without-python --with-libkml --with-static-proj4=/opt/sw/proj-4.8.0/build --with-libtiff=/opt/sw/tiff-4.0.3/build --with-geotiff=/opt/sw/libgeotiff-1.4.1/build --with-geos=/opt/sw/geos-3.4.2/build/bin/geos-config --with-pg=/usr/pgsql-9.4/bin/pg_config 
-  442  make -j16
-  443  make install
-  444  cd /opt/sw/
-  445  vim export.sh 
-  446  export PYTHONPATH="$PYTHONPATH:/opt/sw/gdal-trunk/build/lib/python2.6/site-packages"
-  447  cd /opt/sw/gdal-trunk/swig
-  448  make
-  449  cd python/
-  450  python setup.py install --prefix=/opt/sw/gdal-trunk/build
-  451  export PYTHONPATH="$PYTHONPATH:/opt/sw/gdal-trunk/build/lib/python2.6/site-packages"
-  452  mkdir -p /opt/sw/gdal-trunk/build/lib/python2.6/site-packages
-  453  cd /opt/sw/gdal-trunk/swig/
-  454  make
-  455  cd python/
-  456  python setup.py install --prefix=/opt/sw/gdal-trunk/build
-  457  mkdir mkdir -p /opt/sw/gdal-trunk/build/lib64/python2.6/site-packages
-  458  mkdir -p /opt/sw/gdal-trunk/build/lib64/python2.6/site-packages
-  459  export PYTHONPATH="$PYTHONPATH:/opt/sw/gdal-trunk/build/lib64/python2.6/site-packages"
-  460  cd ..
-  461  make
-  462  cd python/
-  463  python setup.py install --prefix=/opt/sw/gdal-trunk/build
-  464  cd //
-  465  cd /opt/sw/gdal-trunk/swig/
-  466  make clean
-  467  ls
-  468  cd
-  469  cd /opt/sw/
-  470  rm -rf gdal-trunk
-  471  vim export.sh 
-  472  cd /opt/sw/
-  473  source export.sh 
-  474  svn checkout https://svn.osgeo.org/gdal/trunk/gdal gdal-trunk
-  475  cd gdal-trunk
-  476  mkdir build
-  477  ./configure --prefix=/opt/sw/gdal-trunk/build --with-jpeg=external --with-jpeg12 --without-libtool --without-python --with-libkml --with-static-proj4=/opt/sw/proj-4.8.0/build --with-libtiff=/opt/sw/tiff-4.0.3/build --with-geotiff=/opt/sw/libgeotiff-1.4.1/build --with-geos=/opt/sw/geos-3.4.2/build/bin/geos-config --with-pg=/usr/pgsql-9.4/bin/pg_config 
-  478  make -j32
-  479  make install
-  480  cd /opt/sw/
-  481  vim export.sh 
-  482  source export.sh 
-  483  gdal-config --version
-  484  gdal-config --formats
-  485  gdal-config --ogr-enabled
-  486  gdalinfo --formats
-  487  ogrinfo --formats
-  488  mkdir -p /opt/source/gdal-trunk/build/lib64/python2.6/site-packages
-  489  rm /opt/source/gdal-trunk/build/lib64/python2.6/site-packages
-  490  rm -r /opt/source/gdal-trunk/build/lib64/python2.6/site-packages
-  491  rm -rf /opt/source/gdal-trunk/build/lib64/python2.6/site-packages
-  492  mkdir -p /opt/source/gdal-trunk/build/lib64/python2.7/site-packages
-  493  export PYTHONPATH="$PYTHONPATH:/opt/source/gdal-trunk/build/lib64/python2.7/site-packages"
-  494  cd /opt/sw/gdal-trunk/swig/
-  495  make -j16
-  496  cd python/
-  497  python setup.py install --prefix=/opt/sw/gdal-trunk/build
-  498  export PYTHONPATH=/opt/source/gdal-trunk/build/lib64/python2.7/site-packages
-  499  python setup.py install --prefix=/opt/sw/gdal-trunk/build
-  500  export PYTHONPATH=/opt/sw/gdal-trunk/build/lib64/python2.7/site-packages
-  501  python setup.py install --prefix=/opt/sw/gdal-trunk/build
-  502  cd /opt/sw/
-  503  vim export.sh 
-  504  source export.sh 
-  505  python -c 'import osgeo.gdal; print osgeo.gdal.__version__; print osgeo.gdal.__file__'
-  506  gdal_merge.py --version
-  507  wget http://download.osgeo.org/laszip/laszip-2.1.0.tar.gz
-  508  tar xvfz laszip-2.1.0.tar.gz
-  509  cd laszip-2.1.0
-  510  mkdir build
-  511  mkdir cmake_build
-  512  cd cmake_build
-  513  cmake .. -DCMAKE_INSTALL_PREFIX=/opt/sw/laszip-2.1.0/build
-  514  make -j32
-  515  make install
-  516  cd /opt/sw/
-  517  vim export.sh 
-  518  source export.sh 
 
-export LD_LIBRARY_PATH="/opt/sw/boost_1_55_0/build/lib:$LD_LIBRARY_PATH"
+# GEOS
+wget http://download.osgeo.org/geos/geos-3.4.2.tar.bz2
+tar xjf geos-3.4.2.tar.bz2 
+cd geos-3.4.2
+mkdir build
+mkdir makefiles
+cd makefiles
+../configure --prefix=/opt/sw/geos-3.4.2/build --enable-python
+make -j32
+make install
+cd /opt/sw/
+vim export.sh
+# Add to paths
+ 
+source export.sh 
+geos-config --version
 
-# Install libLAS
+# PROJ.4
+wget http://download.osgeo.org/proj/proj-4.8.0.tar.gz
+tar xvfz proj-4.8.0.tar.gz 
+cd proj-4.8.0
+mkdir build
+./configure --prefix=/opt/sw/proj-4.8.0/build
+make -j32
+make install
+cd /opt/sw/
+vim export.sh
+# Add to paths 
+
+source export.sh 
+proj
+echo "338730 4679730" | cs2cs -v +init=epsg:26919 +to +init=epsg:4269
+
+# TIFF 
+wget http://download.osgeo.org/libtiff/tiff-4.0.3.tar.gz
+tar xvzf tiff-4.0.3.tar.gz 
+cd tiff-4.0.3
+mkdir makefiles
+cd makefiles/
+../configure --prefix=/opt/sw/tiff-4.0.3/build --exec-prefix=/opt/sw/tiff-4.0.3/build/
+make -j32
+make install
+cd /opt/sw/
+vim export.sh
+# Add to paths 
+
+# GEOTIFF
+source export.sh 
+wget wget http://download.osgeo.org/geotiff/libgeotiff/libgeotiff-1.4.1.tar.gz
+tar xvzf libgeotiff-1.4.1.tar.gz 
+cd libgeotiff-1.4.1
+mkdir build
+./configure --prefix=/opt/sw/libgeotiff-1.4.1/build --with-proj=/opt/sw/proj-4.8.0/build --with-libtiff=/opt/sw/tiff-4.0.3/build --with-zlib --with-jpeg
+make -j32
+make install
+cd /opt/sw/
+vim export.sh 
+
+# BOOST  
+# IMPORTANT: PDAL requires version 1.55 and not higher!. PDAL did not compile with Boost 1.57 
+source export_custom.sh 
+wget http://downloads.sourceforge.net/project/boost/boost/1.55.0/boost_1_55_0.tar.bz2
+tar xvjf boost_1_55_0.tar.bz2 
+cd boost_1_55_0
+mkdir build
+./bootstrap.sh --prefix=/opt/sw/boost_1_55_0/build
+./b2 -j32 stage threading=multi --layout=tagged link=shared
+./b2 install
+cd /opt/sw/
+# Add paths to export.sh 
+
+# POSTGRESQL
+wget https://ftp.postgresql.org/pub/source/v9.4.1/postgresql-9.4.1.tar.gz
+tar xvzf postgresql-9.4.1.tar.gz 
+cd postgresql-9.4.1
+mkdir build
+mkdir makefiles
+cd makefiles/
+../configure --prefix=/opt/sw/postgresql-9.4.1/build
+make -j32
+make install
+# Add to paths
+
+# GDAL
+cd /opt/sw/
+source export.sh 
+svn checkout https://svn.osgeo.org/gdal/trunk/gdal gdal-trunk
+cd gdal-trunk/
+mkdir build
+export CC="gcc -fPIC"
+export CXX="g++ -fPIC"
+./configure --prefix=/opt/sw/gdal-trunk/build/ --with-jpeg=external --with-jpeg12 --without-libtool --without-python --with-static-proj4=/opt/sw/proj-4.8.0/build/ --with-libtiff=/opt/sw/tiff-4.0.3/build/ --with-geotiff=/opt/sw/libgeotiff-1.4.1/build/ --with-geos=/opt/sw/geos-3.4.2/build/bin/geos-config --with-pg=/opt/sw/postgresql-9.4.1/build/bin/pg_config
+make -j32
+make install
+cd /opt/sw/
+vim export.sh 
+# Add to paths
+source export.sh 
+gdal-config --version
+gdal-config --formats
+gdal-config --ogr-enabled
+gdalinfo --formats
+ogrinfo --formats
+mkdir -p /opt/sw/gdal-trunk/build/lib64/python2.7/site-packages
+export PYTHONPATH="$PYTHONPATH:/opt/sw/gdal-trunk/build/lib64/python2.7/site-packages"
+cd gdal-trunk/swig/
+make -j32
+cd python/
+python setup.py install --prefix=/opt/sw/gdal-trunk/build
 cd /opt/sw
-source /opt/sw/export.sh 
+vim export.sh
+# Add to paths 
+source export.sh 
+python -c 'import osgeo.gdal; print osgeo.gdal.__version__; print osgeo.gdal.__file__'
+gdal_merge.py --version
+
+# LASZIP
+source export_custom.sh 
+install git cmake gcc-c++ make
+wget http://download.A.org/laszip/laszip-2.1.0.tar.gz
+tar xvzf laszip-2.1.0.tar.gz 
+cd laszip-2.1.0
+mkdir build
+mkdir makefiles
+cd makefiles/
+cmake .. -DCMAKE_INSTALL_PREFIX=/opt/sw/laszip-2.1.0/build/
+make
+make install
+cd /opt/sw/
+# Add paths to export_custom.sh 
+
+# LIBLAS
+source export_custom.sh 
 git clone git://github.com/libLAS/libLAS.git liblas
 cd liblas/
-mkdir makefiles
-mkdir build
 cd makefiles/
-cmake -G "Unix Makefiles" .. -DCMAKE_INSTALL_PREFIX=/opt/sw/liblas/build \
--DWITH_GDAL=ON  -DWITH_GEOTIFF=ON -DWITH_LASZIP=ON -DWITH_PKGCONFIG=ON -DWITH_TESTS=ON \
--DGDAL_CONFIG=/opt/sw/gdal-trunk/build/bin/gdal-config \
--DGDAL_INCLUDE_DIR=/opt/sw/gdal-trunk/build/include \
--DGDAL_LIBRARY=/opt/sw/gdal-trunk/build/lib/libgdal.so \
--DGEOTIFF_INCLUDE_DIR=/opt/sw/libgeotiff-1.4.1/build/include \
--DGEOTIFF_LIBRARY=/opt/sw/libgeotiff-1.4.1/build/lib/libgeotiff.so \
--DLASZIP_INCLUDE_DIR=/opt/sw/laszip-2.1.0/build/include \
--DLASZIP_LIBRARY=/opt/sw/laszip-2.1.0/build/lib/liblaszip.so \
--DTIFF_INCLUDE_DIR=/opt/sw/tiff-4.0.3/build/include \
--DTIFF_LIBRARY=/opt/sw/tiff-4.0.3/build/lib/libtiff.so \
--DPROJ4_LIBRARY=/opt/sw/proj-4.8.0/build/lib/libproj.so \
--DPROJ4_INCLUDE_DIR=/opt/sw/proj-4.8.0/build/include \
--DBOOST_LIBRARY_DIRS=/opt/sw/boost_1_55_0/build/lib \
--DBOOST_INCLUDEDIR=/opt/sw/boost_1_55_0/build/include \
--DBOOST_PROGRAM_OPTIONS_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so \
--DBOOST_PROGRAM_OPTIONS_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so \
--DBOOST_PROGRAM_OPTIONS_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so \
--DBOOST_THREAD_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_thread.so \
--DBOOST_THREAD_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_thread.so \
--DBOOST_THREAD_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_thread.so
-
-
+cmake -G "Unix Makefiles" .. -DCMAKE_INSTALL_PREFIX=/opt/sw/liblas/build -DWITH_GDAL=ON  -DWITH_GEOTIFF=ON -DWITH_LASZIP=ON -DWITH_PKGCONFIG=ON -DWITH_TESTS=ON -DGDAL_CONFIG=/opt/sw/gdal-trunk/build/bin/gdal-config -DGDAL_INCLUDE_DIR=/opt/sw/gdal-trunk/build/include -DGDAL_LIBRARY=/opt/sw/gdal-trunk/build/lib/libgdal.so -DGEOTIFF_INCLUDE_DIR=/opt/sw/libgeotiff-1.4.1/build/include -DGEOTIFF_LIBRARY=/opt/sw/libgeotiff-1.4.1/build/lib/libgeotiff.so -DLASZIP_INCLUDE_DIR=/opt/sw/laszip-2.1.0/build/include -DLASZIP_LIBRARY=/opt/sw/laszip-2.1.0/build/lib/liblaszip.so -DTIFF_INCLUDE_DIR=/opt/sw/tiff-4.0.3/build/include -DTIFF_LIBRARY=/opt/sw/tiff-4.0.3/build/lib/libtiff.so -DPROJ4_LIBRARY=/opt/sw/proj-4.8.0/build/lib/libproj.so -DPROJ4_INCLUDE_DIR=/opt/sw/proj-4.8.0/build/include -DBOOST_LIBRARY_DIRS=/opt/sw/boost_1_55_0/build/lib -DBOOST_INCLUDEDIR=/opt/sw/boost_1_55_0/build/include -DBOOST_PROGRAM_OPTIONS_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so -DBOOST_PROGRAM_OPTIONS_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so -DBOOST_PROGRAM_OPTIONS_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so -DBOOST_THREAD_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_thread.so -DBOOST_THREAD_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_thread.so -DBOOST_THREAD_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_thread.so
+make -j32
+make install
+cd /opt/sw/
+vim export.sh 
+# Add to paths
+source export.sh 
+lasinfo 
+cd liblas/python/
 mkdir -p /opt/sw/liblas/build/lib/python2.7/site-packages
 export PYTHONPATH="$PYTHONPATH:/opt/sw/liblas/build/lib/python2.7/site-packages"
 python setup.py install --prefix=/opt/sw/liblas/build
 cd /opt/sw/
-# Add paths to export.sh 
-# export PYTHONPATH="$PYTHONPATH:/opt/sw/liblas/build/lib/python2.7/site-packages"
-source export.sh
+vim export.sh 
+# Add to paths
+source export.sh 
+python -c 'import liblas; print liblas.__file__'
 
-# IMPORTANT: After all installations, if you have updated the export_custom.sh properly it should like the one in this directory
-# If you want all the users to have access to this software:
-echo "source /opt/sw/export_custom.sh" > /etc/profile.d/custom.sh
+# POSTGIS
+wget http://download.osgeo.org/postgis/source/postgis-2.1.5.tar.gz
+tar xvzf postgis-2.1.5.tar.gz 
+cd postgis-2.1.5
+mkdir build
+./configure --prefix=/opt/sw/postgis-2.1.5/build --with-pgconfig=/opt/sw/postgresql-9.4.1/build/bin/pg_config --with-geosconfig=/opt/sw/geos-3.4.2/build/bin/geos-config --with-projdir=/opt/sw/proj-4.8.0/build/ --with-gdalconfig=/opt/sw/gdal-trunk/build/bin/gdal-config 
+make -j32
+make install
+cd /opt/sw/
+vim export.sh 
+# Add to paths
+source export.sh 
 
-# Give read/execute access to all users
-chmod -R 775 /opt/sw
+# PDAL
+git clone https://github.com/PDAL/PDAL.git PDAL-trunk
+cd PDAL-trunk
+mkdir build
+mkdir makefiles
+cd makefiles
+cmake .. -DCMAKE_INSTALL_PREFIX=/opt/sw/PDAL-trunk/build -DCMAKE_BUILD_TYPE=Release -DWITH_APPS=ON -DWITH_GEOTIFF=ON -DWITH_LASZIP=ON -DWITH_TESTS=ON -DGDAL_CONFIG=/opt/sw/gdal-trunk/build/bin/gdal-config -DGDAL_INCLUDE_DIR=/opt/sw/gdal-trunk/build/include -DGDAL_LIBRARY=/opt/sw/gdal-trunk/build/lib/libgdal.so -DGEOTIFF_INCLUDE_DIR=/opt/sw/libgeotiff-1.4.1/build/include -DGEOTIFF_LIBRARY=/opt/sw/libgeotiff-1.4.1/build/lib/libgeotiff.so -DLASZIP_INCLUDE_DIR=/opt/sw/laszip-2.1.0/build/include -DLASZIP_LIBRARY=/opt/sw/laszip-2.1.0/build/lib/liblaszip.so -DPG_CONFIG=/opt/sw/postgresql-9.4.1/build/bin/pg_config -DPOSTGRESQL_INCLUDE_DIR=/opt/sw/postgresql-9.4.1/build/include -DPOSTGRESQL_LIBRARIES=/opt/sw/postgresql-9.4.1/build/lib/libpq.so -DBoost_FILESYSTEM_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_filesystem.so -DBoost_FILESYSTEM_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_filesystem.so -DBoost_FILESYSTEM_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_filesystem.so -DBoost_INCLUDE_DIR=/opt/sw/boost_1_55_0/build/include -DBoost_IOSTREAMS_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_iostreams.so -DBoost_IOSTREAMS_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_iostreams.so -DBoost_IOSTREAMS_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_iostreams.so -DBoost_LIBRARY_DIRS=/opt/sw/boost_1_55_0/build/lib -DBoost_PROGRAM_OPTIONS_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so -DBoost_PROGRAM_OPTIONS_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so -DBoost_PROGRAM_OPTIONS_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so -DBoost_SYSTEM_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_system.so -DBoost_SYSTEM_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_system.so -DBoost_SYSTEM_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_system.so -DCMAKE_CXX_FLAGS="-std=c++11"
+make -j32
+make install
+cd /opt/sw/
+vim export.sh 
+# Add to apths
+source export.sh 
+pdal
+
+# POSTGRESQL PC
+git clone https://github.com/pramsey/pointcloud.git
+cd pointcloud/
+export PATH=$PATH:/opt/sw/postgresql-9.4.1/build/bin
+./autogen.sh 
+CFLAGS=-fpic ./configure
+make -j32
+make install
+    
+cd /opt/sw/
+chown -R root:root *
+chmod -R 755 *
+
+useradd postgres
+mkdir /data1/postgres
+chown postgres:postgres /data1/postgres
+su - postgres
+/opt/sw/postgresql-9.4.1/build/bin/pg_ctl -D /data1/postgres initdb
+/opt/sw/postgresql-9.4.1/build/bin/pg_ctl -D /data1/postgres -l /data1/postgres/postgresql.log start
+
+EPEL packages are requried to install latest python packages required for this project
+yum install http://mirror.its.dal.ca/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
+
+# For the users that want to use all this software remember to add 
+# source /opt/sw/export.sh
+# in their .bashrc

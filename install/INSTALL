@@ -3,9 +3,10 @@ to the DBs/solutions you want to use.
 
 See the instructions of these ones in different OSs in the sub-folders in this folder.
 
-In addition to install the current project, i.e. the benchmark platform you also need:
+In addition to install the current project, i.e. the benchmark platform you also need: 
 
 # CentOS
+# EPEL is required
 yum install python-devel freetype freetype-devel libxml2 libxml2-devel libxslt libxslt-devel libpng-devel python-pip python-psycopg2 python-matplotlib
 
 pip install --upgrade setuptools
