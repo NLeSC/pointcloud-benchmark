@@ -11,7 +11,7 @@ python-devel swig sudo yum install libjpeg-turbo-devel bzip2-devel zlib-devel \
 git libxml2-devel numpy flann flann-devel sqlite sqlite-devel openmpi-devel \
 subversion expat-devel libcurl-devel xerces-c-devel unixODBC-devel json-c-devel \
 pcre pcre-devel ant bison bison-devel openssl openssl-devel gettext-devel libtool \
-hg readline readline-devel unixODBC unixODBC-devel
+hg readline readline-devel unixODBC unixODBC-devel unzip 
  
 touch /opt/sw/export.sh
 
@@ -28,7 +28,8 @@ make install
 cd /opt/sw/
 vim export.sh
 # Add to paths
- 
+# export LD_LIBRARY_PATH="/opt/sw/geos-3.4.2/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/geos-3.4.2/build/bin:$PATH"
 source export.sh 
 geos-config --version
 
@@ -43,7 +44,8 @@ make install
 cd /opt/sw/
 vim export.sh
 # Add to paths 
-
+# export LD_LIBRARY_PATH="/opt/sw/proj-4.8.0/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/proj-4.8.0/build/bin:$PATH"
 source export.sh 
 proj
 echo "338730 4679730" | cs2cs -v +init=epsg:26919 +to +init=epsg:4269
@@ -60,6 +62,8 @@ make install
 cd /opt/sw/
 vim export.sh
 # Add to paths 
+# export LD_LIBRARY_PATH="/opt/sw/tiff-4.0.3/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/tiff-4.0.3/build/bin:$PATH"
 
 # GEOTIFF
 source export.sh 
@@ -72,6 +76,8 @@ make -j32
 make install
 cd /opt/sw/
 vim export.sh 
+# export LD_LIBRARY_PATH="/opt/sw/libgeotiff-1.4.1/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/libgeotiff-1.4.1/build/bin:$PATH"
 
 # BOOST  
 # IMPORTANT: PDAL requires version 1.55 and not higher!. PDAL did not compile with Boost 1.57 
@@ -85,6 +91,7 @@ mkdir build
 ./b2 install
 cd /opt/sw/
 # Add paths to export.sh 
+# export LD_LIBRARY_PATH="/opt/sw/boost_1_55_0/build/lib:$LD_LIBRARY_PATH"
 
 # POSTGRESQL
 wget https://ftp.postgresql.org/pub/source/v9.4.1/postgresql-9.4.1.tar.gz
@@ -97,6 +104,9 @@ cd makefiles/
 make -j32
 make install
 # Add to paths
+# export LD_LIBRARY_PATH="/opt/sw/postgresql-9.4.1/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/postgresql-9.4.1/build/bin:$PATH"
+# export CPATH="/opt/sw/postgresql-9.4.1/build/include:$CPATH"
 
 # GDAL
 cd /opt/sw/
@@ -112,6 +122,9 @@ make install
 cd /opt/sw/
 vim export.sh 
 # Add to paths
+# export LD_LIBRARY_PATH="/opt/sw/gdal-trunk/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/gdal-trunk/build/bin:$PATH"
+# export PATH="/opt/sw/gdal-trunk/swig/python/scripts:$PATH"
 source export.sh 
 gdal-config --version
 gdal-config --formats
@@ -127,6 +140,7 @@ python setup.py install --prefix=/opt/sw/gdal-trunk/build
 cd /opt/sw
 vim export.sh
 # Add to paths 
+# export PYTHONPATH="$PYTHONPATH:/opt/sw/gdal-trunk/build/lib64/python2.7/site-packages"
 source export.sh 
 python -c 'import osgeo.gdal; print osgeo.gdal.__version__; print osgeo.gdal.__file__'
 gdal_merge.py --version
@@ -144,19 +158,26 @@ cmake .. -DCMAKE_INSTALL_PREFIX=/opt/sw/laszip-2.1.0/build/
 make
 make install
 cd /opt/sw/
-# Add paths to export_custom.sh 
+# Add paths to export.sh 
+# export LD_LIBRARY_PATH="/opt/sw/laszip-2.1.0/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/laszip-2.1.0/build/bin:$PATH"
 
 # LIBLAS
 source export_custom.sh 
 git clone git://github.com/libLAS/libLAS.git liblas
 cd liblas/
 cd makefiles/
+# The FindPROJ4.cmake is missing. It has to be put in /opt/sw/liblas/cmake/modules
+# Use file in this directory
 cmake -G "Unix Makefiles" .. -DCMAKE_INSTALL_PREFIX=/opt/sw/liblas/build -DWITH_GDAL=ON  -DWITH_GEOTIFF=ON -DWITH_LASZIP=ON -DWITH_PKGCONFIG=ON -DWITH_TESTS=ON -DGDAL_CONFIG=/opt/sw/gdal-trunk/build/bin/gdal-config -DGDAL_INCLUDE_DIR=/opt/sw/gdal-trunk/build/include -DGDAL_LIBRARY=/opt/sw/gdal-trunk/build/lib/libgdal.so -DGEOTIFF_INCLUDE_DIR=/opt/sw/libgeotiff-1.4.1/build/include -DGEOTIFF_LIBRARY=/opt/sw/libgeotiff-1.4.1/build/lib/libgeotiff.so -DLASZIP_INCLUDE_DIR=/opt/sw/laszip-2.1.0/build/include -DLASZIP_LIBRARY=/opt/sw/laszip-2.1.0/build/lib/liblaszip.so -DTIFF_INCLUDE_DIR=/opt/sw/tiff-4.0.3/build/include -DTIFF_LIBRARY=/opt/sw/tiff-4.0.3/build/lib/libtiff.so -DPROJ4_LIBRARY=/opt/sw/proj-4.8.0/build/lib/libproj.so -DPROJ4_INCLUDE_DIR=/opt/sw/proj-4.8.0/build/include -DBOOST_LIBRARY_DIRS=/opt/sw/boost_1_55_0/build/lib -DBOOST_INCLUDEDIR=/opt/sw/boost_1_55_0/build/include -DBOOST_PROGRAM_OPTIONS_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so -DBOOST_PROGRAM_OPTIONS_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so -DBOOST_PROGRAM_OPTIONS_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so -DBOOST_THREAD_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_thread.so -DBOOST_THREAD_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_thread.so -DBOOST_THREAD_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_thread.so
 make -j32
 make install
 cd /opt/sw/
 vim export.sh 
 # Add to paths
+# export LD_LIBRARY_PATH="/opt/sw/liblas/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/liblas/build/bin:$PATH"
+# export CPATH="/opt/sw/liblas/build/include:$CPATH"
 source export.sh 
 lasinfo 
 cd liblas/python/
@@ -166,6 +187,7 @@ python setup.py install --prefix=/opt/sw/liblas/build
 cd /opt/sw/
 vim export.sh 
 # Add to paths
+# export PYTHONPATH="$PYTHONPATH:/opt/sw/liblas/build/lib/python2.7/site-packages"
 source export.sh 
 python -c 'import liblas; print liblas.__file__'
 
@@ -180,6 +202,8 @@ make install
 cd /opt/sw/
 vim export.sh 
 # Add to paths
+# export LD_LIBRARY_PATH="/opt/sw/postgis-2.1.5/build/lib:$LD_LIBRARY_PATH"
+# export CPATH="/opt/sw/postgis-2.1.5/build/include:$CPATH"
 source export.sh 
 
 # PDAL
@@ -194,6 +218,8 @@ make install
 cd /opt/sw/
 vim export.sh 
 # Add to apths
+# export LD_LIBRARY_PATH="/opt/sw/PDAL-trunk/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/PDAL-trunk/build/bin:$PATH"
 source export.sh 
 pdal
 
@@ -205,11 +231,57 @@ export PATH=$PATH:/opt/sw/postgresql-9.4.1/build/bin
 CFLAGS=-fpic ./configure
 make -j32
 make install
+
+# LASTOOLS
+# For Wine (required for LASTools windows executables) and also other python packages for the benchmark platform we need EPEL
+yum install http://mirror.its.dal.ca/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
+cd /opt/sw
+wget http://www.cs.unc.edu/~isenburg/lastools/download/lastools.zip
+unzip lastools.zip
+cd lastools
+make -j$threads
+# Binaries will be found in the 'bin' directory. 
+# Recommended not to run 'make install' because most of lastools' executables have the same names as the liblas utilities. 
+# Add to paths
+# export PATH="/opt/sw/LAStools/bin:$PATH"
+sudo yum install wine
+cd /opt/sw/LAStools/bin
+chmod +x *.exe
     
+# THIS WINE DOES NOT WORK
+# TRY http://www.tecmint.com/install-wine-in-rhel-centos-and-fedora/ (delete current first)
+# THAT COMPLAINS OFF MISSING DISPLAY..requires more investigation 
+
+# MONETDB
+cd /opt/sw
+mkdir MonetDB
+cd MonetDB/
+hg clone http://dev.monetdb.org/hg/MonetDB MonetDBsrc
+cd MonetDBsrc/
+./bootstrap
+cd ..
+mkdir build
+cd build/
+../MonetDBsrc/configure --enable-geom --prefix=/opt/sw/MonetDB/install --disable-debug --enable-optimize --disable-assert --enable-bits=64 --disable-strict
+make
+make install
+# Add to paths
+# export PATH="$PATH:/opt/sw/MonetDB/install/bin"
+# export PYTHONPATH="/opt/sw/MonetDB/install/lib/python2.7/site-packages:$PYTHONPATH"
+
+
+############################################
+#GIVE PERMISSION TO ACCESS ALL INSTALLED SW#
+############################################
 cd /opt/sw/
 chown -R root:root *
 chmod -R 755 *
+# For the users that want to use all this software remember to add 
+# source /opt/sw/export.sh
+# in their .bashrc
 
+#############################################
+# Start PostgreSQL DB (create postgres user and start DB server)
 useradd postgres
 mkdir /data1/postgres
 chown postgres:postgres /data1/postgres
@@ -217,9 +289,13 @@ su - postgres
 /opt/sw/postgresql-9.4.1/build/bin/pg_ctl -D /data1/postgres initdb
 /opt/sw/postgresql-9.4.1/build/bin/pg_ctl -D /data1/postgres -l /data1/postgres/postgresql.log start
 
-EPEL packages are requried to install latest python packages required for this project
-yum install http://mirror.its.dal.ca/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
-
-# For the users that want to use all this software remember to add 
-# source /opt/sw/export.sh
-# in their .bashrc
+# Start MonetDB
+mkdir /data1/monetdb
+chown -R oscarr:oscarr /data1/monetdb
+su - oscarr
+# create file ~/.monetdb for the user that will use MonetDB with
+user=monetdb
+password=monetdb
+# Initialized the MonetDB
+monetdbd create /home/oscar/MonetDB/dbfarm
+monetdbd start /home/oscar/MonetDB/dbfarm
