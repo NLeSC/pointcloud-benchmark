@@ -1,0 +1,251 @@
+HOW TO INSTALL POSTGRESL POINT CLOUD EXTENSION (AND LIBLAS AND PDAL) in UBUNTU14.04
+###################################################################################
+ALSO MONETDB and LASTOOLS
+#########################
+
+# NOT FINISHED YET
+
+sudo su -
+apt-get update
+apt-get install g++
+
+mkdir /opt/sw
+touch /opt/sw/export.sh
+
+# Install geos
+apt-get install build-essential swig python-dev
+wget http://download.osgeo.org/geos/geos-3.4.2.tar.bz2
+tar xjf geos-3.4.2.tar.bz2 
+cd geos-3.4.2
+mkdir build
+mkdir makefiles
+cd makefiles
+../configure --prefix=/opt/sw/geos-3.4.2/build --enable-python
+make 
+make install
+# Add to /opt/sw/export.sh:
+#  export LD_LIBRARY_PATH="/opt/sw/geos-3.4.2/build/lib:$LD_LIBRARY_PATH"
+#  export PATH="/opt/sw/geos-3.4.2/build/bin:$PATH"
+
+# Install PROJ-4
+cd /opt/sw
+source /opt/sw/export.sh 
+wget http://download.osgeo.org/proj/proj-4.8.0.tar.gz
+tar xvfz proj-4.8.0.tar.gz 
+cd proj-4.8.0
+mkdir build
+./configure --prefix=/opt/sw/proj-4.8.0/build
+# compile
+make
+# install into build dir
+make install
+cd /opt/sw/
+# Add paths to export.sh 
+# export LD_LIBRARY_PATH="/opt/sw/proj-4.8.0/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/proj-4.8.0/build/bin:$PATH"
+
+# Install libTiff
+cd /opt/sw
+source /opt/sw/export.sh 
+apt-get install g++ zlib1g-dev libjpeg-turbo8-dev
+wget http://download.osgeo.org/libtiff/tiff-4.0.3.tar.gz
+tar xvzf tiff-4.0.3.tar.gz 
+cd tiff-4.0.3
+# build already exists
+mkdir makefiles
+cd makefiles/
+../configure --prefix=/opt/sw/tiff-4.0.3/build --exec-prefix=/opt/sw/tiff-4.0.3/build/
+make
+make install
+cd /opt/sw/
+# Add paths to export.sh 
+# export LD_LIBRARY_PATH="/opt/sw/tiff-4.0.3/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/tiff-4.0.3/build/bin:$PATH"
+
+# Install Boost 1.55
+apt-get install libboost1.55-all-dev
+
+# Install libGeoTiff
+cd /opt/sw
+source /opt/sw/export.sh 
+wget wget http://download.osgeo.org/geotiff/libgeotiff/libgeotiff-1.4.1.tar.gz
+tar xvzf libgeotiff-1.4.1.tar.gz 
+cd libgeotiff-1.4.1
+mkdir build
+./configure --prefix=/opt/sw/libgeotiff-1.4.1/build --with-proj=/opt/sw/proj-4.8.0/build --with-libtiff=/opt/sw/tiff-4.0.3/build --with-zlib --with-jpeg
+make -j16
+make install
+# Add paths to export.sh 
+# export LD_LIBRARY_PATH="/opt/sw/libgeotiff-1.4.1/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/libgeotiff-1.4.1/build/bin:$PATH"
+
+# Install PostgreSQL
+apt-get install postgresql postgresql-contrib
+apt-get install  postgresql-server-dev-9.3
+
+# Install GDAL
+cd /opt/sw
+source /opt/sw/export.sh 
+apt-get install subversion g++ libsqlite3-dev libxml2-dev python-dev python-numpy swig libexpat1-dev libcurl4-gnutls-dev
+apt-get install libkml-dev libgif-dev libgif4 libjasper-dev libpng12-dev libfreexl1 
+cd /opt/sw
+svn checkout https://svn.osgeo.org/gdal/trunk/gdal gdal-trunk
+cd gdal-trunk
+mkdir build
+./configure --prefix=/opt/sw/gdal-trunk/build \
+--with-jpeg=external --with-jpeg12 --without-libtool \
+--without-python --with-libkml \
+--with-static-proj4=/opt/sw/proj-4.8.0/build \
+--with-libtiff=/opt/sw/tiff-4.0.3/build \
+--with-geotiff=/opt/sw/libgeotiff-1.4.1/build \
+--with-geos=/opt/sw/geos-3.4.2/build/bin/geos-config \
+--with-pg=/usr/bin/pg_config
+make
+make install
+# Add paths to export.sh 
+# export LD_LIBRARY_PATH="/opt/sw/gdal-trunk/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/gdal-trunk/build/bin:$PATH"
+# export PATH="/opt/sw/gdal-trunk/swig/python/scripts:$PATH"
+source /opt/sw/export.sh 
+mkdir -p /opt/sw/gdal-trunk/build/lib/python2.7/site-packages
+export PYTHONPATH="$PYTHONPATH:/opt/sw/gdal-trunk/build/lib/python2.7/site-packages"
+cd /opt/sw/gdal-trunk/swig
+make
+cd python/
+python setup.py install --prefix=/opt/sw/gdal-trunk/build
+cd /opt/sw
+# Add paths to export.sh 
+# export PYTHONPATH="$PYTHONPATH:/opt/sw/gdal-trunk/build/lib/python2.7/site-packages"
+
+# Install LasZIP
+cd /opt/sw
+source /opt/sw/export.sh 
+apt-get install git cmake g++ cmake-gui cmake-curses-gui
+wget http://download.osgeo.org/laszip/laszip-2.1.0.tar.gz
+tar xvfz laszip-2.1.0.tar.gz
+cd laszip-2.1.0
+mkdir build
+mkdir cmake_build
+cd cmake_build
+cmake .. -DCMAKE_INSTALL_PREFIX=/opt/sw/laszip-2.1.0/build
+make
+make install
+# Add paths to export.sh 
+# export LD_LIBRARY_PATH="/opt/sw/laszip-2.1.0/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/laszip-2.1.0/build/bin:$PATH"
+
+# Install libLAS
+cd /opt/sw
+source /opt/sw/export.sh 
+git clone git://github.com/libLAS/libLAS.git liblas
+cd liblas/
+mkdir makefiles
+mkdir build
+cd makefiles/
+cmake -G "Unix Makefiles" .. -DCMAKE_INSTALL_PREFIX=/opt/sw/liblas/build \
+-DWITH_GDAL=ON  -DWITH_GEOTIFF=ON -DWITH_LASZIP=ON -DWITH_PKGCONFIG=ON -DWITH_TESTS=ON \
+-DGDAL_CONFIG=/opt/sw/gdal-trunk/build/bin/gdal-config \
+-DGDAL_INCLUDE_DIR=/opt/sw/gdal-trunk/build/include \
+-DGDAL_LIBRARY=/opt/sw/gdal-trunk/build/lib/libgdal.so \
+-DGEOTIFF_INCLUDE_DIR=/opt/sw/libgeotiff-1.4.1/build/include \
+-DGEOTIFF_LIBRARY=/opt/sw/libgeotiff-1.4.1/build/lib/libgeotiff.so \
+-DLASZIP_INCLUDE_DIR=/opt/sw/laszip-2.1.0/build/include \
+-DLASZIP_LIBRARY=/opt/sw/laszip-2.1.0/build/lib/liblaszip.so \
+-DTIFF_INCLUDE_DIR=/opt/sw/tiff-4.0.3/build/include \
+-DTIFF_LIBRARY=/opt/sw/tiff-4.0.3/build/lib/libtiff.so \
+-DPROJ4_LIBRARY=/opt/sw/proj-4.8.0/build/lib/libproj.so \
+-DPROJ4_INCLUDE_DIR=/opt/sw/proj-4.8.0/build/include
+make
+make install
+cd /opt/sw/
+# Add paths to export.sh 
+# export LD_LIBRARY_PATH="/opt/sw/liblas/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/liblas/build/bin:$PATH"
+# export CPATH="/opt/sw/liblas/build/include:$CPATH"
+source export.sh 
+cd liblas/python/
+mkdir -p /opt/sw/liblas/build/lib/python2.7/site-packages
+export PYTHONPATH="$PYTHONPATH:/opt/sw/liblas/build/lib/python2.7/site-packages"
+python setup.py install --prefix=/opt/sw/liblas/build
+cd /opt/sw/
+# Add paths to export.sh 
+# export PYTHONPATH="$PYTHONPATH:/opt/sw/liblas/build/lib/python2.7/site-packages"
+source export.sh
+
+# Install PostGIS
+apt-get install libxml2-dev libjson0-dev xsltproc docbook-xsl docbook-mathml
+wget http://download.osgeo.org/postgis/source/postgis-2.1.5.tar.gz
+tar xvzf postgis-2.1.5.tar.gz 
+cd postgis-2.1.5
+./configure --with-pgconfig=/usr/bin/pg_config --with-gdalconfig=/opt/sw/gdal-trunk/build/bin/gdal-config --with-geosconfig=/opt/sw/geos-3.4.2/build/bin/geos-config --with-projdir=/opt/sw/proj-4.8.0/build
+make
+make install
+
+# Install PDAL
+cd /opt/sw/
+source export.sh
+git clone https://github.com/PDAL/PDAL.git PDAL-trunk
+cd PDAL-trunk
+mkdir build
+mkdir makefiles
+cd makefiles
+cmake .. -DCMAKE_INSTALL_PREFIX=/opt/sw/PDAL-trunk/build -DCMAKE_BUILD_TYPE=Release \
+-DWITH_APPS=ON -DWITH_GEOTIFF=ON \
+-DWITH_LASZIP=ON \
+-DWITH_TESTS=ON \
+-DGDAL_CONFIG=/opt/sw/gdal-trunk/build/bin/gdal-config \
+-DGDAL_INCLUDE_DIR=/opt/sw/gdal-trunk/build/include \
+-DGDAL_LIBRARY=/opt/sw/gdal-trunk/build/lib/libgdal.so \
+-DGEOTIFF_INCLUDE_DIR=/opt/sw/libgeotiff-1.4.1/build/include \
+-DGEOTIFF_LIBRARY=/opt/sw/libgeotiff-1.4.1/build/lib/libgeotiff.so \
+-DLASZIP_INCLUDE_DIR=/opt/sw/laszip-2.1.0/build/include \
+-DLASZIP_LIBRARY=/opt/sw/laszip-2.1.0/build/lib/liblaszip.so \
+-DPG_CONFIG=/usr/bin/pg_config \
+-DPOSTGRESQL_INCLUDE_DIR=/usr/include/postgresql \
+-DPOSTGRESQL_LIBRARIES=/usr/lib/libpq.so
+make
+make install
+#Add paths to export.sh
+# export LD_LIBRARY_PATH="/opt/sw/PDAL-trunk/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/PDAL-trunk/build/bin:$PATH"
+# export CPATH="/opt/sw/PDAL-trunk/build/include:$CPATH"
+
+# Install PostgreSQL extension
+cd /opt/sw/
+source export.sh
+apt-get install libcunit1-dev autoconf
+git clone https://github.com/pramsey/pointcloud.git
+cd pointcloud
+./autogen.sh
+./configure
+make
+sudo make install
+
+# Make all stuff in /opt/sw readable for everybody
+chown -R root:root *
+chmod -R 755 *
+
+# PostGIS is not happy with location of libraries, you may need to create soft links 
+ln -s /opt/sw/geos-3.4.2/build/lib/libgeos_c.so /usr/local/lib
+ln -s /opt/sw/proj-4.8.0/build/lib/libproj.so.0 /usr/local/lib/
+ln -s /opt/sw/gdal-trunk/build/lib/libgdal.so /usr/local/lib
+ln -s /opt/sw/libgeotiff-1.4.1/build/lib/libgeotiff.so.2 /usr/local/lib
+ln -s /opt/sw/tiff-4.0.3/build/lib/libtiff.so.5 /usr/local/lib
+ln -s /opt/sw/geos-3.4.2/build/lib/libgeos-3.4.2.so /usr/local/lib
+ldconfig
+
+# Make system aware of libraries in /usr/local/lib and /usr/local/lib64
+echo /usr/local/lib > /etc/ld.so.conf.d/local.conf
+echo /usr/local/lib64 >> /etc/ld.so.conf.d/local.conf
+ldconfig
+
+# Add to export.sh
+# export CPATH="/usr/local/include/:$CPATH"
+# export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
+
+# Add to the user .bashrc
+export LANGUAGE=en_US.UTF-8
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+locale-gen en_US.UTF-8
+source /opt/sw/export.sh 

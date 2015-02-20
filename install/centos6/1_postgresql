@@ -1,0 +1,21 @@
+# This instructions are to install postgresl 9.4 in Centos 6.6
+# They are inspired from https://wiki.postgresql.org/wiki/YUM_Installation
+
+#Configure your YUM repository /etc/yum.repos.d/CentOS-Base.repo
+# In [base] and [updates] sections append the line
+exclude=postgresql*
+
+#Install PGDG RPM file
+yum localinstall http://yum.postgresql.org/9.4/redhat/rhel-6-x86_64/pgdg-centos94-9.4-1.noarch.rpm
+
+yum install postgresql94-server
+yum install postgresql94-devel
+
+Initialize
+service postgresql-9.4 initdb
+
+Startup
+chkconfig postgresql-9.4 on
+
+Control service
+service postgresql-9.4 start

@@ -1,0 +1,177 @@
+# These are the steps to install oracle 12c in a clean CentOS 6.4 (minimal install) 
+
+# update packages to latest 
+yum update
+
+# Install GNOME desktop and X window system
+yum -y groupinstall "Desktop" "Desktop Platform" "X Window System" "Fonts"
+#vi /etc/inittab and change to use GUI 
+yum install kernel-headers kernel-devel
+yum groupinstall "Development Tools"
+
+# Install required packages
+yum install ksh unzip make sysstat compat-libstdc* elfutils-devel kernel-headers \
+   xorg-x11-utils unixODBC unixODBC-devel elfutils-libelf-devel gcc gcc-c++ glibc  \
+   glibc-devel glibc-devel.i686 libaio-devel  libaio  libgcc  libstdc++-devel  \
+   libtool-ltdl nss-softokn-freebl readline  ncurses-libs  libcap  libattr \
+   compat-libcap1 binutils libXext libXtst libX11 libXau libxcb libXi
+   
+# we add or modify the following parameters in /etc/sysctl.conf (if there is a higher value we keep it)
+
+fs.aio-max-nr = 1048576
+fs.file-max = 6815744
+kernel.shmall = 4294967296
+kernel.shmmax = 68719476736
+kernel.shmmni = 4096
+kernel.sem = 250 32000 100 128
+net.ipv4.ip_local_port_range = 9000 65500
+net.core.rmem_default = 262144
+net.core.rmem_max = 4194304
+net.core.wmem_default = 262144
+net.core.wmem_max = 1048586
+ 
+# We also modify /etc/security/limits.conf. We add:
+
+# shell limits for users oracle 12gR1
+oracle   soft   nofile   1024
+oracle   hard   nofile   65536
+oracle   soft   nproc    2047
+oracle   hard   nproc    16384
+oracle   soft   stack    10240
+oracle   hard   stack    32768
+
+# Modify the variable SELINUX in /etc/selinux/config. Then, we reboot.
+SELINUX=disabled
+
+# Create required users and groups
+groupadd dba
+groupadd oinstall
+useradd -g oinstall -G dba oracle
+
+# Create directories (assuming installation in /opt/sw)
+Crear los directorios necesarios, para la instalación:
+mkdir -p /opt/sw
+mkdir /opt/sw/oracle
+mkdir /opt/sw/oraInventory
+chown oracle:dba /opt/sw/oracle
+chown oracle:dba /opt/sw/oraInventory
+
+# Make sure host name is defined in /etc/hosts
+Example:
+[root@centos ~]# hostname
+centos
+[root@centos ~]# cat /etc/hosts| grep centos
+192.168.1.29 centos
+
+# Change oracle user pass
+passwd oracle
+
+# We su to oracle to go on with installation
+su - oracle
+
+# We edit .bash_profile to add required parameters (change hostname and SID and UNQNAME)
+vi /home/oracle/.bash_profile
+
+export TMP=/tmp
+export TMPDIR=$TMP
+export ORACLE_HOSTNAME=centos
+export ORACLE_BASE=/opt/sw/oracle
+export ORACLE_HOME=$ORACLE_BASE/product/12.1.0/db_1
+export ORACLE_SID=testdb
+export ORACLE_TERM=xterm
+export ORACLE_UNQNAME=testdb
+export PATH=/usr/sbin:$ORACLE_HOME/bin:$PATH
+export LD_LIBRARY_PATH=$ORACLE_HOME/lib:/lib:/usr/lib
+export CLASSPATH=$ORACLE_HOME/JRE:$ORACLE_HOME/jlib:$ORACLE_HOME/rdbms/jlib
+export TNS_ADMIN=$ORACLE_HOME/network/admin
+
+if [ $USER = "oracle" ]; then
+  if [ $SHELL = "/bin/ksh" ]; then
+    ulimit -p 16384
+    ulimit -n 65536
+  else
+    ulimit -u 16384 -n 65536
+  fi
+fi
+
+# WE WILL HAVE TO SOURCE THIS FILE IN ALL USERS THAT WANT TO USE ORACLE
+
+# We download Oracle 12c 2 zip files
+# Unzip them and cd to install directory
+
+# run the installer which will open a GUI
+./runInstaller
+
+# Comments on the steps
+# - In step 4 of 9, use Server Class
+# - Use same oracle base, home, SID as used in /home/oracle/.bash_profile. For global db name we used the same as SID
+# - In step 11 of 21. The multitenant container database (CDB) is a new feature introduced in Oracle 12c. We do not use it!
+# - we choose to create a DB as well
+# - At some point in installation it is required to run some scripts as root
+  
+# Start the listener
+lsnrctl start listener
+
+# To make oracle start at boot, look at http://www.oracle-base.com/articles/linux/automating-database-startup-and-shutdown-on-linux.php
+# you may need to add this to also start the listenet lsnrctl start listener
+
+From oracle user log in:
+
+sqlplus / as sysdba
+
+Then, we create a user to handle creating more users and droping them
+
+CONN / AS SYSDBA
+CREATE USER oscar IDENTIFIED BY oscar;
+GRANT CREATE SESSION TO oscar;
+GRANT sysdba to oscar;
+grant create user to oscar;
+grant drop user to oscar;
+
+sqlplus oscar/oscar as sysdba
+
+# create table spaces for different data
+
+CREATE BIGFILE TABLESPACE users    
+ DATAFILE 'users.dbf'                
+ SIZE 20M AUTOEXTEND ON;
+ 
+CREATE TEMPORARY TABLESPACE temp
+TEMPFILE 'temp.dbf' SIZE 5M AUTOEXTEND ON;
+
+ALTER SYSTEM SET DB_CREATE_FILE_DEST = ’[faster storage location]’;
+
+CREATE TABLESPACE indx
+DATAFILE 'indx.dbf'
+SIZE 20M AUTOEXTEND ON;
+
+create user test1 identified by test1 default tablespace users temporary tablespace temp;
+grant unlimited tablespace, connect, resource, create view to test1;
+
+sqlplus [user]/[pass]@//localhost:1521/[DB name]
+
+#Install history in sqlplus
+yum install readline-devel
+git clone https://github.com/hanslub42/rlwrap
+cd rlwrap
+aclocal
+autoconf
+autoheader
+automake --add-missing
+./configure
+make
+make install
+# Add this to .bash_rc in the users that want use this
+    alias sqlplus="rlwrap -i -f ~/.sqlplus_history -H ~/.sqlplus_history -s 30000 sqlplus"
+
+touch ~/.sqlplus_history
+
+
+# Install cx_Oracle
+# Add EPEL
+yum install http://mirror.its.dal.ca/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm 
+
+yum install python-setuptools python-devel
+easy_install pip
+source /home/oracle/.bash_profile
+pip install cx_oracle --allow-external cx-oracle  --allow-unverified cx-oracle

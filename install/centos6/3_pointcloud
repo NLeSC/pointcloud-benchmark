@@ -1,0 +1,17 @@
+# To install the current project
+
+In addition to the requirements of each solution/DB the software in this projects also requires:
+
+(it requires EPEL: yum install http://mirror.its.dal.ca/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm )
+
+yum install python-devel freetype freetype-devel libxml2 libxml2-devel libxslt libxslt-devel libpng-devel python-pip python-psycopg2 python-matplotlib
+
+pip install --upgrade setuptools
+# This may give problems, in that case install from:
+wget https://bootstrap.pypa.io/ez_setup.py -O - | python
+
+#Requirements:
+pip install lxml
+pip install psutil
+pip install numpy --upgrade 
+ 

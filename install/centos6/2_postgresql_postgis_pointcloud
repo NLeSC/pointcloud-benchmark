@@ -1,0 +1,165 @@
+# This instructions are to install postgis and pointcloud extension in Centos 6.6
+# They must be executed after installing liblas and postgresql
+
+# Install Postgis
+yum install json-c-devel
+wget http://download.osgeo.org/postgis/source/postgis-2.1.5.tar.gz
+tar xvzf postgis-2.1.5.tar.gz 
+cd postgis-2.1.5
+./configure --with-pgconfig=/usr/pgsql-9.4/bin/pg_config --with-gdalconfig=/opt/sw/gdal-trunk/build/bin/gdal-config --with-geosconfig=/opt/sw/geos-3.4.2/build/bin/geos-config --with-projdir=/opt/sw/proj-4.9.0/build/
+make
+make install
+ 
+# Install PDAL (this is to install PDAL for PostgreSQL, for Oracle some things are different, OCI stuff required) 
+cd /opt/sw/
+# There are two main PDAL repos: pramsey and PDAL. pramsey is slower but it works with all format while PDAL repo has some bugs (like blocksize < 400 or las 1.0 does not work)
+# We use PDAL PDAL repository
+git clone https://github.com/PDAL/PDAL.git
+cd PDAL
+# We use a version that works on CentOS out of the box! (latest one does not compile because it requires C++11 features. If you want latest see end of this page)
+git checkout a02bca202afcb26ea694c8f864d292794944dadd
+mkdir build
+mkdir makefiles
+cd makefiles
+cmake .. -DCMAKE_INSTALL_PREFIX=/opt/sw/PDAL/build -DCMAKE_BUILD_TYPE=Release \
+-DWITH_APPS=ON -DWITH_GDAL=ON -DWITH_GEOTIFF=ON -DWITH_ICONV=ON \
+-DWITH_LASZIP=ON -DWITH_LIBXML2=ON -DWITH_PGPOINTCLOUD=ON -DWITH_PYTHON=ON \
+-DWITH_TESTS=ON  -DWITH_NITRO=OFF -DWITH_ORACLE=OFF -DPDAL_EMBED_BOOST=OFF \
+-DGDAL_CONFIG=/opt/sw/gdal-trunk/build/bin/gdal-config \
+-DGDAL_INCLUDE_DIR=/opt/sw/gdal-trunk/build/include \
+-DGDAL_LIBRARY=/opt/sw/gdal-trunk/build/lib/libgdal.so \
+-DGEOTIFF_INCLUDE_DIR=/opt/sw/libgeotiff-1.4.1/build/include \
+-DGEOTIFF_LIBRARY=/opt/sw/libgeotiff-1.4.1/build/lib/libgeotiff.so \
+-DLASZIP_INCLUDE_DIR=/opt/sw/laszip-2.1.0/build/include \
+-DLASZIP_LIBRARY=/opt/sw/laszip-2.1.0/build/lib/liblaszip.so \
+-DPG_CONFIG=/usr/pgsql-9.4/bin/pg_config \
+-DPOSTGRESQL_INCLUDE_DIR=/usr/pgsql-9.4/include \
+-DPOSTGRESQL_LIBRARIES=/usr/pgsql-9.4/lib/libpq.so \
+-DTIFF_LIBRARY=/opt/sw/tiff-4.0.3/build/lib/libtiff.so \
+-DTIFF_INCLUDE_DIR=/opt/sw/tiff-4.0.3/build/include \
+-DBoost_FILESYSTEM_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_filesystem.so \
+-DBoost_FILESYSTEM_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_filesystem.so \
+-DBoost_FILESYSTEM_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_filesystem.so \
+-DBoost_INCLUDE_DIR=/opt/sw/boost_1_55_0/build/include \
+-DBoost_IOSTREAMS_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_iostreams.so \
+-DBoost_IOSTREAMS_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_iostreams.so \
+-DBoost_IOSTREAMS_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_iostreams.so \
+-DBoost_LIBRARY_DIRS=/opt/sw/boost_1_55_0/build/lib \
+-DBoost_PROGRAM_OPTIONS_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so \
+-DBoost_PROGRAM_OPTIONS_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so \
+-DBoost_PROGRAM_OPTIONS_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so \
+-DBoost_RANDOM_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_random.so \
+-DBoost_RANDOM_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_random.so \
+-DBoost_RANDOM_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_random.so \
+-DBoost_SYSTEM_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_system.so \
+-DBoost_SYSTEM_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_system.so \
+-DBoost_SYSTEM_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_system.so \
+-DBoost_THREAD_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_thread.so \
+-DBoost_THREAD_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_thread.so \
+-DBoost_THREAD_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_thread.so \
+-DBoost_UNIT_TEST_FRAMEWORK_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_unit_test_framework.so \
+-DBoost_UNIT_TEST_FRAMEWORK_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_unit_test_framework.so \
+-DBoost_UNIT_TEST_FRAMEWORK_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_unit_test_framework.so
+make
+make install
+cd /opt/sw/
+# Add paths to export_custom.sh 
+
+# Install libght
+source export_custom.sh
+# We need CUnit (we get EPEL repository fdor this)
+wget http://dl.fedoraproject.org/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm
+rpm -Uvh epel-release*rpm
+yum install CUnit CUnit-devel 
+git clone https://github.com/pramsey/libght.git
+mkdir libght-build
+cd libght-build
+cmake ../libght
+make
+make install
+
+# P. Ramsey's pointcloud extension for Postgres
+cd /opt/sw/
+git clone https://github.com/pramsey/pointcloud.git
+cd pointcloud/
+export PATH=$PATH:/usr/pgsql-9.4/bin/
+./autogen.sh 
+CFLAGS=-fpic ./configure
+make
+make install
+
+# Make system aware of libraries in /usr/local/lib and /usr/local/lib64
+# Basically the libght
+echo /usr/local/lib > /etc/ld.so.conf.d/local.conf
+echo /usr/local/lib64 >> /etc/ld.so.conf.d/local.conf
+/sbin/ldconfig
+
+# Make a PostgreSQL user
+su - postgres
+createuser -s [yourusername]
+exit
+
+# do this as yourusername
+createdb yourusername
+psql
+
+# do this running SQL inside psql
+create extension postgis;
+create extension pointcloud;
+create extension pointcloud_postgis;
+select pc_version();
+
+# To install latest PDAL we need a G++ compiler with support for C++11 features.
+yum -y install glibc-devel.i686 glibc-devel
+cd /opt/sw
+wget ftp://ftp.nluug.nl/mirror/languages/gcc/releases/gcc-4.8.4/gcc-4.8.4.tar.gz
+tar xzf gcc-4.8.4.tar.gz
+cd gcc-4.8.4
+./contrib/download_prerequisites
+cd ..
+mkdir gcc-4.8.4-makefiles
+cd gcc-4.8.4-makefiles
+../gcc-4.8.4/configure --prefix=/opt/sw/gcc-4.8.4-build
+make
+make install
+# Add paths to export_paths.sh 
+
+source /opt/sw/export_paths.sh
+cd /opt/sw/
+git clone https://github.com/PDAL/PDAL.git PDAL-trunk
+cd PDAL-trunk
+mkdir build
+mkdir makefiles
+cd makefiles
+cmake .. -DCMAKE_INSTALL_PREFIX=/opt/sw/PDAL-trunk/build -DCMAKE_BUILD_TYPE=Release \
+-DWITH_APPS=ON -DWITH_GEOTIFF=ON \
+-DWITH_LASZIP=ON \
+-DWITH_TESTS=ON \
+-DGDAL_CONFIG=/opt/sw/gdal-trunk/build/bin/gdal-config \
+-DGDAL_INCLUDE_DIR=/opt/sw/gdal-trunk/build/include \
+-DGDAL_LIBRARY=/opt/sw/gdal-trunk/build/lib/libgdal.so \
+-DGEOTIFF_INCLUDE_DIR=/opt/sw/libgeotiff-1.4.1/build/include \
+-DGEOTIFF_LIBRARY=/opt/sw/libgeotiff-1.4.1/build/lib/libgeotiff.so \
+-DLASZIP_INCLUDE_DIR=/opt/sw/laszip-2.1.0/build/include \
+-DLASZIP_LIBRARY=/opt/sw/laszip-2.1.0/build/lib/liblaszip.so \
+-DPG_CONFIG=/usr/pgsql-9.4/bin/pg_config \
+-DPOSTGRESQL_INCLUDE_DIR=/usr/pgsql-9.4/include \
+-DPOSTGRESQL_LIBRARIES=/usr/pgsql-9.4/lib/libpq.so \
+-DBoost_FILESYSTEM_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_filesystem.so \
+-DBoost_FILESYSTEM_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_filesystem.so \
+-DBoost_FILESYSTEM_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_filesystem.so \
+-DBoost_INCLUDE_DIR=/opt/sw/boost_1_55_0/build/include \
+-DBoost_IOSTREAMS_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_iostreams.so \
+-DBoost_IOSTREAMS_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_iostreams.so \
+-DBoost_IOSTREAMS_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_iostreams.so \
+-DBoost_LIBRARY_DIRS=/opt/sw/boost_1_55_0/build/lib \
+-DBoost_PROGRAM_OPTIONS_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so \
+-DBoost_PROGRAM_OPTIONS_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so \
+-DBoost_PROGRAM_OPTIONS_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so \
+-DBoost_SYSTEM_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_system.so \
+-DBoost_SYSTEM_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_system.so \
+-DBoost_SYSTEM_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_system.so \
+-DCMAKE_CXX_FLAGS="-std=c++11"
+make
+make install
+#Add paths to export_paths.sh
