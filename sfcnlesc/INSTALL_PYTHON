@@ -1,0 +1,3 @@
+# Create python bindings in pointcloud directory (called pysfcnlesc):
+cd src
+python setup.py build_ext -i

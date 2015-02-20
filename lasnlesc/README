@@ -1,0 +1,41 @@
+NLeSC LAS to DB tools
+
+libLAS is a C/C++ library for reading and writing the very common `LAS`
+`LiDAR`_ format. The `ASPRS LAS format`_ is a sequential binary format used to
+store data from LiDAR sensors and by LiDAR processing software for data
+interchange and archival. 
+
+lasnlesc converts LAS files, or its compressed format LAZ, into the binary
+formats used by MonetDB and Postgres.
+
+For MonetDB use las2col, while for Postgres use las2pg
+See INSTALL to find out how to install this apps
+
+They loaders (las2col and las2pg) generate dump files as used by those two DBs 
+that can be then imported into the DBs producing a table with one point per row.
+
+MONETDB example
+###############
+# Use binary loader to create the columnar files
+# /pak1/mondata/tmp/0_listFile is the list of LAS/LAZ files
+las2col -f /pak1/mondata/tmp/0_listFile /pak1/mondata/tmp/0_tempFile --parse xyz
+# las2col is using multiple cores
+
+# Use mclient or your favorite language API to import data in DB:
+COPY BINARY INTO ahn_flat from ('/pak1/mondata/tmp/0_tempFile_col_x.dat','/pak1/mondata/tmp/0_tempFile_col_y.dat','/pak1/mondata/tmp/0_tempFile_col_z.dat')
+# Note the table receiving the data must have been previously created
+
+
+POSTGRESQL EXAMPLE
+##################
+# In this case we can use a pipe to directly import the LAS file into a postgresql table
+las2pg -s tile_85800_447300.las --stdout --parse xyz | psql  pf20Mxyz -c "copy ahn_flat from stdin with binary"
+# Note the table receiving the data must have been previously created
+# las2pg uses one single core but you can have multiple instances of it importing data simultanoeulsy
+
+# MORTON CODES
+Both loaders can generate morton codes (codification of XY -> position of the point in the Morton SFC)
+The code to decode the generated morton codes can be found in src/decode_morton.c
+This can be used in cases where we only store the Morton code (and not the XY) and we use use the code to decode XY when necessary
+The Morton code can be used, in addition to order points, to do queries. In that case use the code in sfcnlesc
+ 

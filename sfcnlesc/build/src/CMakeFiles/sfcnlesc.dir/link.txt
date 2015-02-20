@@ -1,0 +1,1 @@
+/usr/bin/c++   -O3 -DNDEBUG    CMakeFiles/sfcnlesc.dir/sfcnlesc.cc.o  -o ../bin/sfcnlesc -rdynamic -lgeos_c 

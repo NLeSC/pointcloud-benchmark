@@ -1,0 +1,18 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/oscarr/git/pointcloud/sfcnlesc/src/sfcnlesc.c
+stdio.h
+-
+stdlib.h
+-
+stdarg.h
+-
+geos_c.h
+-
+

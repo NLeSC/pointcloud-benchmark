@@ -1,0 +1,7 @@
+mkdir build
+cd build 
+cmake -G "Unix Makefiles" ..
+# create executable in local bin directory
+make
+# with root to  move executable to generic location
+make install

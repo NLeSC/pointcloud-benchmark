@@ -1,0 +1,12 @@
+prefix=@PKGCFG_PREFIX@
+exec_prefix=@PKGCFG_PREFIX@
+libdir=@PKGCFG_LIB_DIR@
+includedir=@PKGCFG_INC_DIR@
+
+Name: lasNLeSC
+Description: Extension of libLas apps to convert las/laz files into databases binary formats
+Requires: @PKGCFG_REQUIRES@
+Version: @PKGCFG_VERSION@
+Libs: -L${libdir} @PKGCFG_LINK_FLAGS@
+Cflags: -I${includedir}/liblasNLeSC @PKGCFG_COMPILE_FLAGS@
+
