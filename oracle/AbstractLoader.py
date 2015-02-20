@@ -275,7 +275,7 @@ parameters ('tablespace=""" + self.indexTableSpace + """ work_tablespace=""" + s
         self.mogrifyExecute(cursor,"""ALTER TABLE """ + self.blockTable + """ add constraint """ + self.blockTable + """_PK primary key (obj_id, blk_id) using index tablespace """ + self.indexTableSpace)
         cursor.connection.commit()
     
-    def createIOT(self, cursor, newTableName, tableName, icolumns, ocolumns, keycolumns, distinct = False, check = False, hilbertFactor = None):
+    def createIOT(self, cursor, newTableName, tableName, tableSpace, icolumns, ocolumns, keycolumns, distinct = False, check = False, hilbertFactor = None):
         """ Create Index-Organized-Table and populate it from tableName Table"""
         d = ""
         if distinct:
@@ -294,7 +294,7 @@ CREATE TABLE """ + newTableName + """
 (""" + (','.join(ocols)) + """
     , constraint """ + newTableName + """_PK primary key (""" + (','.join(kcols)) + """))
     organization index
-    tablespace """ + self.tableSpace + """ pctfree 0 nologging
+    tablespace """ + tableSpace + """ pctfree 0 nologging
     """ + self.getParallelString() + """
 as
     SELECT """ + d + """ """ + (','.join(icols)) + """ FROM """ + tableName)

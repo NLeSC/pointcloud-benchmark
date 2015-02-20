@@ -44,7 +44,7 @@ class Loader(AbstractLoader):
             tempFlatTable = self.flatTable + '_TEMP'
             self.mogrifyExecute(cursor, "ALTER TABLE " + self.flatTable + " RENAME TO " + tempFlatTable )
             connection.commit()
-            self.createIOT(cursor, self.flatTable, tempFlatTable, self.columns, self.columns, self.index, self.clusterDistinct)
+            self.createIOT(cursor, self.flatTable, tempFlatTable, self.tableSpace, self.columns, self.columns, self.index, self.clusterDistinct)
             
             self.dropTable(cursor, tempFlatTable, False)
             connection.commit()

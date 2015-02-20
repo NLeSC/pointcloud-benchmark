@@ -51,10 +51,10 @@ class LoaderExt(AbstractLoader):
             if self.cluster2Step:
                 tempFlatTable = self.flatTable + '_TEMP' 
                 self.createTableAsSelect(cursor, tempFlatTable, self.extTable, icols, False)
-                self.createIOT(cursor, self.flatTable, tempFlatTable, icols, icols, self.index, self.clusterDistinct, False, hfactor)
+                self.createIOT(cursor, self.flatTable, tempFlatTable, self.tableSpace, icols, icols, self.index, self.clusterDistinct, False, hfactor)
                 self.dropTable(cursor, tempFlatTable)
             else:
-                self.createIOT(cursor, self.flatTable, self.extTable, icols, icols, self.index, self.clusterDistinct, False, hfactor)
+                self.createIOT(cursor, self.flatTable, self.extTable, self.tableSpace, icols, icols, self.index, self.clusterDistinct, False, hfactor)
         else:
             self.createTableAsSelect(cursor, self.flatTable, self.extTable, icols, False)
         
