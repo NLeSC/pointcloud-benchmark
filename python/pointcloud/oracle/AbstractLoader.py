@@ -229,7 +229,7 @@ location ('""" + lasFiles + """')
 """ + self.getParallelString() + """ reject limit 0""")
         cursor.connection.commit()
         
-    def createBlocks(self, cursor, blockTable, baseTable = None, tableSpace = None):    
+    def createBlocks(self, cursor, blockTable, baseTable = None, tableSpace = None, includeBlockId = False):    
         """ Create the blocks table and meta-data table"""
         if tableSpace == None:
             tableSpace = self.tableSpace
@@ -246,11 +246,16 @@ CREATE TABLE """ + blockTable + """
 as SELECT * FROM mdsys.SDO_PC_BLK_TABLE where 0 = 1""")
         
         if baseTable != None:
-            self.mogrifyExecute(cursor,"""
-CREATE TABLE """ + baseTable + """ (pc sdo_pc)
-  TABLESPACE """ + tableSpace + """ pctfree 0 nologging""")
+            if includeBlockId:
+                self.mogrifyExecute(cursor,"""
+    CREATE TABLE """ + baseTable + """ (id number, pc sdo_pc)
+      TABLESPACE """ + tableSpace + """ pctfree 0 nologging""")
+            else:
+                self.mogrifyExecute(cursor,"""
+    CREATE TABLE """ + baseTable + """ (pc sdo_pc)
+      TABLESPACE """ + tableSpace + """ pctfree 0 nologging""")
             cursor.connection.commit()
-        
+                
     def createIndex(self, cursor, tableName, columns, partitioned = False, check = False):
         part = ''
         if partitioned:
@@ -525,3 +530,91 @@ END;
         connection.close()
         return n  
     
+    def createPDALXML(self, inputFileAbsPath, connectionString, pcid, dimensionsNames, blockTable, baseTable, srid, blockSize, offsets, scales):
+        """ Create a XML file to load the data, in the given file, into the DB """
+
+        xmlContent = """<?xml version="1.0" encoding="utf-8"?>
+<Pipeline version="1.0">
+    <Writer type="writers.oci">
+        <Option name="debug">
+            true
+        </Option>
+        <Option name="verbose">
+            1
+        </Option>
+        <Option name="connection">
+            """ + connectionString + """
+            opdal/opdal@pctest
+        </Option>
+        <Option name="base_table_name">
+            """ + baseTable + """
+        </Option>
+        <Option name="block_table_name">
+            """ + blockTable + """
+        </Option>
+        <Option name="cloud_column_name">
+            pc
+        </Option>
+        <Option name="is3d">
+            false
+        </Option>
+        <Option name="solid">
+            false
+        </Option>
+        <Option name="overwrite">
+            false
+        </Option>
+        <Option name="srid">
+            """ + str(srid) + """
+        </Option>
+        <Option name="pc_id">""" + str(pcid) + """</Option>
+        <Option name="cloud_id">""" + str(pcid) + """</Option>
+        <Option name="base_table_aux_columns">
+        </Option>
+        <Option name="base_table_aux_values">
+        </Option>
+        <Option name="base_table_boundary_column">
+        </Option>
+        <Option name="base_table_boundary_wkt">
+        </Option>
+        <Option name="pre_block_sql">
+        </Option>
+        <Option name="pre_sql">
+        </Option>
+        <Option name="post_block_sql">
+        </Option>
+        <Option name="capacity">
+            """ + blockSize + """
+        </Option>
+        <Option name="stream_output_precision">
+            8
+        </Option>
+        <Option name="disable_cloud_trigger">
+            true
+        </Option>
+        <Option name="pack_ignored_fields">
+            false
+        </Option>
+        <Option name="output_dims">""" + ",".join(dimensionsNames) + """</Option>
+        <Option name="offset_x">""" + offsets['X'] + """</Option>
+        <Option name="offset_y">""" + offsets['Y'] + """</Option>
+        <Option name="offset_z">""" + offsets['Z'] + """</Option>
+        <Option name="scale_x">""" + scales['X'] + """</Option>
+        <Option name="scale_y">""" + scales['Y'] + """</Option>
+        <Option name="scale_z">""" + scales['Z'] + """</Option>
+        <Filter type="filters.chipper">
+            <Option name="capacity">""" + blockSize + """</Option>
+            <Reader type="readers.las">
+                <Option name="filename">""" + inputFileAbsPath + """</Option>
+                <Option name="spatialreference">EPSG:""" + str(srid) + """</Option>
+            </Reader>
+        </Filter>
+    </Writer>
+</Pipeline>
+        """
+        outputFileName = os.path.basename(inputFileAbsPath) + '.xml'
+        outputFile = open(outputFileName, 'w')
+        outputFile.write(xmlContent)
+        outputFile.close()
+        return outputFileName
+
