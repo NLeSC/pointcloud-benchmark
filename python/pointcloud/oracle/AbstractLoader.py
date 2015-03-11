@@ -279,7 +279,7 @@ parameters ('tablespace=""" + self.indexTableSpace + """ work_tablespace=""" + s
     def createBlockIdIndex(self, cursor):
         self.mogrifyExecute(cursor,"""ALTER TABLE """ + self.blockTable + """ add constraint """ + self.blockTable + """_PK primary key (obj_id, blk_id) using index tablespace """ + self.indexTableSpace)
         cursor.connection.commit()
-    
+      
     def createIOT(self, cursor, newTableName, tableName, tableSpace, icolumns, ocolumns, keycolumns, distinct = False, check = False, hilbertFactor = None):
         """ Create Index-Organized-Table and populate it from tableName Table"""
         d = ""

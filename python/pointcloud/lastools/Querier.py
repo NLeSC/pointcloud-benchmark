@@ -63,7 +63,7 @@ class Querier(AbstractQuerier, CommonLASTools):
                 zconds.append(' -drop_z_above ' + str(self.qp.maxz) + ' ')
             zquery = ' '.join(zconds)
         
-        if iterationId == 0 and self.qp.queryType == 'generic':
+        if iterationId == 0:
             cursor.execute("INSERT INTO " + self.queryTable + " VALUES (%s,ST_GeomFromEWKT(%s))", [queryIndex, 'SRID='+self.srid+';'+wkt])
             connection.commit()
         
@@ -188,7 +188,7 @@ class Querier(AbstractQuerier, CommonLASTools):
             command = 'lasclip.exe -lof ' + inputList + ' -poly query' + str(queryIndex) + '.shp ' + zquery + ' -stdout -otxt -oparse xyz | wc -l' 
             if not self.isSingle :
                 command += ' -merged'                    
-
+        logging.debug(command)
         result = subprocess.Popen(command, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0].replace('\n','')
         eTime = time.time() - t0
         try:

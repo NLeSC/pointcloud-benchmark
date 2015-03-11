@@ -21,7 +21,7 @@
 #define int64_t long long int
 
 #define NUM_OF_ENTRIES      21
-#define NUM_READ_THREADS    16
+#define NUM_READ_THREADS    13
 #define NUM_FILES_IN    2000
 #define TOLERANCE 0.0000001
 #define MAX_INT_31 2147483648.0
@@ -774,7 +774,7 @@ int main(int argc, char *argv[])
         pthread_create(&writeThreads[i], NULL, writeFile, (void*)(&dataWrite[i]));
     }
     sleep(1);
-
+    //Do we need to comment this one out!?
     int done = 0;
     while (num_files) {
         /*Obtain lock over data to get the pointer*/

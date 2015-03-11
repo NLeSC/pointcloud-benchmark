@@ -24,9 +24,9 @@ class LoaderOrdered(AbstractLoader):
         # Get information of the contents of the LAS file
         logging.debug(fileAbsPath)
         fileBlockTable = self.getFileBlockTable(index)
-        self.createBlocks(fileBlockTable)   
-        (dimensionsNames, pcid) = self.addPCFormat(self.schemaFile, fileAbsPath)   
-        xmlFile = self.createPDALXML(fileAbsPath, self.connectString(), pcid, dimensionsNames, fileBlockTable, self.srid, self.blockSize)
+        self.createBlocks(fileBlockTable)  
+        (dimensionsNames, pcid, compression, offsets, scales) = self.addPCFormat(self.schemaFile, fileAbsPath)
+        xmlFile = self.createPDALXML(fileAbsPath, self.connectString(), pcid, dimensionsNames, fileBlockTable, self.srid, self.blockSize, compression, offsets, scales)
         c = 'pdal pipeline ' + xmlFile
         logging.debug(c)
         os.system(c)
