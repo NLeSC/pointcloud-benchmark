@@ -29,20 +29,18 @@ class Loader(AbstractLoader):
             
             # Creates the global blocks tables
             self.createBlocks(cursor, self.blockTable, self.baseTable, self.tableSpace, includeBlockId = True)
-            self.blockSeq = self.blockTable + '_ID_SEQ'
-            cursor.execute("create sequence " + self.blockSeq )
-            connection.commit()
-            #self.initCreatePC(cursor, create = False)
-            connection.commit() 
             connection.close()
         
     def loadFromFile(self, index, fileAbsPath):
         # Get information of the contents of the LAS file
         logging.debug(fileAbsPath)
         
-        #(self.dimensionsNames, pcid, compression, offsets, scales) = self.addPCFormat(self.schemaFile, fileAbsPath)  
-        xmlFile = self.createPDALXML(fileAbsPath, self.connectString(), pcid, self.dimensionsNames, self.blockTable, self.baseTable, self.srid, self.blockSize, offsets, scales)
-        c = 'pdal pipeline ' + xmlFile
+        #(self.dimensionsNames, pcid, compression, offsets, scales) = self.addPCFormat(self.schemaFile, fileAbsPath)
+        (_, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = utils.getLASParams(fileAbsPath, tool = self.las2txtTool)  
+        offsets = {'X': offsetX, 'Y': offsetY, 'Z': offsetZ}
+        scales = {'X': scaleX, 'Y': scaleY, 'Z': scaleZ}
+        xmlFile = self.createPDALXML(fileAbsPath, self.connectString(), self.dimensionsNames, self.blockTable, self.baseTable, self.srid, self.blockSize, offsets, scales)
+        c = 'pdal pipeline ' + xmlFile + ' -d -v 6'
         logging.debug(c)
         os.system(c)
         # remove the XML file
@@ -52,6 +50,7 @@ class Loader(AbstractLoader):
         connection = self.connect()
         cursor = connection.cursor()
         #self.mogrifyExecute(cursor, "update " + self.blockTable + " b set b.blk_extent.sdo_srid = " + str(self.srid))
+        self.createBlockIdIndex(cursor)
         self.createBlockIndex(cursor)
         connection.close()
         
