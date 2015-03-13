@@ -548,7 +548,7 @@ END;
     <Option name="overwrite">false</Option>
     <Option name="disable_cloud_trigger">true</Option>
     <Option name="srid">""" + str(srid) + """</Option>
-    <Option name="create_index">true</Option>
+    <Option name="create_index">false</Option>
     <Option name="capacity">""" + blockSize + """</Option>
     <Option name="stream_output_precision">8</Option>
     <Option name="pack_ignored_fields">true</Option>
