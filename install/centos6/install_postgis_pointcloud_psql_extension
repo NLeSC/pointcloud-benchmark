@@ -159,7 +159,7 @@ cmake .. -DCMAKE_INSTALL_PREFIX=/opt/sw/PDAL-trunk/build -DCMAKE_BUILD_TYPE=Rele
 -DBoost_SYSTEM_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_system.so \
 -DBoost_SYSTEM_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_system.so \
 -DBoost_SYSTEM_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_system.so \
--DCMAKE_CXX_FLAGS="-std=c++11"
+-DCMAKE_CXX_FLAGS="-std=c++11" -DBUILD_PLUGIN_PGPOINTCLOUD=ON
 make
 make install
 #Add paths to export_paths.sh
