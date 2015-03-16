@@ -4,7 +4,8 @@
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
 import os, logging
-from pointcloud import utils
+import utils
+import pdal_xml
 from pointcloud.oracle.AbstractLoader import AbstractLoader
 
 class Loader(AbstractLoader):
@@ -39,7 +40,7 @@ class Loader(AbstractLoader):
         (_, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = utils.getLASParams(fileAbsPath, tool = self.las2txtTool)  
         offsets = {'X': offsetX, 'Y': offsetY, 'Z': offsetZ}
         scales = {'X': scaleX, 'Y': scaleY, 'Z': scaleZ}
-        xmlFile = self.createPDALXML(fileAbsPath, self.connectString(), self.dimensionsNames, self.blockTable, self.baseTable, self.srid, self.blockSize, offsets, scales)
+        xmlFile = pdal_xml.OracleWriter(fileAbsPath, self.connectString(), self.dimensionsNames, self.blockTable, self.baseTable, self.srid, self.blockSize, offsets, scales)
         c = 'pdal pipeline ' + xmlFile + ' -d -v 6'
         logging.debug(c)
         os.system(c)

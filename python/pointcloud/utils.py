@@ -433,3 +433,13 @@ def getElements(rangeString):
         if not isRange:
             elements.append(int(e))
     return elements
+
+def writeToFile(outputFileName, content):
+    outputFile = open(outputFileName, 'w')
+    outputFile.write(content)
+    outputFile.close()
+    return outputFileName
+
+def shellExecute(command):
+    (out,err) = subprocess.Popen(command, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    return '\n'.join((out,err))    

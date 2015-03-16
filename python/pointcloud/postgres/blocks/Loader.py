@@ -4,7 +4,8 @@
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
 import os, logging
-from pointcloud import utils
+import utils
+import pdal_xml
 from pointcloud.postgres.AbstractLoader import AbstractLoader
 
 class Loader(AbstractLoader):
@@ -18,7 +19,7 @@ class Loader(AbstractLoader):
         logging.debug(fileAbsPath)
         
         (self.dimensionsNames, pcid, compression, offsets, scales) = self.addPCFormat(self.schemaFile, fileAbsPath)  
-        xmlFile = self.createPDALXML(fileAbsPath, self.connectString(), pcid, self.dimensionsNames, self.blockTable, self.srid, self.blockSize, compression, offsets, scales)
+        xmlFile = pdal_xml.PostgreSQLWriter(fileAbsPath, self.connectString(), pcid, self.dimensionsNames, self.blockTable, self.srid, self.blockSize, compression, offsets, scales)
         c = 'pdal pipeline ' + xmlFile
         logging.debug(c)
         os.system(c)
