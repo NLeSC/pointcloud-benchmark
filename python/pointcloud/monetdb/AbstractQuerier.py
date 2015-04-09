@@ -6,6 +6,7 @@
 import logging
 from pointcloud.AbstractQuerier import AbstractQuerier as AQuerier
 from pointcloud.monetdb.CommonMonetDB import CommonMonetDB
+from pointcloud import monetdbops
 
 class AbstractQuerier(AQuerier, CommonMonetDB):
     """Abstract class for the queriers to be implemented for each different 
@@ -16,13 +17,20 @@ class AbstractQuerier(AQuerier, CommonMonetDB):
         self.setVariables(configuration)
 
     def connect(self, superUser = False):
-        return self.connection()
+        return self.getConnection()
     
     def initialize(self):
         #Variables used during query
         self.queryIndex = None
         self.resultTable = None
         self.qp = None
+        connection = self.connect()
+        cursor = connection.cursor()
+        
+        monetdbops.mogrifyExecute(cursor, "SELECT srid, minx, miny, maxx, maxy, scalex, scaley from " + self.metaTable)
+        (self.srid, self.minX, self.minY, self.maxX, self.maxY, self.scaleX, self.scaleY) = cursor.fetchone()[0]
+        
+        connection.close()
         
     def close(self):
         return
@@ -32,10 +40,8 @@ class AbstractQuerier(AQuerier, CommonMonetDB):
         self.resultTable = 'query_results_' + str(self.queryIndex)
         
         self.qp = queriesParameters.getQueryParameters('mon',queryId, self.colsData.keys())
-        self.wkt = queriesParameters.getWKT(queriesParameters.getQuery(queryId))
         logging.debug(self.qp.queryKey)
 
     def addContainsCondition(self, queryParameters, queryArgs, xname, yname):
         #queryArgs.extend([self.queryIndex, ])
-        return (" contains(GeomFromText('" + self.wkt + "','" + self.srid + "'), " + xname +"," + yname + ")", None)
-        #return (" id = %s AND contains(geom, Point(x,y))", self.queryTable)    
+        return (" contains(GeomFromText('" + self.qp.wkt + "','" + self.srid + "'), " + xname +"," + yname + ")", None)

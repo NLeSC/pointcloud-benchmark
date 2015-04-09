@@ -3,16 +3,22 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import os, subprocess, time, psycopg2, logging
+import os, subprocess, time, psycopg2, logging, glob
 from pointcloud.AbstractQuerier import AbstractQuerier
 from pointcloud.lastools.CommonLASTools import CommonLASTools
+from pointcloud import postgresops, lasops, utils
+
+DEFAULT_INPUT_FILE_LIST_FILE_NAME = 'LIST_FILES'
 
 class Querier(AbstractQuerier, CommonLASTools):   
     def __init__(self, configuration):
-        """ Set configuration parameters and create user if required """
+        """ Set configuration parameters"""
         AbstractQuerier.__init__(self, configuration)
         self.setVariables(configuration)
-        
+    
+    def connect(self, superUser = False):
+        return self.getConnection(superUser)
+    
     def initialize(self):
         # Check whether DB already exist   
         connectionSuper = self.connect(True)
@@ -23,35 +29,42 @@ class Querier(AbstractQuerier, CommonLASTools):
         connectionSuper.close()
         # Creates the DB if not existing
         if not self.exists:
-            connString = self.connectString(False, True)
+            connString = self.getConnectString(False, True)
             os.system('createdb ' + connString)
-        
-        #  Make a new connection
+        #  We create the PostGIS extension
         connection = self.connect()
         cursor = connection.cursor()
         if not self.exists:
             cursor.execute('CREATE EXTENSION postgis;')
             connection.commit()
-        cursor.execute("select exists(select * from information_schema.tables where table_name=%s)", ( self.queryTable, ))
-        if cursor.fetchone()[0]:
-            cursor.execute('DROP TABLE ' +  self.queryTable)
-            connection.commit()
-        cursor.execute("CREATE TABLE " +  self.queryTable + " (id integer, geom public.geometry(Geometry," + self.srid + "));")
+            
+        # Get the list of PC files
+        pcFiles = glob.glob(os.path.join(os.path.abspath(self.dataFolder), '*' + self.dataExtension))
+        # We need to know if it is a single file or multiple (in order to use -merged in lasclip or not)
+        self.isSingle = False
+        if len(pcFiles) == 1:
+            self.isSingle = True
+        # Write the input file list to be used by lasmerge and lasclip
+        inputListFile = open(DEFAULT_INPUT_FILE_LIST_FILE_NAME, 'w')
+        for pcFile in pcFiles:
+            inputListFile.write(pcFile + '\n')
+        inputListFile.close()
+        # Gets the SRID of the PC files (we assume all have the same SRID as the first file)
+        self.srid = lasops.getSRID(pcFiles[0])
+        
+        # Drops possible query table 
+        postgresops.dropTable(cursor, utils.QUERY_TABLE, check = True)
+        # Create query table
+        cursor.execute("CREATE TABLE " +  utils.QUERY_TABLE + " (id integer, geom public.geometry(Geometry," + self.srid + "));")
         connection.commit()
+        
         cursor.close()    
         connection.close()
-        
-        self.inputList = 'LIST_FILES'
-        os.system('ls ' + self.dataFolder + '/*' + self.dataExtension + ' > ' + self.inputList)
 
     def query(self, queryId, iterationId, queriesParameters):
-    
-        connection = self.connect()
-        cursor = connection.cursor()
         queryIndex = int(queryId)
         
         self.qp = queriesParameters.getQueryParameters('psql', queryId, self.colsData)
-        wkt = queriesParameters.getWKT(queriesParameters.getQuery(queryId))
         logging.debug(self.qp.queryKey)
         
         zquery = ''    
@@ -63,142 +76,106 @@ class Querier(AbstractQuerier, CommonLASTools):
                 zconds.append(' -drop_z_above ' + str(self.qp.maxz) + ' ')
             zquery = ' '.join(zconds)
         
+        connString = None        
+        shapeFile = 'query' + str(queryIndex) + '.shp'
+         
         if iterationId == 0:
-            cursor.execute("INSERT INTO " + self.queryTable + " VALUES (%s,ST_GeomFromEWKT(%s))", [queryIndex, 'SRID='+self.srid+';'+wkt])
+            # We insert the polygon in the DB (to be used by lasclip ot by the DB index query) 
+            cursor.execute("INSERT INTO " + utils.QUERY_TABLE + " VALUES (%s,ST_GeomFromEWKT(%s))", [queryIndex, 'SRID='+self.srid+';'+self.qp.wkt])
             connection.commit()
-        
-            precommand = 'pgsql2shp -f query' + str(queryIndex) + '.shp -h '+ self.dbHost +' -p '+ self.dbPort + ' -u '+ self.userName +' -P '+ self.password +' '+ self.dbName +' "select ST_SetSRID(geom, ' + self.srid + ') from ' + self.queryTable + ' where id = ' + str(queryIndex) + ';"'
-            logging.info(precommand)
-            os.system(precommand)
-        
-        if self.dbIndex:
-            connString = self.connectString(False, True)
-        
+            
+            if self.qp.queryType == 'generic':
+                # We generate a ShapeFile for lasclip in case of not rectangle or circle
+                query = "select ST_SetSRID(geom, " + self.srid + ") from " + utils.QUERY_TABLE + " where id = " + str(queryIndex) + ";"
+                connString = ' '.join(('-h',self.dbHost,'-p',self.dbPort,'-u',self.userName,'-P',self.password,self.dbName))
+                precommand = 'pgsql2shp -f ' + shapeFile + ' ' + connString + ' "' + query + '"'
+                logging.info(precommand)
+                os.system(precommand)
+
         eTime = -1
         result = None
-        
-        if self.qp.queryType in ('rectangle', 'circle', 'generic'):
-            t0 = time.time()
-            
-            auxnp = ''
-            if self.numProcessesQuery > 1:
-                auxnp = ' -cores ' + str(self.numProcessesQuery) + ' '
     
-            outputFile = 'output' +  str(queryIndex) + '.' + self.outputExtension
+        if self.qp.queryType not in ('rectangle', 'circle', 'generic'):
+            connection.close()
+            return (eTime, result)
             
-            if self.dbIndex:
-                inputList = 'input' +  str(queryIndex) + '.list'
-                prec = 'psql ' + connString + ' -t -A -c "select filepath from ' + self.lasIndexTableName + ',' + self.queryTable + ' where ST_Intersects( ' + self.queryTable + '.geom, ' + self.lasIndexTableName + '.geom ) and ' + self.queryTable + '.id = ' + str(queryIndex) + '" > ' + inputList
-                logging.info(prec)
-                os.system(prec) 
-            else:
-                inputList = self.inputList
-            if self.qp.queryType in ('rectangle', 'circle'):
-                if self.qp.queryType == 'rectangle':
-                    command = 'lasmerge -lof ' + inputList + ' -inside ' + str(self.qp.minx) + ' ' + str(self.qp.miny) + ' ' + str(self.qp.maxx) + ' ' + str(self.qp.maxy) + zquery + ' -o ' + outputFile
-                else:
-                    command = 'lasmerge -lof ' + inputList + ' -inside_circle ' + str(self.qp.cx) + ' ' + str(self.qp.cy) + ' ' + str(self.qp.rad) + zquery + ' -o ' + outputFile
-            elif self.qp.queryType == 'generic':
-                command = 'lasclip.exe -lof ' + inputList + ' -poly query' + str(queryIndex) + '.shp ' + auxnp + zquery + ' -o ' + outputFile
-                if not self.isSingle :
-                    command += ' -merged'                    
-                    
-            logging.info(command)
-            os.system(command)
-            
-            if self.qp.statistics != None:
-                try:
-                    options = ' -nv -nmm '
-                    for i in range(len(self.qp.statistics)):
-                        if self.qp.statistics[i] == 'avg':
-                            options += ' -histo ' + self.qp.columns[i] + " 10000000 "
-                    
-                    statcommand = "lasinfo -i " + outputFile +  options + " | grep 'min \|max\|average'"
-                    logging.info(statcommand)
-                    lines  = subprocess.Popen(statcommand, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0].split('\n')
-                    results= []
-                    colIs = {'x':4, 'y':5, 'z':6}
-                    for i in range(len(self.qp.statistics)):
-                        for line in lines:
-                            if line.count(self.qp.statistics[i]) and line.count(self.qp.columns[i]):
-                                if self.qp.statistics[i] == 'avg':
-                                    results.append(line.split()[-1])
-                                else:
-                                    results.append(line).split()[colIs[self.qp.columns[i]]]
-                    result = ','.join(results)
-                except:
-                    result = None
-                eTime = time.time() - t0
-            else:
-            
-                eTime = time.time() - t0
-                npointscommand = "lasinfo " + outputFile+ " -nc -nv -nco 2>&1 | grep 'number of point records:'"
-                try:
-                    result  = int(subprocess.Popen(npointscommand, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0].split()[-1])
-                except:
-                    result = None
-        connection.close()
-        
-        return (eTime, result)
-
-    def queryMulti(self, queryId, iterationId, queriesParameters):
-        connection = self.connect()
-        cursor = connection.cursor()
-        queryIndex = int(queryId)
-        
-        self.qp = queriesParameters.getQueryParameters('psql', queryId, self.colsData)
-        wkt = queriesParameters.getWKT(queriesParameters.getQuery(queryId))
-
-        zquery = ''    
-        if (self.qp.minz != None) or (self.qp.maxz != None):
-            zconds = []
-            if self.qp.minz != None:
-                zconds.append(' -drop_z_below ' + str(self.qp.minz) + ' ')
-            if self.qp.maxz != None:
-                zconds.append(' -drop_z_above ' + str(self.qp.maxz) + ' ')
-            zquery = ' '.join(zconds)
-        
-        if iterationId == 0 and self.qp.queryType == 'generic':
-            cursor.execute("INSERT INTO " + self.queryTable + " VALUES (%s,ST_GeomFromEWKT(%s))", [queryIndex, 'SRID='+self.srid+';'+wkt])
-            connection.commit()
-        
-            precommand = 'pgsql2shp -f query' + str(queryIndex) + '.shp -h '+ self.dbHost +' -p '+ self.dbPort + ' -u '+ self.userName +' -P '+ self.password +' '+ self.dbName +' "select ST_SetSRID(geom, ' + self.srid + ') from ' + self.queryTable + ' where id = ' + str(queryIndex) + ';"'
-            logging.debug(precommand)
-            os.system(precommand)
-        
-        if self.dbIndex:
-            connString = self.connectString(False, True)
-        
         t0 = time.time()
         
+        auxnp = ''
+        if self.numProcessesQuery > 1:
+            auxnp = ' -cores ' + str(self.numProcessesQuery) + ' '
+
         if self.dbIndex:
             inputList = 'input' +  str(queryIndex) + '.list'
-            prec = 'psql ' + connString + ' -t -A -c "select filepath from ' + self.lasIndexTableName + ',' + self.queryTable + ' where ST_Intersects( ' + self.queryTable + '.geom, ' + self.lasIndexTableName + '.geom ) and ' + self.queryTable + '.id = ' + str(queryIndex) + '" > ' + inputList
-            logging.debug(prec)
+            connString = self.getConnectString(False, True)
+            query = 'SELECT filepath FROM ' + self.lasIndexTableName + ',' + utils.QUERY_TABLE + ' where ST_Intersects( ' + utils.QUERY_TABLE + '.geom, ' + self.lasIndexTableName + '.geom ) and ' + utils.QUERY_TABLE + '.id = ' + str(queryIndex)
+            prec = 'psql ' + connString + ' -t -A -c "' + query + '" > ' + inputList
+            logging.info(prec)
             os.system(prec) 
         else:
-            inputList = self.inputList
-            
-        if self.qp.queryType in ('rectangle', 'circle'):
-            if self.qp.queryType == 'rectangle':
-                command = 'lasmerge -lof ' + inputList + ' -inside ' + str(self.qp.minx) + ' ' + str(self.qp.miny) + ' ' + str(self.qp.maxx) + ' ' + str(self.qp.maxy) + zquery + ' -stdout -otxt -oparse xyz | wc -l'
-            else:
-                command = 'lasmerge -lof ' + inputList + ' -inside_circle ' + str(self.qp.cx) + ' ' + str(self.qp.cy) + ' ' + str(self.qp.rad) + zquery + ' -stdout -otxt -oparse xyz | wc -l'
+            inputList = DEFAULT_INPUT_FILE_LIST_FILE_NAME
+        
+        if self.qp.queryType == 'rectangle':
+            command = 'lasmerge -lof ' + inputList + ' -inside ' + str(self.qp.minx) + ' ' + str(self.qp.miny) + ' ' + str(self.qp.maxx) + ' ' + str(self.qp.maxy) + zquery
+        elif self.qp.queryType == 'circle':
+            command = 'lasmerge -lof ' + inputList + ' -inside_circle ' + str(self.qp.cx) + ' ' + str(self.qp.cy) + ' ' + str(self.qp.rad) + zquery
         elif self.qp.queryType == 'generic':
-            command = 'lasclip.exe -lof ' + inputList + ' -poly query' + str(queryIndex) + '.shp ' + zquery + ' -stdout -otxt -oparse xyz | wc -l' 
+            command = 'lasclip.exe -lof ' + inputList + ' -poly ' + shapeFile + ' ' + auxnp + zquery
             if not self.isSingle :
                 command += ' -merged'                    
-        logging.debug(command)
-        result = subprocess.Popen(command, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0].replace('\n','')
-        eTime = time.time() - t0
-        try:
-            result  = int(result)
-        except:
-            result = -1
-        return (eTime, result)
         
+        if self.qp.queryMethod != 'disk': 
+            outputFile = 'output' +  str(queryIndex) + '.' + self.outputExtension
+            command += ' -o ' + outputFile
+            logging.debug(command)
+            os.system(command)
+            eTime = time.time() - t0
+            npointscommand = "lasinfo " + outputFile+ " -nc -nv -nco 2>&1 | grep 'number of point records:'"
+            try:
+                result  = int(subprocess.Popen(npointscommand, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0].split()[-1])
+            except:
+                result = None
+        elif self.qp.queryMethod != 'stream':
+            
+            command += ' -stdout -otxt -oparse xyz | wc -l'
+            logging.debug(command)
+            result = subprocess.Popen(command, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0].replace('\n','')
+            eTime = time.time() - t0
+            try:
+                result  = int(result)
+            except:
+                result = None                   
+        else: # Statistical query
+            try:
+                outputFile = 'output' +  str(queryIndex) + '.' + self.outputExtension
+                command += ' -o ' + outputFile
+                logging.debug(command)
+                os.system(command)
+                
+                options = ' -nv -nmm '
+                for i in range(len(self.qp.statistics)):
+                    if self.qp.statistics[i] == 'avg':
+                        options += ' -histo ' + self.qp.columns[i] + " 10000000 "
+                
+                statcommand = "lasinfo -i " + outputFile +  options + " | grep 'min \|max\|average'"
+                logging.info(statcommand)
+                lines  = subprocess.Popen(statcommand, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0].split('\n')
+                results= []
+                colIs = {'x':4, 'y':5, 'z':6}
+                for i in range(len(self.qp.statistics)):
+                    for line in lines:
+                        if line.count(self.qp.statistics[i]) and line.count(self.qp.columns[i]):
+                            if self.qp.statistics[i] == 'avg':
+                                results.append(line.split()[-1])
+                            else:
+                                results.append(line).split()[colIs[self.qp.columns[i]]]
+                result = ','.join(results)
+            except:
+                result = None
+            eTime = time.time() - t0
+    connection.close()
+    
+    return (eTime, result)
+
     def close(self):
         return
-
-    def connect(self, superUser = False):
-        return psycopg2.connect(self.connectString(superUser))

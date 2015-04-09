@@ -6,17 +6,23 @@
 from shapely.wkt import loads, dumps
 import time,logging
 from pointcloud.monetdb.AbstractQuerier import AbstractQuerier
-from pointcloud import wktops, dbops, qtops
+from pointcloud import wktops, dbops, qtops, monetdbops
 
 class QuerierMorton(AbstractQuerier):        
     def __init__(self, configuration):
         """ Set configuration parameters and create user if required """
         AbstractQuerier.__init__(self, configuration)
         
+        connection = self.connect()
+        cursor = connection.cursor()
+        
+        (self.mortonGlobalOffsetX, self.mortonGlobalOffsetY) = (self.minX, self.minY)
+        (self.mortonScaleX, self.mortonScaleY) = (self.scaleX, self.scaleY)
+        
         # Create the quadtree
-        (self.quadtree, self.mortonDistinctIn, self.mortonApprox, self.maxRanges) = qtops.getQuadTree(configuration, float(self.minX), float(self.minY), float(self.maxX), float(self.maxY), float(self.mortonScaleX), float(self.mortonScaleY), float(self.mortonGlobalOffsetX), float(self.mortonGlobalOffsetY))
+        (self.quadtree, self.mortonDistinctIn, self.mortonApprox, self.maxRanges) = qtops.getQuadTree(configuration, minX, minY, maxX, maxY, self.mortonScaleX, self.mortonScaleY, self.mortonGlobalOffsetX, self.mortonGlobalOffsetY)
     
-    def query(self, queryId, iterationId, queriesParameters):
+    def queryDisk(self, queryId, iterationId, queriesParameters):
         connection = self.connect()
         cursor = connection.cursor()
         
@@ -27,13 +33,13 @@ class QuerierMorton(AbstractQuerier):
         
         self.dropTable(cursor, self.resultTable, True)    
        
-        wkt = self.wkt
+        wkt = self.qp.wkt
         if self.qp.queryType == 'nn':
-            g = loads(self.wkt)
+            g = loads(self.qp.wkt)
             wkt = dumps(g.buffer(self.qp.rad))
        
         t0 = time.time()
-        scaledWKT = wktops.scale(wkt, float(self.mortonScaleX), float(self.mortonScaleY), float(self.mortonGlobalOffsetX), float(self.mortonGlobalOffsetY))    
+        scaledWKT = wktops.scale(wkt, self.mortonScaleX, self.mortonScaleY, self.mortonGlobalOffsetX, self.mortonGlobalOffsetY)    
         (mimranges,mxmranges) = self.quadtree.getMortonRanges(scaledWKT, self.mortonDistinctIn, maxRanges = self.maxRanges)
                         
         if len(mimranges) == 0 and len(mxmranges) == 0:
@@ -41,13 +47,13 @@ class QuerierMorton(AbstractQuerier):
             return
         if not ('x' in self.columns and 'y' in self.columns):
             colsData = self.colsData.copy()
-            colsData['x'][0] = 'GetX(morton2D, ' + str(self.mortonScaleX) + ', ' + str(int(float(self.mortonGlobalOffsetX) / float(self.mortonScaleX))) + ')' 
-            colsData['y'][0] = 'GetY(morton2D, ' + str(self.mortonScaleY) + ', ' + str(int(float(self.mortonGlobalOffsetY) / float(self.mortonScaleY))) + ')'
+            colsData['x'][0] = 'GetX(morton2D, ' + str(self.mortonScaleX) + ', ' + str(int(self.mortonGlobalOffsetX / self.mortonScaleX)) + ')' 
+            colsData['y'][0] = 'GetY(morton2D, ' + str(self.mortonScaleY) + ', ' + str(int(self.mortonGlobalOffsetY / self.mortonScaleY)) + ')'
         else:
             colsData = self.colsData
 
         (query, queryArgs) = dbops.getSelectMorton(mimranges, mxmranges, self.qp, self.flatTable, self.addContainsCondition, colsData)
-        self.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS " + query + " WITH DATA", queryArgs)
+        monetdbops.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS " + query + " WITH DATA", queryArgs)
         
         (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.colsData, not self.mortonDistinctIn, self.qp.columns, self.qp.statistics)
 

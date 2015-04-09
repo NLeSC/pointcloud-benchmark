@@ -56,10 +56,6 @@ class AbstractQuerier:
         elif usageMonitor != '':
             raise Exception('ERROR: UsageMonitor must be python, ps or top')
         
-        #manager = multiprocessing.Manager()
-        #returnDict = manager.dict()
-        
-        
         # Read the query file 
         queryFileAbsPath = config.get('Query','File')
         queriesParameters = QueriesParameters(queryFileAbsPath)
@@ -73,8 +69,6 @@ class AbstractQuerier:
         numUsers = config.getint('Query','NumberUsers')
         numIterations = config.getint('Query','NumberIterations')
         
-        multiUser = (numUsers>1) or config.getboolean('Query','MultiUser')
-
         # Create queues
         queriesQueue = multiprocessing.Queue() # The queue of tasks (queries)
         resultsQueue = multiprocessing.Queue() # The queue of results
@@ -87,8 +81,8 @@ class AbstractQuerier:
         users = []
         # We start numUsers users processes
         for i in range(numUsers):
-            users.append(multiprocessing.Process(target=self.runChild, 
-                args=(i, queriesQueue, resultsQueue, multiUser, numIterations, queriesParameters, usageMethod, ioDevices)))
+            users.append(multiprocessing.Process(target=self.runUser, 
+                args=(i, queriesQueue, resultsQueue, numIterations, queriesParameters, usageMethod, ioDevices)))
             users[-1].start()
         
         # We need to receive for each query the two iterations and for each iteration both the results from the query execution and from the monitor 
@@ -112,7 +106,7 @@ class AbstractQuerier:
         self.close()
         return stats
     
-    def runChild(self, userIndex, tasksQueue, resultsQueue, multiUser, numIterations, queriesParameters, usageMethod, ioDevices):
+    def runUser(self, userIndex, tasksQueue, resultsQueue, numIterations, queriesParameters, usageMethod, ioDevices):
         childResultQueue = multiprocessing.Queue()
         kill_received = False
         while not kill_received:
@@ -136,7 +130,7 @@ class AbstractQuerier:
                     if ioDevices != None:
                         ioAbsPath = os.path.abspath(queryName + '.io')
                         
-                    utils.runMonitor(self.runQuery,(queryId, iterationId, queriesParameters, childResultQueue, multiUser), usageMethod, usageAbsPath, ioDevices, ioAbsPath)
+                    utils.runMonitor(self.runQuery,(queryId, iterationId, queriesParameters, childResultQueue), usageMethod, usageAbsPath, ioDevices, ioAbsPath)
                     
                     [queryId, iterationId, qTime, qResult] = childResultQueue.get()
                     
@@ -153,12 +147,9 @@ class AbstractQuerier:
 
                     resultsQueue.put((userIndex, queryId, iterationId, qTime, qResult, qCPU, qMEM))   
                     
-    def runQuery(self, queryId, iterationId, queriesParameters, resultsQueue, multiUser):
+    def runQuery(self, queryId, iterationId, queriesParameters, resultsQueue):
         try:
-            if not multiUser:
-                (eTime, result) = self.query(queryId, iterationId, queriesParameters)
-            else:
-                (eTime, result) = self.queryMulti(queryId, iterationId, queriesParameters)
+            (eTime, result) = self.query(queryId, iterationId, queriesParameters)
             resultsQueue.put((queryId, iterationId, eTime, result))
         except Exception,e:
             print e
@@ -167,11 +158,7 @@ class AbstractQuerier:
     def query(self, queryId, iterationId, queriesParameters):
         """ Executes query indicated by queryId. It must return a tuple with (time, results)"""
         raise NotImplementedError( "Should have implemented this" )
-    
-    def queryMulti(self, queryId, iterationId, queriesParameters):
-        """ Executes query indicated by queryId. It must return a tuple with (time, results)"""
-        raise NotImplementedError( "Should have implemented this" )
-    
+
     def close(self):
         """ Close and connection with DB """
         raise NotImplementedError( "Should have implemented this" )

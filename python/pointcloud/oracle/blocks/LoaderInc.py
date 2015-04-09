@@ -37,7 +37,7 @@ class LoaderInc(AbstractLoader):
             connection.close()
 
     def process(self):
-        inputFiles = utils.getFiles(self.inputFolder, self.extension)[self.fileOffset:]
+        inputFiles = utils.getFiles(self.inputFolder)
         
         if self.chunkSize > 0:
             inputFilesLists = numpy.array_split(inputFiles, int(math.ceil(float(len(inputFiles))/float(self.chunkSize))))

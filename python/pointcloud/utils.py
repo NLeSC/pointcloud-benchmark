@@ -9,6 +9,11 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 #from matplotlib.font_manager import FontProperties
 
+
+RESULTS_FILE_NAME = 'results'
+QUERY_TABLE = 'query_polygons'
+
+
 DEFAULT_TIMEFORMAT = "%Y/%m/%d/%H:%M:%S"
 
 PCOLORS = [(0.0, 0.0, 1.0), (0.0, 1.0, 0.0), (1.0, 0.0, 0.0), (0.0, 0.75, 0.75), 
@@ -36,6 +41,8 @@ PCOLORS = [(0.0, 0.0, 1.0), (0.0, 1.0, 0.0), (1.0, 0.0, 0.0), (0.0, 0.75, 0.75),
               (1.0, 0.25, 1.0), (1.0, 0.5, 0.0), (1.0, 0.5, 0.25), (1.0, 0.5, 0.5), (1.0, 0.5, 0.75), (1.0, 0.5, 1.0), 
               (1.0, 0.75, 0.0), (1.0, 0.75, 0.25), (1.0, 0.75, 0.5), (1.0, 0.75, 0.75), (1.0, 0.75, 1.0), (1.0, 1.0, 0.25), 
               (1.0, 1.0, 0.5), (1.0, 1.0, 0.75),]
+
+PC_FILE_FORMATS = ['las','laz','LAS', 'LAZ']
 
 # This module define some useful functions
 
@@ -66,10 +73,15 @@ def showOptions(config, sections = None):
             ostr += option+":" + str(config.get(section, option)) + '\n'
     return ostr
 
-def getFiles(inputElement, extension, recursive = False):
-    """ Get the list of files with certain extension contained in the folder (and possible 
+def getFiles(inputElement, extensions = PC_FILE_FORMATS, recursive = False):
+    """ Get the list of files with certain extensions contained in the folder (and possible 
 subfolders) given by inputElement. If inputElement is directly a file it 
 returns a list with only one element, the given file """
+
+    # Is extensions is not a list but a string we converted to a list
+    if type(extensions) == str:
+        extensions = [extensions,]
+
     inputElementAbsPath = os.path.abspath(inputElement)
     if os.path.isdir(inputElementAbsPath):
         elements = sorted(os.listdir(inputElementAbsPath), key=str.lower)
@@ -78,13 +90,21 @@ returns a list with only one element, the given file """
             elementAbsPath = os.path.join(inputElementAbsPath,element) 
             if os.path.isdir(elementAbsPath):
                 if recursive:
-                    absPaths.extend(getFiles(elementAbsPath, extension))
+                    absPaths.extend(getFiles(elementAbsPath, extensions))
             else: #os.path.isfile(elementAbsPath)
-                if elementAbsPath.endswith(extension):
+                isValid = False
+                for extension in extensions:
+                    if elementAbsPath.endswith(extension):
+                        isValid = True
+                if isValid:
                     absPaths.append(elementAbsPath)
         return absPaths
     elif os.path.isfile(inputElementAbsPath):
-        if inputElementAbsPath.endswith(extension):
+        isValid = False
+        for extension in extensions:
+            if inputElementAbsPath.endswith(extension):
+                isValid = True
+        if isValid:
             return [inputElementAbsPath,]
     else:
         raise Exception("ERROR: inputElement is neither a valid folder nor file")
@@ -149,43 +169,6 @@ def getIO(devices):
        r.append(iodata[device].read_bytes)
        r.append(iodata[device].write_bytes)
     return r
-
-def getLASParams(inputFile, tool = 'liblas'):
-    if tool == 'liblas':
-        outputLASInfo = subprocess.Popen('lasinfo ' + inputFile, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-        for line in outputLASInfo[0].split('\n'):
-            if line.count('Min X Y Z:'):
-                [minX, minY, minZ] = line.split(':')[-1].strip().split(' ')
-            elif line.count('Max X Y Z:'):
-                [maxX, maxY, maxZ] = line.split(':')[-1].strip().split(' ')
-            elif line.count('Actual Point Count:'):
-                count = line.split(':')[-1].strip()
-            elif line.count('Scale Factor X Y Z:'):
-                [scaleX, scaleY, scaleZ] = line.split(':')[-1].strip().split(' ')
-            elif line.count('Offset X Y Z:'):
-                [offsetX, offsetY, offsetZ] = line.split(':')[-1].strip().split(' ')
-    elif tool == 'pyliblas':
-        from liblas import file
-        header = file.File(inputFile, mode='r').header
-        [minX, minY, minZ] = header.min
-        [maxX, maxY, maxZ] = header.max
-        count = int(header.point_records_count)
-        [scaleX, scaleY, scaleZ] = header.scale
-        [offsetX, offsetY, offsetZ] = header.offset
-    else:
-        outputLASInfo = subprocess.Popen('lasinfo ' + inputFile + ' -nc -nv -nco', shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-        for line in outputLASInfo[1].split('\n'):
-            if line.count('min x y z:'):
-                [minX, minY, minZ] = line.split(':')[-1].strip().split(' ')
-            elif line.count('max x y z:'):
-                [maxX, maxY, maxZ] = line.split(':')[-1].strip().split(' ')
-            elif line.count('number of point records:'):
-                count = line.split(':')[-1].strip()
-            elif line.count('scale factor x y z:'):
-                [scaleX, scaleY, scaleZ] = line.split(':')[-1].strip().split(' ')
-            elif line.count('offset x y z:'):
-                [offsetX, offsetY, offsetZ] = line.split(':')[-1].strip().split(' ')
-    return (count, minX, minY, minZ, maxX, maxY, maxZ, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ)
 
 def addUsage(usageMethod, output):
     if usageMethod != None:
@@ -347,16 +330,6 @@ def oraclemogrify(cursor, query, queryArgs = None):
             return query
         else:
             raise Exception('Error: queryArgs must be dict, list or tuple')
-
-def monetdbmogrify(cursor, query, queryArgs = None):
-    if queryArgs == None:
-        return query
-    else:
-        pquery = query
-        for qa in queryArgs:
-            qindex = pquery.index('%s')
-            pquery = pquery[:qindex] + str(qa) + pquery[qindex+2:]
-        return pquery
              
 def las2txtCommand(inputFile, outputFile = 'stdout', columns = 'xyz', separation = None, tool = 'liblas'):
     separatorArgument = ''
@@ -382,38 +355,6 @@ def las2txtCommand(inputFile, outputFile = 'stdout', columns = 'xyz', separation
         raise Exception('ERROR: unknown las2txt tool (' + tool + ')')
         
     return c       
-
-def postgresConnectString(dbName = None, userName= None, password = None, dbHost = None, dbPort = None, cline = False):
-    connString=''
-    if cline:    
-        if dbName != None and dbName != '':
-            connString += " " + dbName
-        if userName != None and userName != '':
-            connString += " -U " + userName
-        if password != None and password != '':
-            os.environ['PGPASSWORD'] = password
-        if dbHost != None and dbHost != '':
-            connString += " -h " + dbHost
-        if dbPort != None and dbPort != '':
-            connString += " -p " + dbPort
-    else:
-        if dbName != None and dbName != '':
-            connString += " dbname=" + dbName
-        if userName != None and userName != '':
-            connString += " user=" + userName
-        if password != None and password != '':
-            connString += " password=" + password
-        if dbHost != None and dbHost != '':
-            connString += " host=" + dbHost
-        if dbPort != None and dbPort != '':
-            connString += " port=" + dbPort
-    
-    return connString
-
-def getPostgresSizes(cursor):
-    """ Return tuple with size of indexes, size excluding indexes, and total size (all in MB)"""
-    cursor.execute("""SELECT sum(pg_indexes_size(tablename::text)) / (1024*1024) size_indexes,  sum(pg_table_size(tablename::text)) / (1024*1024) size_ex_indexes, sum(pg_total_relation_size(tablename::text)) / (1024*1024) size_total FROM pg_tables where schemaname='public'""")
-    return list(cursor.fetchone())
 
 def getElements(rangeString):
     elements = []

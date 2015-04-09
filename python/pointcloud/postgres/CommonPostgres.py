@@ -4,7 +4,7 @@
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
 import logging
-from pointcloud import utils
+from pointcloud import utils, postgresops
 
 class CommonPostgres():
     def setVariables(self, configuration):
@@ -19,11 +19,7 @@ class CommonPostgres():
         self.dbPort = configuration.get('DB','Port')
         
         self.inputFolder = configuration.get('Load','Folder')
-        self.fileOffset = configuration.getint('Load','FileOffset')
-        self.extension = configuration.get('Load','Extension')
-        if not (self.extension.lower().endswith('las') or self.extension.lower().endswith('laz')):
-            raise Exception('Accepted format for input files are: las, laz')
-        
+
         self.tableSpace = configuration.get('Load','TableSpace').strip().lower()
         self.indexTableSpace = configuration.get('Load','IndexTableSpace').strip().lower()
         self.las2txtTool = configuration.get('Load','LASLibrary')
@@ -53,7 +49,7 @@ class CommonPostgres():
         (self.mortonScaleX, self.mortonScaleY) = configuration.get('Load','MortonScale').split(',')
         
         # Variables for queries
-        self.queryTable = configuration.get('Query','QueryTable').lower()
+        self.queryTable = utils.QUERY_TABLE
         self.numProcessesQuery = configuration.getint('Query','NumberProcesses')
         self.parallelType = configuration.get('Query','ParallelType').lower()
         
@@ -82,23 +78,6 @@ class CommonPostgres():
 
     def connectString(self, super = False, cline = False):
         if super:
-            return utils.postgresConnectString(self.userName, self.userName, self.password, self.dbHost, self.dbPort, cline)
+            return postgresops.getConnectString(self.userName, self.userName, self.password, self.dbHost, self.dbPort, cline)
         else:
-            return utils.postgresConnectString(self.dbName, self.userName, self.password, self.dbHost, self.dbPort, cline)    
-
-    def mogrifyExecute(self, cursor, query, queryArgs = None, log = 'INFO'):
-        if queryArgs != None:
-            logging.info(cursor.mogrify(query, queryArgs))
-            cursor.execute(query, queryArgs)
-        else:
-            logging.info(cursor.mogrify(query))
-            cursor.execute(query)
-    
-    def dropTable(self, cursor, tableName, check = False):
-        if check:
-            cursor.execute("select exists(select * from information_schema.tables where table_name=%s)", (tableName, ))
-            if cursor.fetchone()[0]:
-                cursor.execute('DROP TABLE ' + tableName)
-        else:
-            self.mogrifyExecute(cursor, 'DROP TABLE ' + tableName)
-        cursor.connection.commit()
+            return postgresops.getConnectString(self.dbName, self.userName, self.password, self.dbHost, self.dbPort, cline)    

@@ -5,6 +5,7 @@
 ################################################################################
 import os
 from pointcloud.oracle.AbstractLoader import AbstractLoader
+from pointcloud import utils
 
 class LoaderExt(AbstractLoader):
     def initialize(self):
@@ -26,7 +27,10 @@ class LoaderExt(AbstractLoader):
             lasFiles = os.path.basename(self.inputFolder)
         else:
             parentFolder = self.inputFolder
-            lasFiles = '*.' + self.extension
+            inputFiles = utils.getFiles(self.inputFolder)
+            if len(inputFiles) == 0:
+                raise Exception('ERROR: None PC file in ' + self.inputFolder)
+            lasFiles = '*.' + inputFiles.split('.')[-1]
         
         self.createUser()
         

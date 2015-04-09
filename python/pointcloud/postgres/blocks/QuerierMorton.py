@@ -5,7 +5,7 @@
 ################################################################################
 import time,copy,logging
 from pointcloud.postgres.AbstractQuerier import AbstractQuerier
-from pointcloud import wktops, dbops, qtops
+from pointcloud import wktops, dbops, qtops, postgresops
 
 class QuerierMorton(AbstractQuerier):        
     def __init__(self, configuration):
@@ -20,7 +20,7 @@ class QuerierMorton(AbstractQuerier):
                                 'z':["PC_Get(qpoint, 'z')"]
                                 }
 
-    def query(self, queryId, iterationId, queriesParameters):
+    def queryDisk(self, queryId, iterationId, queriesParameters):
         connection = self.connect()
         cursor = connection.cursor()
         
@@ -29,24 +29,24 @@ class QuerierMorton(AbstractQuerier):
         if self.mortonApprox:
             self.queryType = 'approx'
         
-        self.dropTable(cursor, self.resultTable, True)    
+        postgresops.dropTable(cursor, self.resultTable, True)    
  
         if self.qp.queryType == 'nn':
             raise Exception('Not support for NN queries!')
        
         t0 = time.time()
         
-        (mimranges,mxmranges) = self.quadtree.getMortonRanges(wktops.scale(self.wkt, float(self.mortonScaleX), float(self.mortonScaleY)), self.mortonDistinctIn, maxRanges = self.maxRanges )
+        (mimranges,mxmranges) = self.quadtree.getMortonRanges(wktops.scale(self.qp.wkt, float(self.mortonScaleX), float(self.mortonScaleY)), self.mortonDistinctIn, maxRanges = self.maxRanges )
         if len(mimranges) == 0 and len(mxmranges) == 0:
             logging.info('None morton range in specified extent!')
             return
  
         if self.numProcessesQuery == 1:
             (query, queryArgs) = self.getSelect(self.qp, mimranges, mxmranges)        
-            self.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS (" + query + ")", queryArgs)
+            postgresops.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS (" + query + ")", queryArgs)
             connection.commit()
         else:
-            dbops.createResultsTable(cursor, self.mogrifyExecute, self.resultTable, self.qp.columns, self.colsData, None)
+            dbops.createResultsTable(cursor, postgresops.mogrifyExecute, self.resultTable, self.qp.columns, self.colsData, None)
             connection.commit()
             dbops.parallelMorton(mimranges, mxmranges, self.childInsert, self.numProcessesQuery)    
 
@@ -60,7 +60,7 @@ class QuerierMorton(AbstractQuerier):
         cqp = copy.copy(self.qp)
         cqp.statistics = None
         (query, queryArgs) = self.getSelect(cqp, iMortonRanges, xMortonRanges)
-        self.mogrifyExecute(connection.cursor(), "INSERT INTO " + self.resultTable + " "  + query, queryArgs)
+        postgresops.mogrifyExecute(connection.cursor(), "INSERT INTO " + self.resultTable + " "  + query, queryArgs)
         connection.commit()
         connection.close()  
         
@@ -69,7 +69,7 @@ class QuerierMorton(AbstractQuerier):
         return "pc_intersects(pa,geom) and " + self.queryTable + ".id = %s"
     
     def getSelect(self, qp, iMortonRanges, xMortonRanges):
-        queryArgs = ['SRID='+self.srid+';'+self.wkt, ]
+        queryArgs = ['SRID='+self.srid+';'+self.qp.wkt, ]
         query = ''
         
         zname = self.columnsNameDict['z'][0]

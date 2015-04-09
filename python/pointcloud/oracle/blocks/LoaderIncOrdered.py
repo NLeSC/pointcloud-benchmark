@@ -39,7 +39,7 @@ class LoaderIncOrdered(AbstractLoader):
 #        return self.getFileBlockTable(index) + '_ID_SEQ'
 
     def process(self):
-        inputFiles = utils.getFiles(self.inputFolder, self.extension)[self.fileOffset:]
+        inputFiles = utils.getFiles(self.inputFolder)
         return self.processMulti(inputFiles, self.numProcessesLoad, self.loadFromFile, self.loadFromFileSequential, True)
 
     def loadFromFile(self,  index, fileAbsPath):

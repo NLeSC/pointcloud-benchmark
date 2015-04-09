@@ -9,7 +9,7 @@ from pointcloud import dbops, utils
 from pointcloud.oracle.AbstractQuerier import AbstractQuerier
 
 class Querier(AbstractQuerier):        
-    def query(self, queryId, iterationId, queriesParameters):
+    def queryDisk(self, queryId, iterationId, queriesParameters):
         connection = self.connect()
         cursor = connection.cursor()
         self.columnsNamesTypesDict = {}
@@ -47,7 +47,7 @@ class Querier(AbstractQuerier):
         connection.close()
         return (eTime, result)
             
-    def queryMulti(self, queryId, iterationId, queriesParameters):
+    def queryStream(self, queryId, iterationId, queriesParameters):
         self.columnsNamesTypesDict = {}
         for col in self.columns:
             self.columnsNamesTypesDict[col] = ('pnt.' + col, 'NUMBER')

@@ -6,7 +6,7 @@
 from shapely.wkt import loads, dumps
 import time,copy,logging 
 from pointcloud.postgres.AbstractQuerier import AbstractQuerier
-from pointcloud import qtops,wktops,dbops
+from pointcloud import qtops,wktops,dbops,postgresops
 
 class QuerierMorton(AbstractQuerier):        
     def __init__(self, configuration):
@@ -16,10 +16,10 @@ class QuerierMorton(AbstractQuerier):
         (self.quadtree, self.mortonDistinctIn, self.mortonApprox, self.maxRanges) = qtops.getQuadTree(configuration, float(self.minX), float(self.minY), float(self.maxX), float(self.maxY), float(self.mortonScaleX), float(self.mortonScaleY), float(self.mortonGlobalOffsetX), float(self.mortonGlobalOffsetY))
     
     def addContainsCondition(self, queryParameters, queryArgs, xname, yname):
-        queryArgs.extend(['SRID='+self.srid+';'+self.wkt, self.srid, self.srid ])
+        queryArgs.extend(['SRID='+self.srid+';'+self.qp.wkt, self.srid, self.srid ])
         return (" _ST_Contains(geom, st_setSRID(st_makepoint(" + xname + "," + yname + "),%s))", '(SELECT ST_GeomFromEWKT(%s) as geom) A')
 
-    def query(self, queryId, iterationId, queriesParameters):
+    def queryDisk(self, queryId, iterationId, queriesParameters):
         connection = self.connect()
         cursor = connection.cursor()
         
@@ -28,11 +28,11 @@ class QuerierMorton(AbstractQuerier):
         if self.mortonApprox:
             self.queryType = 'approx'
         
-        self.dropTable(cursor, self.resultTable, True)    
+        postgresops.dropTable(cursor, self.resultTable, True)    
         
-        wkt = self.wkt
+        wkt = self.qp.wkt
         if self.qp.queryType == 'nn':
-            g = loads(self.wkt)
+            g = loads(self.qp.wkt)
             wkt = dumps(g.buffer(self.qp.rad))
        
         t0 = time.time()
@@ -45,10 +45,10 @@ class QuerierMorton(AbstractQuerier):
 
         if self.numProcessesQuery == 1:
             (query, queryArgs) = dbops.getSelectMorton(mimranges, mxmranges, self.qp, self.flatTable, self.addContainsCondition, self.colsData)
-            self.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS (" + query + ")", queryArgs)
+            postgresops.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS (" + query + ")", queryArgs)
             connection.commit()
         else:
-            dbops.createResultsTable(cursor, self.mogrifyExecute, self.resultTable, self.qp.columns, self.colsData, None)
+            dbops.createResultsTable(cursor, postgresops.mogrifyExecute, self.resultTable, self.qp.columns, self.colsData, None)
             connection.commit()
             dbops.parallelMorton(mimranges, mxmranges, self.childInsert, self.numProcessesQuery)  
         (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.colsData, (not self.mortonDistinctIn) and (self.numProcessesQuery == 1), self.qp.columns, self.qp.statistics)
@@ -61,6 +61,6 @@ class QuerierMorton(AbstractQuerier):
         cqp = copy.copy(self.qp)
         cqp.statistics = None
         (query, queryArgs) = dbops.getSelectMorton(iMortonRanges, xMortonRanges, cqp, self.flatTable, self.addContainsCondition, self.colsData)
-        self.mogrifyExecute(cursor, "INSERT INTO "  + self.resultTable + " " + query, queryArgs)
+        postgresops.mogrifyExecute(cursor, "INSERT INTO "  + self.resultTable + " " + query, queryArgs)
         connection.commit()
         connection.close()

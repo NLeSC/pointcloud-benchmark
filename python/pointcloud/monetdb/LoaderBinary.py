@@ -4,50 +4,50 @@
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
 import os, logging, math, numpy
-from pointcloud import utils
+from pointcloud import utils, dbops, monetdbops
 from pointcloud.AbstractLoader import AbstractLoader as ALoader
 from pointcloud.monetdb.CommonMonetDB import CommonMonetDB
-from pointcloud import dbops
 
-TIME_FORMAT = "%Y_%m_%d_%H_%M_%S"
+MAX_FILES = 1999
 
 class LoaderBinary(ALoader, CommonMonetDB):
     def __init__(self, configuration):
         """ Set configuration parameters and create user if required """
         ALoader.__init__(self, configuration)
         self.setVariables(configuration)
-        self.numPartitions = 0
-        self.useLOF = True
-    
+        
     def connect(self, superUser = False):
-        return self.connection()     
+        return self.getConnection()     
     
     def initialize(self):
-        if self.numProcessesLoad > 1:
-            raise Exception('Parallel loading is done automatically in las2col!')
-        if not self.imprints and self.partitioning:
-            raise Exception('Partitioning without imprints is not supported!')
-            
-        if self.cDB:
-            os.system('monetdb stop ' + self.dbName)
-            os.system('monetdb destroy ' + self.dbName + ' -f')
-            os.system('monetdb create ' + self.dbName)
-            os.system('monetdb release ' + self.dbName)
-        
-        connection = self.connect()
-        cursor = connection.cursor()
+        if self.partitioning and not self.imprints:
+            raise Exception('Partitioning without imprints is not supported!')        
+        self.numPartitions = 0
+
+        # Drop previous DB if exist and create a new one
+        os.system('monetdb stop ' + self.dbName)
+        os.system('monetdb destroy ' + self.dbName + ' -f')
+        os.system('monetdb create ' + self.dbName)
+        os.system('monetdb release ' + self.dbName)
         
         if not self.imprints:
+            # If we want to create a final indexed table we need to put the 
+            # points in a temporal table
             self.tempFlatTable = 'TEMP_' + self.flatTable
             ftName = self.tempFlatTable
         else:
             ftName = self.flatTable
         
+        # Create the point cloud table (a merged table if partitioning is enabled)
+        connection = self.connect()
+        cursor = connection.cursor()
+        merge = ''
         if self.partitioning:
-            self.mogrifyExecute(cursor, "CREATE MERGE TABLE " + ftName + " (" + (', '.join(self.getFlatTableCols())) + ")")
-        else:
-            self.mogrifyExecute(cursor, "CREATE TABLE " + ftName + " (" + (', '.join(self.getFlatTableCols())) + ")")
-        
+            merge = 'MERGE'
+        monetdbops.mogrifyExecute(cursor, "CREATE " + merge + " TABLE " + ftName + " (" + (', '.join(self.getFlatTableCols())) + ")")
+        #  Create the meta-data table
+        monetdbops.mogrifyExecute(cursor, "CREATE TABLE " + self.metaTable + " (tablename text, srid integer, minx DOUBLE PRECISION, miny DOUBLE PRECISION, maxx DOUBLE PRECISION, maxy DOUBLE PRECISION, scalex DOUBLE PRECISION, scaley DOUBLE PRECISION)")
+        # Close connection
         connection.commit()
         connection.close()    
     
@@ -61,10 +61,9 @@ class LoaderBinary(ALoader, CommonMonetDB):
     
     def close(self):
         # Restart DB to flush data in memory to disk
-        if self.restartDB:
-            logging.info('Restarting DB...')
-            os.system('monetdb stop ' + self.dbName)
-            os.system('monetdb start ' + self.dbName)
+        logging.info('Restarting DB...')
+        os.system('monetdb stop ' + self.dbName)
+        os.system('monetdb start ' + self.dbName)
         
         connection = self.connect()
         cursor = connection.cursor()
@@ -73,52 +72,53 @@ class LoaderBinary(ALoader, CommonMonetDB):
             ftName = self.tempFlatTable
         else:
             ftName = self.flatTable
-            
+        
+        # We set the table to read only
         if self.partitioning:
             for i in range(self.numPartitions):
                 partitionName = ftName + str(i)
-                self.mogrifyExecute(cursor, "alter table " + partitionName + " set read only")
+                monetdbops.mogrifyExecute(cursor, "alter table " + partitionName + " set read only")
                 connection.commit()
         else:
-            self.mogrifyExecute(cursor, "alter table " + ftName + " set read only")
+            monetdbops.mogrifyExecute(cursor, "alter table " + ftName + " set read only")
             connection.commit()
         
         if self.imprints:
             if self.partitioning:
-                # Create imprints index by sample query in center of extent
+                # Create imprints index
                 logging.info('Creating imprints for different partitions and columns...')
                 for c in self.columns:
                     colName = self.colsData[c][0]
                     for i in range(self.numPartitions):
-                        partitionName = self.flatTable + str(i)
-                        self.mogrifyExecute(cursor, "select " + colName + " from " + partitionName + " where " + colName + " between 0 and 1")
+                        partitionName = ftName + str(i)
+                        monetdbops.mogrifyExecute(cursor, "select " + colName + " from " + partitionName + " where " + colName + " between 0 and 1")
                         connection.commit()
                 #TODO create 2 processes, one for x and one for y
             else:
                 logging.info('Creating imprints...')
                 query = "select * from " + self.flatTable + " where x between 0 and 1 and y between 0 and 1"
-                self.mogrifyExecute(cursor, query)
+                monetdbops.mogrifyExecute(cursor, query)
                 connection.commit()
                 
         else:
             if self.partitioning:
                 for i in range(self.numPartitions):
-                    partitionName = self.tempFlatTable + str(i)
+                    partitionName = ftName + str(i)
                     newPartitionName = self.flatTable + str(i)
-                    self.mogrifyExecute(cursor, 'CREATE TABLE ' + newPartitionName + ' AS SELECT * FROM ' + partitionName + ' ORDER BY ' + dbops.getSelectCols(self.index, self.colsData) + ' WITH DATA')
-                    self.mogrifyExecute(cursor, "alter table " + newPartitionName + " set read only")
-                    self.mogrifyExecute(cursor, 'DROP TABLE ' + partitionName)
+                    monetdbops.mogrifyExecute(cursor, 'CREATE TABLE ' + newPartitionName + ' AS SELECT * FROM ' + partitionName + ' ORDER BY ' + dbops.getSelectCols(self.index, self.colsData) + ' WITH DATA')
+                    monetdbops.mogrifyExecute(cursor, "alter table " + newPartitionName + " set read only")
+                    monetdbops.mogrifyExecute(cursor, 'DROP TABLE ' + partitionName)
                     connection.commit()
             else:
-                self.mogrifyExecute(cursor, 'CREATE TABLE ' + self.flatTable + ' AS SELECT * FROM ' + self.tempFlatTable + ' ORDER BY ' + dbops.getSelectCols(self.index, self.colsData) + ' WITH DATA')
-                self.mogrifyExecute(cursor, "alter table " + self.flatTable + " set read only")
-                self.mogrifyExecute(cursor, 'DROP TABLE ' + self.tempFlatTable)
+                monetdbops.mogrifyExecute(cursor, 'CREATE TABLE ' + self.flatTable + ' AS SELECT * FROM ' + self.tempFlatTable + ' ORDER BY ' + dbops.getSelectCols(self.index, self.colsData) + ' WITH DATA')
+                monetdbops.mogrifyExecute(cursor, "alter table " + self.flatTable + " set read only")
+                monetdbops.mogrifyExecute(cursor, 'DROP TABLE ' + self.tempFlatTable)
                 connection.commit()
             
         if self.partitioning:
             for i in range(self.numPartitions):
-                partitionName = ftName + str(i)
-                self.mogrifyExecute(cursor, "ALTER TABLE " + ftName + " add table " + partitionName)
+                partitionName = self.flatTable + str(i)
+                monetdbops.mogrifyExecute(cursor, "ALTER TABLE " + self.flatTable + " add table " + partitionName)
                 connection.commit()
         
         connection.close()
@@ -126,15 +126,14 @@ class LoaderBinary(ALoader, CommonMonetDB):
     def size(self):
         connection = self.connect()
         cursor = connection.cursor()
-        cursor.execute("""select cast(sum(imprints) AS double)/(1024.*1024.), cast(sum(columnsize) as double)/(1024.*1024.), (cast(sum(imprints) AS double)/(1024.*1024.) + cast(sum(columnsize) as double)/(1024.*1024.)) from storage()""")
-        row = list(cursor.fetchone())
-        for i in range(len(row)):
-            if row[i] != None:
-                row[i] = '%.3f MB' % row[i]
-        (size_indexes, size_ex_indexes, size_total) = row
+        sizes = monetdbops.getSizes(cursor)
         cursor.close()
         connection.close()
-        #size_total = '%.2f MB' % (float(os.popen('du -sm ' + self.dbFarm + '/' + self.dbName).read().split('\t')[0]))
+        
+        for i in range(len(sizes)):
+            if sizes[i] != None:
+                sizes[i] = '%.3f MB' % sizes[i]
+        (size_indexes, size_ex_indexes, size_total) = sizes
         return ' Size indexes= ' + str(size_indexes) + '. Size excluding indexes= ' + str(size_ex_indexes) + '. Size total= ' + str(size_total)
     
     def getNumPoints(self):
@@ -149,37 +148,47 @@ class LoaderBinary(ALoader, CommonMonetDB):
         return self.processSingle([self.inputFolder, ], self.processInputFolder)
     
     def processInputFolder(self, index, inputFolder):
-#        os.chdir(inputFolder)
-#        inputFiles = glob.glob('*' + self.extension)       
-        inputFiles = utils.getFiles(inputFolder, self.extension)[self.fileOffset:]
-        # Split the list of input files in bunches of maximum MAX_NUM_FILES files
-        if self.maxFiles > 0:
-            inputFilesLists = numpy.array_split(inputFiles, int(math.ceil(float(len(inputFiles))/float(self.maxFiles))))
-        else:
-            inputFilesLists = [inputFiles, ]
+        inputFiles = utils.getFiles(inputFolder)
         
+        # We get the extent of all the involved PCs
+        (_, minX, minY, _, maxX, maxY, _) = lasops.getPCDetails(inputFolder)
+        
+        # We assume all files have same SRID and scale
+        srid = lasops.getSRID(inputFiles[0])
+        (_, _, _, _, _, _, _, scaleX, scaleY, _, _, _, _) = getPCFileDetails(inputFiles[0])
+        
+        # Create connection
         connection = self.connect()
         cursor = connection.cursor()    
+        
+        # Add the meta-data to the meta table
+        metaArgs = (self.flatTable, srid, minX, minY, maxX, maxY, scaleX, scaleY)
+        monetdbops.mogrifyExecute(cursor, "INSERT INTO " + self.metaTable + " VALUES (%s,%s,%s,%s,%s,%s,%s,%s)" , metaArgs)
+
+        # Split the list of input files in bunches of maximum MAX_FILES files
+        inputFilesLists = numpy.array_split(inputFiles, int(math.ceil(float(len(inputFiles))/float(MAX_FILES))))
+
         for i in range(len(inputFilesLists)):
-            tempFile =  self.tempDir + '/' + str(i) + '_tempFile'
+            # Create the file with the list of PC files
+            listFile =  self.tempDir + '/' + str(i) + '_listFile'
+            outputFile = open(listFile, 'w')
+            for f in inputFilesLists[i]:
+                outputFile.write(f + '\n')
+            outputFile.close()
             
-            if self.useLOF:
-                listFile =  self.tempDir + '/' + str(i) + '_listFile'
-                outputFile = open(listFile, 'w')
-                for f in inputFilesLists[i]:
-                    outputFile.write(f + '\n')
-                outputFile.close()
-                inputArg = '-f ' + listFile
-            else:
-                inputArg = '-i ' + (' -i '.join(inputFilesLists[i]))
-                
+            # Generate the command for the NLeSC Binary converter
+            inputArg = '-f ' + listFile
+            tempFile =  self.tempDir + '/' + str(i) + '_tempFile'    
             c = 'las2col ' + inputArg + ' ' + tempFile + ' --parse ' + self.columns
             if 'k' in self.columns:
-                c += ' --moffset ' + str(int(float(self.mortonGlobalOffsetX) / float(self.mortonScaleX))) + ','+ str(int(float(self.mortonGlobalOffsetY) / float(self.mortonScaleY))) + ' --check ' + str(self.mortonScaleX) + ',' + str(self.mortonScaleY)
-            
+                (mortonGlobalOffsetX, mortonGlobalOffsetY) = (minX, minY)
+                (mortonScaleX, mortonScaleY) = (scaleX, scaleY)
+                c += ' --moffset ' + str(int(self.mortonGlobalOffsetX / self.mortonScaleX)) + ','+ str(int(self.mortonGlobalOffsetY / self.mortonScaleY)) + ' --check ' + str(self.mortonScaleX) + ',' + str(self.mortonScaleY)
+            # Execute the converter
             logging.info(c)
             os.system(c)
             
+            # The different binary files have a pre-defined name 
             bs = []
             for col in self.columns:
                 bs.append("'" + tempFile + "_col_" + col + ".dat'")
@@ -189,13 +198,14 @@ class LoaderBinary(ALoader, CommonMonetDB):
             else:
                 ftName = self.flatTable
             
+            # Import the binary data in the tables
             if self.partitioning:
                 partitionName = ftName + str(i)
-                self.mogrifyExecute(cursor, """CREATE TABLE """ + partitionName + """ (""" + (',\n'.join(self.getFlatTableCols())) + """)""")
-                self.mogrifyExecute(cursor, "COPY BINARY INTO " + partitionName + " from (" + ','.join(bs) + ")")
+                monetdbops.mogrifyExecute(cursor, "CREATE TABLE " + partitionName + " (" + (',\n'.join(self.getFlatTableCols())) + ")")
+                monetdbops.mogrifyExecute(cursor, "COPY BINARY INTO " + partitionName + " from (" + ','.join(bs) + ")")
                 self.numPartitions += 1
             else:
-                self.mogrifyExecute(cursor, "COPY BINARY INTO " + ftName + " from (" + ','.join(bs) + ")")
+                monetdbops.mogrifyExecute(cursor, "COPY BINARY INTO " + ftName + " from (" + ','.join(bs) + ")")
     
         connection.commit()
         connection.close()

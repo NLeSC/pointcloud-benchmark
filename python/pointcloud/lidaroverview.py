@@ -4,7 +4,7 @@
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
 import os, optparse, subprocess, psycopg2, multiprocessing, logging
-from pointcloud import utils
+from pointcloud import utils, postgresops, lasops
 
 def runChild(childId, childrenQueue, connectionString, dbtable, lasinfotool):
     kill_received = False
@@ -22,7 +22,7 @@ def runChild(childId, childrenQueue, connectionString, dbtable, lasinfotool):
             kill_received = True
         else:            
             [identifier, inputFile,] = job
-            (count, minX, minY, minZ, maxX, maxY, maxZ, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = utils.getLASParams(inputFile, lasinfotool)
+            (count, minX, minY, minZ, maxX, maxY, maxZ, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(inputFile)
             insertStatement = """INSERT INTO """ + dbtable + """(id,filepath,num,scalex,scaley,scalez,offsetx,offsety,offsetz,geom) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, ST_MakeEnvelope(%s, %s, %s, %s, %s));"""
             insertArgs = [identifier, inputFile, int(count), float(scaleX), float(scaleY), float(scaleZ), float(offsetX), float(offsetY), float(offsetZ), float(minX), float(minY), float(maxX), float(maxY), 28992]
             logging.info(cursor.mogrify(insertStatement, insertArgs))
@@ -31,17 +31,17 @@ def runChild(childId, childrenQueue, connectionString, dbtable, lasinfotool):
     cursor.close()
     connection.close()
 
-def run(inputFolder, extension, numcores, dbname, dbuser, dbpass, dbhost, dbport, createdb, dbtable, lasinfotool, srid):
+def run(inputFolder, numcores, dbname, dbuser, dbpass, dbhost, dbport, createdb, dbtable, lasinfotool, srid):
     opts = 0
     childrenQueue = multiprocessing.Queue()
-    ifiles = utils.getFiles(inputFolder, extension)
+    ifiles = utils.getFiles(inputFolder)
     for i in range(len(ifiles)):
         childrenQueue.put([i, ifiles[i]])
     for i in range(int(numcores)): #we add as many None jobs as numWorkers to tell them to terminate (queue is FIFO)
         childrenQueue.put(None)
     
-    clineConString = utils.postgresConnectString(dbname, dbuser, dbpass, dbhost, dbport, True)
-    psycopgConString = utils.postgresConnectString(dbname, dbuser, dbpass, dbhost, dbport, False)
+    clineConString = postgresops.getConnectString(dbname, dbuser, dbpass, dbhost, dbport, True)
+    psycopgConString = postgresops.getConnectString(dbname, dbuser, dbpass, dbhost, dbport, False)
     
     if createdb:
         os.system('dropdb ' + clineConString)
@@ -101,14 +101,13 @@ def run(inputFolder, extension, numcores, dbname, dbuser, dbpass, dbhost, dbport
     cursor.close()        
 
 def main(opts):
-    run(opts.input, opts.extension, opts.cores, opts.dbname, opts.dbuser, opts.dbpass, opts.dbhost, opts.dbport, opts.create, opts.dbtable, opts.lasinfo, opts.srid)
+    run(opts.input, opts.cores, opts.dbname, opts.dbuser, opts.dbpass, opts.dbhost, opts.dbport, opts.create, opts.dbtable, opts.lasinfo, opts.srid)
         
 if __name__ == "__main__":
     usage = 'Usage: %prog [options]'
     description = "Creates a table with geometries describing the areas of which the LAS files contain points."
     op = optparse.OptionParser(usage=usage, description=description)
     op.add_option('-i','--input',default='',help='Input folder where to find the LAS files',type='string')
-    op.add_option('-e','--extension',default='',help='Extension of the LAS files',type='string')
     op.add_option('-x','--create',default=False,help='Creates the database',action='store_true')
     op.add_option('-n','--dbname',default='',help='Postgres DB name where to store the geometries',type='string')
     op.add_option('-u','--dbuser',default='',help='DB user',type='string')

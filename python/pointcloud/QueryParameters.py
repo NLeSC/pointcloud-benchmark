@@ -6,8 +6,9 @@
 
 class QueryParameters:
     """Query parameters"""
-    def __init__(self,db,queryKey=None,queryType=None,columns=None,statistics=None,minx=None,maxx=None,miny=None,maxy=None,cx=None,cy=None,rad=None,minz=None,maxz=None,px=None,py=None,nnnum=None,nnrad=None):    
-        (self.queryKey, self.queryType) = (queryKey, queryType)
+    def __init__(self,db,queryKey=None,queryMethod=None,queryType=None,wkt=None,columns=None,statistics=None,minx=None,maxx=None,miny=None,maxy=None,cx=None,cy=None,rad=None,minz=None,maxz=None,px=None,py=None,nnnum=None,nnrad=None):    
+        (self.queryKey, self.queryMethod, self.queryType) = (queryKey, queryMethod, queryType)
+        self.wkt = wkt
         (self.columns, self.statistics) = (columns, statistics)
         (self.minx,self.maxx,self.miny,self.maxy) = (minx,maxx,miny,maxy)
         (self.minz,self.maxz) = (minz,maxz)

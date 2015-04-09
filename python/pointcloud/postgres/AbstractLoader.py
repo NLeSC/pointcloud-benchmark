@@ -7,7 +7,7 @@ import os
 import psycopg2
 from pointcloud.AbstractLoader import AbstractLoader as ALoader
 from pointcloud.postgres.CommonPostgres import CommonPostgres
-from pointcloud import utils
+from pointcloud import utils, postgresops, lasops
 from lxml import etree as ET
 
 #XML_NAMESPACES = {'pc':'http://pointcloud.org/schemas/PC/1.1',
@@ -30,7 +30,7 @@ class AbstractLoader(ALoader, CommonPostgres):
     def size(self):
         connection = self.connect()
         cursor = connection.cursor()
-        row = utils.getPostgresSizes(cursor)
+        row = postgresops.getSizes(cursor)
         for i in range(len(row)):
             if row[i] != None:
                 row[i] = '%.3f MB' % row[i]
@@ -128,7 +128,7 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
         return indexTableSpaceString
     
     def process(self):
-        inputFiles = utils.getFiles(self.inputFolder, self.extension)[self.fileOffset:]
+        inputFiles = utils.getFiles(self.inputFolder)
         return self.processMulti(inputFiles, self.numProcessesLoad, self.loadFromFile, self.loadFromFileSequential, self.ordered)
 
     def loadFromFile(self, index, fileAbsPath):
@@ -148,7 +148,7 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
             cols.append(self.colsData[c][0] + ' ' + self.colsData[c][1])
         
         # Create the flat table that will contain all the data
-        self.mogrifyExecute(cursor, """CREATE TABLE """ + flatTable + """ (
+        postgresops.mogrifyExecute(cursor, """CREATE TABLE """ + flatTable + """ (
         """ + (',\n'.join(cols)) + """)""" + self.getTableSpaceString())
         connection.commit()
         connection.close()
@@ -159,7 +159,7 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
             aux = ",quadCellId BIGINT"
         connection = self.connect()
         cursor = connection.cursor()
-        self.mogrifyExecute(cursor, "CREATE TABLE " + blockTable + " (id SERIAL PRIMARY KEY,pa PCPATCH" + aux + ")" + self.getTableSpaceString())
+        postgresops.mogrifyExecute(cursor, "CREATE TABLE " + blockTable + " (id SERIAL PRIMARY KEY,pa PCPATCH" + aux + ")" + self.getTableSpaceString())
         connection.commit()
         connection.close()  
     
@@ -173,22 +173,22 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
             auxindex = index.replace('g','')
             cursor.execute("create view " + self.viewName + " as select st_setSRID(st_makepoint(" + (','.join(auxindex)) + ")," + self.srid + ") as " + index + ", x, y, z from " + flatTable + ";")
             connection.commit()
-            self.mogrifyExecute(cursor, "create index " + gistIndexName + " on " + flatTable + " using gist (st_setSRID(st_makepoint(" + (','.join(auxindex)) + ")," + self.srid + ")) WITH (FILLFACTOR=" + str(self.fillFactor) + ")" + self.getIndexTableSpaceString())
+            postgresops.mogrifyExecute(cursor, "create index " + gistIndexName + " on " + flatTable + " using gist (st_setSRID(st_makepoint(" + (','.join(auxindex)) + ")," + self.srid + ")) WITH (FILLFACTOR=" + str(self.fillFactor) + ")" + self.getIndexTableSpaceString())
             connection.commit()
             if self.cluster:
-                self.mogrifyExecute(cursor, "CLUSTER " + flatTable + " USING " + gistIndexName)
+                postgresops.mogrifyExecute(cursor, "CLUSTER " + flatTable + " USING " + gistIndexName)
         elif index in ('xy', 'xyz'):
             btreeIndexName = flatTable + "_" + index + "_btree_idx"
-            self.mogrifyExecute(cursor, "create index " + btreeIndexName + " on " + flatTable + " (" + (','.join(index)) + ") WITH (FILLFACTOR=" + str(self.fillFactor) + ")" + self.getIndexTableSpaceString())
+            postgresops.mogrifyExecute(cursor, "create index " + btreeIndexName + " on " + flatTable + " (" + (','.join(index)) + ") WITH (FILLFACTOR=" + str(self.fillFactor) + ")" + self.getIndexTableSpaceString())
             connection.commit()
             if self.cluster:
-                self.mogrifyExecute(cursor, "CLUSTER " + flatTable + " USING " + btreeIndexName)
+                postgresops.mogrifyExecute(cursor, "CLUSTER " + flatTable + " USING " + btreeIndexName)
         elif index == 'k':
             mortonIndexName = flatTable + "_morton_btree_idx"
-            self.mogrifyExecute(cursor, "create index " + mortonIndexName + " on " + flatTable + " (morton2D) WITH (FILLFACTOR=" + str(self.fillFactor) + ")" + self.getIndexTableSpaceString())
+            postgresops.mogrifyExecute(cursor, "create index " + mortonIndexName + " on " + flatTable + " (morton2D) WITH (FILLFACTOR=" + str(self.fillFactor) + ")" + self.getIndexTableSpaceString())
             connection.commit()
             if self.cluster:
-                self.mogrifyExecute(cursor, "CLUSTER " + flatTable + " USING " + mortonIndexName)
+                postgresops.mogrifyExecute(cursor, "CLUSTER " + flatTable + " USING " + mortonIndexName)
         connection.commit()
         connection.close()
         
@@ -200,14 +200,14 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
         cursor = connection.cursor()
         if quadcell:
             indexName = self.blockTable + "_btree"
-            self.mogrifyExecute(cursor, 'CREATE INDEX ' + indexName + ' ON ' + blockTable + ' (quadCellId)' + self.getIndexTableSpaceString())
+            postgresops.mogrifyExecute(cursor, 'CREATE INDEX ' + indexName + ' ON ' + blockTable + ' (quadCellId)' + self.getIndexTableSpaceString())
         else:
             indexName = blockTable + "_gist"
-            self.mogrifyExecute(cursor, 'CREATE INDEX ' + indexName + ' ON ' + blockTable + ' USING GIST ( geometry(pa) )' + self.getIndexTableSpaceString())
+            postgresops.mogrifyExecute(cursor, 'CREATE INDEX ' + indexName + ' ON ' + blockTable + ' USING GIST ( geometry(pa) )' + self.getIndexTableSpaceString())
             
         connection.commit()
         if self.cluster:
-            self.mogrifyExecute(cursor, "CLUSTER " + blockTable + " USING " + indexName)
+            postgresops.mogrifyExecute(cursor, "CLUSTER " + blockTable + " USING " + indexName)
             connection.commit()
         
         # Close the connection
@@ -221,7 +221,7 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
         cursor = connection.cursor()
         old_isolation_level = connection.isolation_level
         connection.set_isolation_level(0)
-        self.mogrifyExecute(cursor, "VACUUM FULL ANALYZE " + tableName)
+        postgresops.mogrifyExecute(cursor, "VACUUM FULL ANALYZE " + tableName)
         connection.commit()
         connection.set_isolation_level(old_isolation_level)
         connection.close()
@@ -243,7 +243,7 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
         return n
         
     def addPCFormat(self, schemaFile, fileAbsPath):
-        (_, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = utils.getLASParams(fileAbsPath, tool = self.las2txtTool)
+        (_, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(fileAbsPath)
         
         # Get connection to DB
         connection = self.connect()
@@ -289,7 +289,7 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
                 if len(rows) and rows[0][0] != None:
                     pcid = rows[0][0] + 1
                 try:
-                    self.mogrifyExecute(cursor, "INSERT INTO pointcloud_formats (pcid, srid, schema, scalex, scaley, scalez, offsetx, offsety, offsetz) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)", 
+                    postgresops.mogrifyExecute(cursor, "INSERT INTO pointcloud_formats (pcid, srid, schema, scalex, scaley, scalez, offsetx, offsety, offsetz) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)", 
                                [pcid, self.srid, schema, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ])
                     connection.commit()
                     updatedFormat = True

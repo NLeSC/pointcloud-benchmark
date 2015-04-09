@@ -14,7 +14,7 @@ class QuerierMorton(AbstractQuerier):
         # Create the quadtree
         (self.quadtree, self.mortonDistinctIn, self.mortonApprox, self.maxRanges) = qtops.getQuadTree(configuration, float(self.minX), float(self.minY), float(self.maxX), float(self.maxY), float(self.mortonScaleX), float(self.mortonScaleY))
 
-    def query(self, queryId, iterationId, queriesParameters):
+    def queryDisk(self, queryId, iterationId, queriesParameters):
         connection = self.connect()
         cursor = connection.cursor()
         
@@ -27,7 +27,7 @@ class QuerierMorton(AbstractQuerier):
        
         t0 = time.time()
         
-        (mimranges,mxmranges) = self.quadtree.getMortonRanges(wktops.scale(self.wkt, float(self.mortonScaleX), float(self.mortonScaleY)), self.mortonDistinctIn, maxRanges = self.maxRanges )
+        (mimranges,mxmranges) = self.quadtree.getMortonRanges(wktops.scale(self.qp.wkt, float(self.mortonScaleX), float(self.mortonScaleY)), self.mortonDistinctIn, maxRanges = self.maxRanges )
         if len(mimranges) == 0 and len(mxmranges) == 0:
             logging.info('None morton range in specified extent!')
             return

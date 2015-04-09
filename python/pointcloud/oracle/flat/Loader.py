@@ -31,7 +31,7 @@ class Loader(AbstractLoader):
         logging.info( 'Files are loaded sequentially...')
     
     def process(self):
-        inputFiles = utils.getFiles(self.inputFolder, self.extension)[self.fileOffset:]
+        inputFiles = utils.getFiles(self.inputFolder)
         return self.processSingle(inputFiles, self.loadFromFile)
     
     def loadFromFile(self,  index, fileAbsPath):

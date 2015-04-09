@@ -7,6 +7,7 @@ import logging
 import psycopg2
 from pointcloud.AbstractQuerier import AbstractQuerier as AQuerier
 from pointcloud.postgres.CommonPostgres import CommonPostgres
+from pointcluod import postgresops
 
 class AbstractQuerier(AQuerier, CommonPostgres):
     """Abstract class for the queriers to be implemented for each different 
@@ -29,8 +30,8 @@ class AbstractQuerier(AQuerier, CommonPostgres):
         connection = self.connect()
         cursor = connection.cursor()
         
-        self.dropTable(cursor, self.queryTable, check = True)
-        self.mogrifyExecute(cursor, "CREATE TABLE " +  self.queryTable + " (id integer, geom public.geometry(Geometry," + self.srid + "));")
+        postgresops.dropTable(cursor, self.queryTable, check = True)
+        postgresops.mogrifyExecute(cursor, "CREATE TABLE " +  self.queryTable + " (id integer, geom public.geometry(Geometry," + self.srid + "));")
         
         connection.commit()
         connection.close()
@@ -43,28 +44,20 @@ class AbstractQuerier(AQuerier, CommonPostgres):
         self.resultTable = 'query_results_' + str(self.queryIndex)
         
         self.qp = queriesParameters.getQueryParameters('psql',queryId, self.colsData.keys())
-        self.wkt = queriesParameters.getWKT(queriesParameters.getQuery(queryId))
         logging.debug(self.qp.queryKey)
-        
-#         if firstQuery:
-#             connection = self.connect()
-#             cursor = connection.cursor()
-#             self.mogrifyExecute(cursor, "INSERT INTO " + self.queryTable + " VALUES (%s,ST_GeomFromEWKT(%s))", [self.queryIndex, 'SRID='+self.srid+';'+self.wkt], 'DEBUG')
-#             connection.commit()
-#             connection.close()
 
     def getBBoxGeometry(self, cursor, table, qId):
         cursor.execute('select st_xmin(geom), st_xmax(geom), st_ymin(geom), st_ymax(geom) from ' + table + ' where id = %s', [qId,])
         return cursor.fetchone()
     
     def createGridTableMethod(self, cursor, gridTable, nrows, ncols):
-        self.mogrifyExecute(cursor, "SELECT st_xmin(geom), st_xmax(geom), st_ymin(geom), st_ymax(geom) FROM (SELECT ST_GeomFromEWKT(%s) as geom) A", ['SRID='+self.srid+';'+self.wkt, ])
+        postgresops.mogrifyExecute(cursor, "SELECT st_xmin(geom), st_xmax(geom), st_ymin(geom), st_ymax(geom) FROM (SELECT ST_GeomFromEWKT(%s) as geom) A", ['SRID='+self.srid+';'+self.qp.wkt, ])
         (minx,maxx,miny,maxy) = cursor.fetchone()
         query = """ 
 CREATE TABLE """ + gridTable + """ AS
     SELECT row_number() OVER() AS id, ST_Intersection(A.geom, ST_SetSRID(B.geom, %s)) as geom FROM (SELECT ST_GeomFromEWKT(%s) as geom) A, ST_CreateFishnet(%s, %s, %s, %s, %s, %s) B 
 """
-        queryArgs = [self.srid, 'SRID='+self.srid+';'+self.wkt, nrows, ncols, (maxx - minx) / float(ncols), (maxy- miny) /  float(nrows), minx, miny,]
-        self.mogrifyExecute(cursor, query, queryArgs)
+        queryArgs = [self.srid, 'SRID='+self.srid+';'+self.qp.wkt, nrows, ncols, (maxx - minx) / float(ncols), (maxy- miny) /  float(nrows), minx, miny,]
+        postgresops.mogrifyExecute(cursor, query, queryArgs)
         cursor.execute("CREATE INDEX " + gridTable + "_rowcol ON " + gridTable + " ( id )")
         cursor.connection.commit()

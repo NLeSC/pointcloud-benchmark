@@ -41,6 +41,10 @@ class QueriesParameters:
         """ Get query key, i.e. description or name of the query without white spaces"""
         return query.get('key')
     
+    def getMethod(self, query):
+        """ Get query method"""
+        return query.find('method').text
+    
     def getWKT(self, query):
         """ Get WKT of the query"""
         return query.find('wkt').text.replace('\n','').strip()
@@ -85,6 +89,7 @@ class QueriesParameters:
         query = self.getQuery(queryId)
         
         queryKey = self.getKey(query)
+        queryMethod = self.getMethod(query)
         queryType = self.getType(query)
         wkt = self.getWKT(query)
         
@@ -99,16 +104,15 @@ class QueriesParameters:
         (px,py,nnnum,nnrad) = (None,None,None,None)
         statistics = None
         
+        if queryMethod == 'stat':
+            statistics = self.getStatistics(query)
+            if len(statistics) != len(columns):
+                raise Exception('Error in query parameters: columns and statistics must have same length')
+        
         if queryType.endswith('+z'):
             queryType = queryType.replace('+z', '')
             minz = self.getMinZ(query)
             maxz = self.getMaxZ(query)
-        
-        if queryType.endswith('+stat'):
-            queryType = queryType.replace('+stat', '')
-            statistics = self.getStatistics(query)
-            if len(statistics) != len(columns):
-                raise Exception('Error in query parameters: columns and statistics must have same length')
         
         if queryType != 'nn':
             (mins, maxs) = wktops.wktPolygon2MinMax(wkt)
@@ -121,4 +125,4 @@ class QueriesParameters:
             nnnum = self.getNum(query)
             nnrad = self.getRadius(query)
             
-        return QueryParameters(db,queryKey,queryType,columns,statistics,minx,maxx,miny,maxy,cx,cy,rad,minz,maxz,px,py,nnnum,nnrad)
+        return QueryParameters(db,queryKey,queryMethod,queryType,wkt,columns,statistics,minx,maxx,miny,maxy,cx,cy,rad,minz,maxz,px,py,nnnum,nnrad)

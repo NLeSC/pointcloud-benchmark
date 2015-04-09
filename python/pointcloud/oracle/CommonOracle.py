@@ -73,11 +73,7 @@ class CommonOracle():
             
         # Directories to be used in external table reading
         self.inputFolder = configuration.get('Load','Folder')
-        self.fileOffset = configuration.getint('Load','FileOffset')
-        self.extension = configuration.get('Load','Extension')
-        if not (self.extension.lower().endswith('las') or self.extension.lower().endswith('laz')):
-            raise Exception('Accepted format for input files are: las, laz')
-        
+
         # Variable names to be used in external table reading
         self.exeDirVariableName = configuration.get('Load','ExeDir').upper()
         self.logDirVariableName = configuration.get('Load','LogDir').upper()
@@ -86,7 +82,7 @@ class CommonOracle():
         self.extTable = ('EXT_' + self.flatTable).upper()
         
         # Variables for queries
-        self.queryTable = configuration.get('Query','QueryTable').upper()
+        self.queryTable = utils.QUERY_TABLE.upper()
         self.numProcessesQuery = configuration.getint('Query','NumberProcesses')
         self.parallelType = configuration.get('Query','ParallelType').lower()
 

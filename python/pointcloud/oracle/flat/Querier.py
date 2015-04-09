@@ -8,7 +8,7 @@ from pointcloud import dbops
 from pointcloud.oracle.AbstractQuerier import AbstractQuerier
 
 class Querier(AbstractQuerier):        
-    def query(self, queryId, iterationId, queriesParameters):
+    def queryDisk(self, queryId, iterationId, queriesParameters):
         connection = self.connect()
         cursor = connection.cursor()
     

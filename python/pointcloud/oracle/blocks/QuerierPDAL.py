@@ -4,20 +4,20 @@
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
 import time
-from pointcloud import lastoolsops
+from pointcloud import lasops, pdalxml
 from pointcloud.oracle.AbstractQuerier import AbstractQuerier
 
 class QuerierPDAL(AbstractQuerier):        
-    def query(self, queryId, iterationId, queriesParameters):
+    def queryDisk(self, queryId, iterationId, queriesParameters):
         self.prepareQuery(queryId, queriesParameters, False)
         outputFileAbsPath = 'output' +  str(queryIndex) + '.las'
-        xmlFile = pdal_xml.OracleReader(fileAbsPath, self.connectString(), self.blockTable, self.baseTable, self.srid, self.wkt)
+        xmlFile = pdalxml.OracleReader(fileAbsPath, self.connectString(), self.blockTable, self.baseTable, self.srid, self.qp.wkt)
         t0 = time.time()
         c = 'pdal pipeline ' + xmlFile + ' -d -v 6'
         logging.debug(c)
         os.system(c)
         eTime = time.time() - t0
-        numPoints = lastoolsops.getNumPoints(outputFileAbsPath)
+        numPoints = lasops.getNumPoints(outputFileAbsPath)
         os.system('rm ' + xmlFile)
         os.system('rm ' + outputFileAbsPath)
         return (eTime, numPoints)

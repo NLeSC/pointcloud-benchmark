@@ -5,7 +5,7 @@
 ################################################################################
 import os, logging
 import utils
-import pdal_xml
+from pointcloud import pdalxml, postgresops
 from pointcloud.postgres.AbstractLoader import AbstractLoader
 
 class LoaderOrdered(AbstractLoader):
@@ -27,7 +27,7 @@ class LoaderOrdered(AbstractLoader):
         fileBlockTable = self.getFileBlockTable(index)
         self.createBlocks(fileBlockTable)  
         (dimensionsNames, pcid, compression, offsets, scales) = self.addPCFormat(self.schemaFile, fileAbsPath)
-        xmlFile = pdal_xml.PostgreSQLWriter(fileAbsPath, self.connectString(), pcid, dimensionsNames, fileBlockTable, self.srid, self.blockSize, compression, offsets, scales)
+        xmlFile = pdalxml.PostgreSQLWriter(fileAbsPath, self.connectString(), pcid, dimensionsNames, fileBlockTable, self.srid, self.blockSize, compression, offsets, scales)
         c = 'pdal pipeline ' + xmlFile
         logging.debug(c)
         os.system(c)
@@ -40,9 +40,9 @@ class LoaderOrdered(AbstractLoader):
         cursor = connection.cursor()
         #query = "INSERT INTO " + self.blockTable + " (pa) SELECT pa FROM " + fileBlockTable
         query = "INSERT INTO " + self.blockTable + " (pa) SELECT pa FROM " + fileBlockTable + " ORDER BY id"
-        self.mogrifyExecute(cursor, query)
+        postgresops.mogrifyExecute(cursor, query)
         connection.commit()
-        self.mogrifyExecute(cursor, "DROP TABLE " + fileBlockTable)
+        postgresops.mogrifyExecute(cursor, "DROP TABLE " + fileBlockTable)
         connection.commit()
 
     def close(self):

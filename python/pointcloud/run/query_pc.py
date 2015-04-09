@@ -52,11 +52,10 @@ def main(opts):
                 qMEM = '%.2f'%qMEM
             rows.append((str(queryName),str(qResult),'-',qTime,qCPU,qMEM))        
         
-        outputFileName = config.get('Query','OutputFileName')
-        outputFile = open(outputFileName,'w')
+        outputFile = open(utils.RESULTS_FILE_NAME,'w')
         outputFile.write(tabulate(rows, headers=h) + '\n')
         outputFile.close()
-        logging.info('Check results in ' + os.path.abspath(outputFileName))
+        logging.info('Check results in ' + os.path.abspath(utils.RESULTS_FILE_NAME))
 
 if __name__ == "__main__":
     usage = 'Usage: %prog [options]'
