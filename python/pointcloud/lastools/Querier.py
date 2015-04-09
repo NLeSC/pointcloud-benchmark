@@ -16,12 +16,9 @@ class Querier(AbstractQuerier, CommonLASTools):
         AbstractQuerier.__init__(self, configuration)
         self.setVariables(configuration)
     
-    def connect(self, superUser = False):
-        return self.getConnection(superUser)
-    
     def initialize(self):
         # Check whether DB already exist   
-        connectionSuper = self.connect(True)
+        connectionSuper = self.getConnection(True)
         cursorSuper = connectionSuper.cursor()
         cursorSuper.execute('SELECT datname FROM pg_database WHERE datname = %s', (self.dbName,))
         self.exists = cursorSuper.fetchone()
@@ -32,7 +29,7 @@ class Querier(AbstractQuerier, CommonLASTools):
             connString = self.getConnectString(False, True)
             os.system('createdb ' + connString)
         #  We create the PostGIS extension
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         if not self.exists:
             cursor.execute('CREATE EXTENSION postgis;')

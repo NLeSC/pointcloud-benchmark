@@ -13,17 +13,17 @@ class QuerierMorton(AbstractQuerier):
         """ Set configuration parameters and create user if required """
         AbstractQuerier.__init__(self, configuration)
         
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         
         (self.mortonGlobalOffsetX, self.mortonGlobalOffsetY) = (self.minX, self.minY)
         (self.mortonScaleX, self.mortonScaleY) = (self.scaleX, self.scaleY)
         
         # Create the quadtree
-        (self.quadtree, self.mortonDistinctIn, self.mortonApprox, self.maxRanges) = qtops.getQuadTree(configuration, minX, minY, maxX, maxY, self.mortonScaleX, self.mortonScaleY, self.mortonGlobalOffsetX, self.mortonGlobalOffsetY)
+        (self.quadtree, self.mortonDistinctIn, self.mortonApprox, self.maxRanges) = qtops.getQuadTree(minX, minY, maxX, maxY, self.mortonScaleX, self.mortonScaleY, self.mortonGlobalOffsetX, self.mortonGlobalOffsetY)
     
     def queryDisk(self, queryId, iterationId, queriesParameters):
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         
         self.prepareQuery(queryId, queriesParameters)

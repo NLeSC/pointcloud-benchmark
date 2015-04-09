@@ -11,7 +11,7 @@ from pointcloud import dbops, utils, monetdbops
 class Querier(AbstractQuerier, CommonMonetDB):
     """MonetDB querier"""
     def query(self, queryId, iterationId, queriesParameters):
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         self.prepareQuery(queryId, queriesParameters)
         self.dropTable(cursor, self.resultTable, True)    
@@ -22,7 +22,6 @@ class Querier(AbstractQuerier, CommonMonetDB):
         if self.qp.queryMethod != 'stream': # disk or stat
             monetdbops.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS " + query + " WITH DATA", queryArgs)
             connection.commit()
-            
             (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.colsData, True, self.qp.columns, self.qp.statistics)
             connection.close()
         else:

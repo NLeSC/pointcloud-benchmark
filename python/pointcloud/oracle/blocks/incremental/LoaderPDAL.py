@@ -22,16 +22,21 @@ class Loader(AbstractLoader):
         
         
         # Creates the user that will store the tables
-        self.createUser()
-        
         if self.cUser:
-            connection = self.connect()
-            cursor = connection.cursor()
-            
-            # Creates the global blocks tables
-            self.createBlocks(cursor, self.blockTable, self.baseTable, self.tableSpace, includeBlockId = True)
-            connection.close()
+            self.createUser()
         
+        (self.inputFiles, self.srid, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = getPCFolderDetails(self.inputFolder)
+        
+        connection = self.getConnection()
+        cursor = connection.cursor()
+        
+        # Creates the global blocks tables
+        self.createBlocks(cursor, self.blockTable, self.baseTable, self.tableSpace, includeBlockId = True)
+        connection.close()
+
+    def process(self):
+        return self.processMulti(self.inputFiles, self.numProcessesLoad, self.loadFromFile, None, True)
+
     def loadFromFile(self, index, fileAbsPath):
         # Get information of the contents of the LAS file
         logging.debug(fileAbsPath)
@@ -48,11 +53,10 @@ class Loader(AbstractLoader):
         os.system('rm ' + xmlFile)
 
     def close(self):
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
-        #self.mogrifyExecute(cursor, "update " + self.blockTable + " b set b.blk_extent.sdo_srid = " + str(self.srid))
         self.createBlockIdIndex(cursor)
-        self.createBlockIndex(cursor)
+        self.createBlockIndex(cursor, self.minX, self.minY, self.maxX, self.maxY)
         connection.close()
         
     def size(self):

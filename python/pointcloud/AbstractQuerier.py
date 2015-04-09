@@ -17,15 +17,7 @@ class AbstractQuerier:
     def getConfiguration(self):
         """ Gets the configuration (ConfigParser) instance """
         return self.conf
-    
-    def connect(self, superUser = False):
-        """ Gets a new connection to the DB """
-        raise NotImplementedError( "Should have implemented this" )
-    
-    def initialize(self):
-        """ Initialize the querier """
-        raise NotImplementedError( "Should have implemented this" )
-    
+        
     def run(self):
         config = self.getConfiguration()
         
@@ -155,10 +147,17 @@ class AbstractQuerier:
             print e
             resultsQueue.put((queryId, iterationId, '-', '-'))
     
+    #
+    # FOLLOWING METHODS HAVE TO BE IMPLEMENTED BY ALL QUERIERS
+    #
+    def initialize(self):
+        """ Initialize the querier procedure """
+        raise NotImplementedError( "Should have implemented this" )
+    
     def query(self, queryId, iterationId, queriesParameters):
         """ Executes query indicated by queryId. It must return a tuple with (time, results)"""
         raise NotImplementedError( "Should have implemented this" )
 
     def close(self):
-        """ Close and connection with DB """
+        """ Close the querier procedure"""
         raise NotImplementedError( "Should have implemented this" )

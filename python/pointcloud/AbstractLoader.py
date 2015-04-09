@@ -127,7 +127,7 @@ class AbstractLoader:
         return results
     
     def processMulti(self, inputItems, numProcessesLoad, processItemParallelMethod, processItemSequentialMethod = None, assertOrderSequentialMethod = False):
-        """ Process the input items with a multiple cores/processes. 
+        """ Process the input items with multiple cores/processes. 
 The method that is parallelized is given by processItemParallelMethod.
 If provided processItemSequentialMethod, this method is executed not-parallely after each parallel process is finished (while parent process is waiting for the children processes)
 If assertOrderSequentialMethod = True we assert that the processItemSequentialMethod is executed in same order as input items
@@ -204,31 +204,28 @@ If assertOrderSequentialMethod = True we assert that the processItemSequentialMe
                 except Exception,e:
                     logging.exception('ERROR loading from ' + inputItem + ':\n' + str(e))
                 resultQueue.put([identifier, inputItem, time.time() - ti])
+    
     #
     # FOLLOWING METHODS HAVE TO BE IMPLEMENTED BY ALL LOADERS
-    # 
-    def process(self):
-        """ Process the input data """
-        raise NotImplementedError( "Should have implemented this" )
-        
-    def connect(self, super = False):
-        """ Gets a new connection to the DB """
-        raise NotImplementedError( "Should have implemented this" )
-    
+    #
     def initialize(self):
-        """ Initialize the DB, load possible extensions and create tables """
+        """ Initialize the loading procedure """
+        raise NotImplementedError( "Should have implemented this" )
+     
+    def process(self):
+        """ Process the input data. Loads/Prepares the data into the system.
+        In your implementation we suggest to use processSingle for single process loading
+        and processMulti for mulit-process loading"""
         raise NotImplementedError( "Should have implemented this" )
     
     def close(self):
-        """ Close the loader """
+        """ Close the loader procedure """
         raise NotImplementedError( "Should have implemented this" )
     
     def size(self):
-        """ Get the DB size """
+        """ Get the size of the data after loading into the system """
         raise NotImplementedError( "Should have implemented this" )
     
     def getNumPoints(self):
-        """ Get the total number of loaded points """
-        return 0
-        #raise NotImplementedError( "Should have implemented this" )
-    
+        """ Get the total number of loaded points in the system"""
+        return 0  

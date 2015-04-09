@@ -5,12 +5,22 @@
 ################################################################################
 import time, math, subprocess
 from itertools import groupby, count
-from pointcloud import dbops, utils
+from pointcloud import dbops, utils, oracleops
 from pointcloud.oracle.AbstractQuerier import AbstractQuerier
 
-class Querier(AbstractQuerier):        
+class Querier(AbstractQuerier):      
+    def __init__(self, configuration):
+        """ Set configuration parameters and create user if required """
+        AbstractQuerier.__init__(self, configuration)
+        # Create the quadtree
+        connection = self.getConnection()
+        cursor = connection.cursor()
+        
+        oracleops.mogrifyExecute(cursor, "SELECT srid FROM user_sdo_geom_metadata WHERE table_name = '" + self.blocksTable + "'")
+        (self.srid,) = cursor.fetchone()[0]
+          
     def queryDisk(self, queryId, iterationId, queriesParameters):
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         self.columnsNamesTypesDict = {}
         for col in self.columns:
@@ -20,7 +30,7 @@ class Querier(AbstractQuerier):
         gridTable = ('query_grid_' + str(self.queryIndex)).upper()
         
         for table in (self.resultTable, gridTable):
-            self.dropTable(cursor, table, True) 
+            oracleops.dropTable(cursor, table, True) 
             
         if self.qp.queryType in ('rectangle','circle','generic') :
             if self.numProcessesQuery == 1:
@@ -30,12 +40,12 @@ class Querier(AbstractQuerier):
                     (eTime, result) = self.genericQuerySingle(cursor, True)
                 elif self.parallelType == 'cand':
                     idsQuery = "SELECT " + self.getParallelHint() + " BLK_ID FROM " + self.blockTable + ", " + self.queryTable + " WHERE SDO_FILTER(BLK_EXTENT,GEOM) = 'TRUE' AND id = " + str(self.queryIndex)
-                    (eTime, result) = dbops.genericQueryParallelCand(cursor,self.mogrifyExecute, self.qp.columns, self.colsData, 
+                    (eTime, result) = dbops.genericQueryParallelCand(cursor,oracleops.mogrifyExecute, self.qp.columns, self.colsData, 
                                                                      self.qp.statistics, self.resultTable, idsQuery, None, 
                                                                      self.runGenericQueryParallelCandChild, self.numProcessesQuery)
                     #returnDict[queryId] = self.genericQueryParallelCand()
                 elif self.parallelType in ('grid','griddis'):
-                    (eTime, result) =  dbops.genericQueryParallelGrid(cursor, self.mogrifyExecute, self.qp.columns, self.colsData, 
+                    (eTime, result) =  dbops.genericQueryParallelGrid(cursor, oracleops.mogrifyExecute, self.qp.columns, self.colsData, 
                                                                      self.qp.statistics, self.resultTable, gridTable, self.createGridTableMethod,
                                                                      self.runGenericQueryParallelGridChild, self.numProcessesQuery, 
                                                                      (self.parallelType == 'griddis'))
@@ -54,7 +64,7 @@ class Querier(AbstractQuerier):
         
         self.prepareQuery(queryId, queriesParameters, iterationId == 0)
         
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         t0 = time.time()
         query = self.getSelect()
@@ -63,7 +73,7 @@ class Querier(AbstractQuerier):
         sqlFile.write('set linesize 120\n')
         sqlFile.write('set trimout on\n')
         sqlFile.write('set pagesize 0\n')
-        sqlFile.write(utils.oraclemogrify(cursor, query) + ';\n')
+        sqlFile.write(oracleops.mogrify(cursor, query) + ';\n')
         sqlFile.close()
         command = 'sqlplus -s ' + self.connectString(False) + ' < ' + sqlFileName + ' | wc -l'
         result = subprocess.Popen(command, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0].replace('\n','')
@@ -87,13 +97,13 @@ class Querier(AbstractQuerier):
     def genericQuerySingle(self, cursor, nativeParallel = False):
         t0 = time.time()
         
-        self.mogrifyExecute(cursor, "CREATE TABLE " + self.resultTable + " AS " + self.getSelect())
+        oracleops.mogrifyExecute(cursor, "CREATE TABLE " + self.resultTable + " AS " + self.getSelect())
         cursor.connection.commit()
         
         return dbops.getResult(cursor, t0, self.resultTable, None, True, self.qp.columns, self.qp.statistics)
          
     def runGenericQueryParallelCandChild(self, chunkIds):
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         zCondition = dbops.addZCondition(self.qp, 'pnt.z', None)
         
@@ -105,7 +115,7 @@ class Querier(AbstractQuerier):
             else:
                 elements.append('(BLK_ID between ' + str(listcrange[0]) + ' and ' + str(listcrange[-1])+')')      
                 
-        self.mogrifyExecute(cursor, """INSERT INTO """ + self.resultTable + """ 
+        oracleops.mogrifyExecute(cursor, """INSERT INTO """ + self.resultTable + """ 
     SELECT """ + dbops.getSelectCols(self.qp.columns, {'x':'x','y':'y','z':'z'}, None) + """ FROM table ( sdo_PointInPolygon (
         cursor (SELECT """ + dbops.getSelectCols(self.columns, self.columnsNamesTypesDict, None, True) + """ FROM 
           (select points,num_points from """ + self.blockTable + """ WHERE """ + ' OR '.join(elements) + """) pcblob, 
@@ -115,7 +125,7 @@ class Querier(AbstractQuerier):
         connection.close()    
 
     def runGenericQueryParallelGridChild(self, index, gridTable):
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         zCondition = dbops.addZCondition(self.qp, 'pnt.z', None)
         query = """
@@ -125,7 +135,7 @@ INSERT INTO """ + self.resultTable + """
                            (SELECT geom FROM """ + gridTable + """ WHERE id = """ + str(index) + """),
                            NULL,NULL,NULL,NULL)) pcblob, 
         table (sdo_util.getvertices(sdo_pc_pkg.to_geometry(pcblob.points,pcblob.num_points,3,NULL))) pnt """ + dbops.getWhereStatement(zCondition)  
-        self.mogrifyExecute(cursor, query)
+        oracleops.mogrifyExecute(cursor, query)
         connection.commit()
         connection.close()    
 
@@ -134,7 +144,7 @@ INSERT INTO """ + self.resultTable + """
         #self.createResultTable(self.columns)
         numBlocksNeigh = int(math.pow(2 + math.ceil(math.sqrt(math.ceil(float(self.qp.num)/float(self.blockSize)))), 2))
         parallelHint = self.getParallelHint()
-        self.mogrifyExecute(cursor, """
+        oracleops.mogrifyExecute(cursor, """
 CREATE TABLE """ + self.resultTable + """ AS
     SELECT """ + parallelHint + """ """ + dbops.getSelectCols(self.qp.columns, self.columnsNamesTypesDict, self.qp.statistics) + """ FROM 
         (

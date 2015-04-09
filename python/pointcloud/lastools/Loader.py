@@ -13,9 +13,6 @@ class Loader(AbstractLoader,CommonLASTools):
         """ Set configuration parameters"""
         AbstractLoader.__init__(self, configuration)
         self.setVariables(configuration)
-
-    def connect(self, superUser = False):
-        return self.getConnection(superUser)
     
     def initialize(self):
         # Remove possible previous data
@@ -23,8 +20,7 @@ class Loader(AbstractLoader,CommonLASTools):
         os.system('mkdir -p ' + self.dataFolder)
         
     def process(self):
-        inputFiles = utils.getFiles(self.inputFolder)
-        self.srid = lasops.getSRID(inputFiles[0])
+        (inputFiles, self.srid, _, _, _, _, _, _, _, _, _, _) = lasops.getPCFolderDetails(self.inputFolder)
         return self.processMulti(inputFiles, self.numProcessesLoad, self.processFile)
     
     def processFile(self, index, fileAbsPath):
@@ -52,7 +48,7 @@ class Loader(AbstractLoader,CommonLASTools):
     def close(self):
         if self.dbIndex:
             logging.info('Creating index DB')
-            lidaroverview.run(self.dataFolder, self.numProcessesLoad, self.dbName, self.userName, self.password, self.dbHost, self.dbPort, True, self.lasIndexTableName, 'lastools', self.srid)
+            lidaroverview.run(self.dataFolder, self.numProcessesLoad, self.dbName, self.userName, self.password, self.dbHost, self.dbPort, self.createDB, self.lasIndexTableName, 'lastools', self.srid)
         
     def size(self):
         try:
@@ -60,7 +56,7 @@ class Loader(AbstractLoader,CommonLASTools):
         except:
             size_indexes = 0.
         if self.dbIndex:
-            connection = self.connect()
+            connection = self.getConnection()
             cursor = connection.cursor()
             size_indexes += float(postgresops.getSizes(cursor)[-1])
             connection.close()

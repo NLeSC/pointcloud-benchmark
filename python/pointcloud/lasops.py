@@ -36,7 +36,7 @@ def getPCFileDetails(absPath):
     (scaleX, scaleY, scaleZ) = (None, None, None)
     (offsetX, offsetY, offsetZ) = (None, None, None)
     
-    srid = readSRID(lasHeader)
+    srid = getSRID(absPath)
     
     outputLASInfo = subprocess.Popen('lasinfo ' + absPath + ' -nc -nv -nco', shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
     for line in outputLASInfo[1].split('\n'):
@@ -50,19 +50,27 @@ def getPCFileDetails(absPath):
             [scaleX, scaleY, scaleZ] = line.split(':')[-1].strip().split(' ')
         elif line.count('offset x y z:'):
             [offsetX, offsetY, offsetZ] = line.split(':')[-1].strip().split(' ')
-    return (count, minX, minY, minZ, maxX, maxY, maxZ, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ)
+    return (srid, count, minX, minY, minZ, maxX, maxY, maxZ, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ)
 
-def getPCDetails(absPath):
-    """ Get the details (count numPoints and extent) of a folder with LAS/LAZ files (using LAStools, hence it is fast)"""
+def getPCFolderDetails(absPath):
+    """ Get the details (count numPoints and extent) of a folder with LAS/LAZ files (using LAStools, hence it is fast)
+    It is assumed that all file shave same SRID and scale as first one"""
     tcount = 0
     (tminx, tminy, tminz, tmaxx, tmaxy, tmaxz) =  (None, None, None, None, None, None)
+    (tscalex, tscaley, tscalez) = (None, None)
+    tsrid = None
+    
     if os.path.isdir(absPath):
         inputFiles = utils.getFiles(absPath)
     else:
         inputFiles = [absPath,]
     
-    for inputFile in inputFiles:
-        (count, minx, miny, minz, maxx, maxy, maxz, _, _, _, _, _, _) = getPCFileDetails(inputFile)
+    for i in range(len(inputFiles)):
+        (count, minx, miny, minz, maxx, maxy, maxz, scalex, scaley, scalez, _, _, _) = getPCFileDetails(inputFiles[i])
+        if i == 0:
+            (tscalex, tscaley, tscalez) = (scalex, scaley, scalez)
+            tsrid = getSRID(inputFiles[i])
+            
         tcount += count
         if count:
             if tminx == None or minx < tminx:
@@ -77,4 +85,5 @@ def getPCDetails(absPath):
                 tmaxy = maxy
             if tmaxz == None or maxz > tmaxz:
                 tmaxz = maxz
-    return (tcount, tminx, tminy, tminz, tmaxx, tmaxy, tmaxz)
+
+    return (inputFiles, srid, tcount, tminx, tminy, tminz, tmaxx, tmaxy, tmaxz, tscalex, tscaley, tscalez)

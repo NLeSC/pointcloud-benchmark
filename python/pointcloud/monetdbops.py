@@ -11,6 +11,7 @@ from pointcloud import utils
 #
 
 def mogrify(cursor, query, queryArgs = None):
+    """ Returns a string representation of the query statement"""
     if queryArgs == None:
         return query
     else:
@@ -21,6 +22,7 @@ def mogrify(cursor, query, queryArgs = None):
         return pquery
 
 def mogrifyExecute(cursor, query, queryArgs = None):
+    """ Execute a query with logging"""
     logging.info(mogrify(cursor, query, queryArgs))
     if queryArgs != None:
         return cursor.execute(query, queryArgs)
@@ -28,6 +30,7 @@ def mogrifyExecute(cursor, query, queryArgs = None):
         return cursor.execute(query)
  
 def dropTable(cursor, tableName, check = False):
+    """ Drops a table"""
     toDelete = True
     if check:
         if not cursor.execute('select name from tables where name = %s', (tableName,)):
@@ -37,5 +40,6 @@ def dropTable(cursor, tableName, check = False):
         cursor.connection.commit()
 
 def getSizes(cursor):
+    """ Get the sizes of the DB (indexes, tables, indexes+tables)"""
     cursor.execute("""select cast(sum(imprints) AS double)/(1024.*1024.), cast(sum(columnsize) as double)/(1024.*1024.), (cast(sum(imprints) AS double)/(1024.*1024.) + cast(sum(columnsize) as double)/(1024.*1024.)) from storage()""")
     return list(cursor.fetchone())

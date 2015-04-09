@@ -4,7 +4,7 @@
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
 import logging, numpy, math, os
-from pointcloud import utils
+from pointcloud import utils, lasops, oracleops
 from pointcloud.oracle.AbstractLoader import AbstractLoader
 
 class LoaderInc(AbstractLoader):
@@ -21,22 +21,25 @@ class LoaderInc(AbstractLoader):
         
         
         # Creates the user that will store the tables
-        self.createUser()
-        
         if self.cUser:
-            connection = self.connect()
-            cursor = connection.cursor()
-            
-            # Creates the global blocks tables
-            self.createBlocks(cursor, self.blockTable, self.baseTable)
-            self.blockSeq = self.blockTable + '_ID_SEQ'
-            cursor.execute("create sequence " + self.blockSeq )
-            connection.commit()
-            self.initCreatePC(cursor, create = False)
-            connection.commit() 
-            connection.close()
+            self.createUser()
+        
+        (self.inputFiles, self.srid, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = getPCFolderDetails(self.inputFolder)
+           
+        connection = self.getConnection()
+        cursor = connection.cursor()
+        
+        # Creates the global blocks tables
+        self.createBlocks(cursor, self.blockTable, self.baseTable)
+        self.blockSeq = self.blockTable + '_ID_SEQ'
+        cursor.execute("create sequence " + self.blockSeq )
+        connection.commit()
+        self.initCreatePC(cursor, self.minX, self.minY, self.maxX, self.maxY, create = False)
+        connection.commit() 
+        connection.close()
 
     def process(self):
+        
         inputFiles = utils.getFiles(self.inputFolder)
         
         if self.chunkSize > 0:
@@ -56,10 +59,10 @@ class LoaderInc(AbstractLoader):
         self.loadInc(fileAbsPath, 1, self.blockTable, self.blockSeq)
 
     def close(self):
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
-        self.mogrifyExecute(cursor, "update " + self.blockTable + " b set b.blk_extent.sdo_srid = " + str(self.srid))
-        self.createBlockIndex(cursor)
+        oracleops.mogrifyExecute(cursor, "update " + self.blockTable + " b set b.blk_extent.sdo_srid = " + str(self.srid))
+        self.createBlockIndex(cursor, self.minX, self.minY, self.maxX, self.maxY)
         connection.close()
         
     def size(self):

@@ -4,10 +4,20 @@
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
 import time
-from pointcloud import lasops, pdalxml
+from pointcloud import lasops, pdalxml, oracleops
 from pointcloud.oracle.AbstractQuerier import AbstractQuerier
 
-class QuerierPDAL(AbstractQuerier):        
+class QuerierPDAL(AbstractQuerier):    
+    def __init__(self, configuration):
+        """ Set configuration parameters and create user if required """
+        AbstractQuerier.__init__(self, configuration)
+        # Create the quadtree
+        connection = self.getConnection()
+        cursor = connection.cursor()
+        
+        oracleops.mogrifyExecute(cursor, "SELECT srid FROM user_sdo_geom_metadata WHERE table_name = '" + self.blocksTable + "'")
+        (self.srid,) = cursor.fetchone()[0]
+        
     def queryDisk(self, queryId, iterationId, queriesParameters):
         self.prepareQuery(queryId, queriesParameters, False)
         outputFileAbsPath = 'output' +  str(queryIndex) + '.las'

@@ -4,7 +4,7 @@
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
 import logging
-from pointcloud import utils
+from pointcloud import utils, oracleops
 from pointcloud.oracle.AbstractLoader import AbstractLoader
 
 class Loader(AbstractLoader):
@@ -18,35 +18,39 @@ class Loader(AbstractLoader):
         
         if self.clusterhilbert:
             raise Exception('ERROR: hilbert clustering not supported!')
-        
-        if not self.cluster2Step:
-            raise Exception('ERROR: clustering is always in two steps!')
-        
+
         self.createUser()
         
-        connection = self.connect()
-        self.createFlat(connection.cursor(), self.flatTable)
+        (self.inputFiles, self.srid, self.minX, self.minY, self.maxX, self.maxY, self.scaleX, self.scaleY) = self.getPCDescription(self.inputFolder)
+        
+        connection = self.getConnection()
+        cursor = connection.cursor()
+        self.createFlat(cursor, self.flatTable)
+        self.createFlatMeta(cursor, self.metaTable)
+        
         connection.close()
         
         logging.info( 'Files are loaded sequentially...')
     
     def process(self):
-        inputFiles = utils.getFiles(self.inputFolder)
-        return self.processSingle(inputFiles, self.loadFromFile)
+        return self.processSingle(self.inputFiles, self.loadFromFile)
     
     def loadFromFile(self,  index, fileAbsPath):
         self.loadToFlat(fileAbsPath, self.flatTable)
 
     def close(self):
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
+        metaArgs = (self.flatTable, self.srid, self.minX, self.minY, self.maxX, self.maxY, self.scaleX, self.scaleY)
+        oracleops.mogrifyExecute(cursor, "INSERT INTO " + self.metaTable + " VALUES (%s,%s,%s,%s,%s,%s,%s,%s)" , metaArgs)
+
         if self.cluster:
             tempFlatTable = self.flatTable + '_TEMP'
-            self.mogrifyExecute(cursor, "ALTER TABLE " + self.flatTable + " RENAME TO " + tempFlatTable )
+            oracleops.mogrifyExecute(cursor, "ALTER TABLE " + self.flatTable + " RENAME TO " + tempFlatTable )
             connection.commit()
-            self.createIOT(cursor, self.flatTable, tempFlatTable, self.tableSpace, self.columns, self.columns, self.index, self.clusterDistinct)
+            self.createIOT(cursor, self.flatTable, tempFlatTable, self.tableSpace, self.columns, self.columns, self.index)
             
-            self.dropTable(cursor, tempFlatTable, False)
+            oracleops.dropTable(cursor, tempFlatTable, False)
             connection.commit()
         else:
             if self.index != 'false':    

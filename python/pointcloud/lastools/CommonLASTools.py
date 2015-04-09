@@ -15,6 +15,7 @@ class CommonLASTools():
         self.dbName = configuration.get('DB','Name')
         self.dbHost = configuration.get('DB','Host')
         self.dbPort = configuration.get('DB','Port')
+        self.createDB = configuration.getboolean('DB','CreateDB')
         self.dbIndex = configuration.getboolean('DB','DBLASIndex')
         self.lasIndexTableName = configuration.get('DB','DBLASIndexTableName').lower()
         
@@ -32,7 +33,7 @@ class CommonLASTools():
         
         self.colsData = ['x','y','z'] #TODO: add the rest
         
-    def getConnectString(self, superUser = False, commandLine = False):
+    def getConnectionString(self, superUser = False, commandLine = False):
         if not superUser:
             connString = postgresops.getConnectString(self.dbName, self.userName, self.password, self.dbHost, self.dbPort, commandLine)
         else:
@@ -40,4 +41,4 @@ class CommonLASTools():
         return connString
     
     def getConnection(self, superUser = False):
-        return psycopg2.connect(self.getConnectString(superUser))
+        return psycopg2.connect(self.getConnectionString(superUser))

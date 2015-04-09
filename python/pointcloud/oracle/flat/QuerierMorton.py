@@ -5,17 +5,23 @@
 ################################################################################
 import time,copy,logging
 from pointcloud.oracle.AbstractQuerier import AbstractQuerier
-from pointcloud import wktops, dbops, qtops
+from pointcloud import wktops, dbops, qtops, oracleops
 
 class QuerierMorton(AbstractQuerier):
     def __init__(self, configuration):
         """ Set configuration parameters and create user if required """
         AbstractQuerier.__init__(self, configuration)
         # Create the quadtree
-        (self.quadtree, self.mortonDistinctIn, self.mortonApprox, self.maxRanges) = qtops.getQuadTree(configuration, float(self.minX), float(self.minY), float(self.maxX), float(self.maxY), float(self.mortonScaleX), float(self.mortonScaleY))
+        connection = self.getConnection()
+        cursor = connection.cursor()
+        
+        oracleops.mogrifyExecute(cursor, "SELECT srid, minx, miny, maxx, maxy, scalex, scaley from " + self.metaTable)
+        (self.srid, minX, minY, maxX, maxY, scaleX, scaleY) = cursor.fetchone()[0]
+        
+        (self.quadtree, self.mortonDistinctIn, self.mortonApprox, self.maxRanges) = qtops.getQuadTree(configuration, minX, minY,maxX,maxY,scaleX,scaleY)
 
     def queryDisk(self, queryId, iterationId, queriesParameters):
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         
         self.prepareQuery(queryId, queriesParameters, iterationId == 0)
@@ -23,7 +29,7 @@ class QuerierMorton(AbstractQuerier):
         if self.mortonApprox:
             self.queryType = 'approx'
         
-        self.dropTable(cursor, self.resultTable, True)    
+        oracleops.dropTable(cursor, self.resultTable, True)    
        
         t0 = time.time()
         
@@ -38,13 +44,13 @@ class QuerierMorton(AbstractQuerier):
             
         if self.parallelType != 'nati':
             connection.commit()
-            dbops.createResultsTable(cursor, self.mogrifyExecute, self.resultTable, self.qp.columns, self.colsData)
+            dbops.createResultsTable(cursor, oracleops.mogrifyExecute, self.resultTable, self.qp.columns, self.colsData)
             dbops.parallelMorton(mimranges, mxmranges, self.childInsert, self.numProcessesQuery)
         else:
             if self.numProcessesQuery > 1:
                 self.hints.append('PARALLEL (' + str(self.numProcessesQuery) + ')')
             (query, queryArgs) = dbops.getSelectMorton(mimranges, mxmranges, self.qp, self.flatTable, self.addContainsCondition, self.colsData, self.getHintStatement(self.hints))
-            self.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS " + query + "", queryArgs)
+            oracleops.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS " + query + "", queryArgs)
             connection.commit()
         
         (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.colsData, (not self.mortonDistinctIn) and (self.parallelType == 'nati'), self.qp.columns, self.qp.statistics)
@@ -57,11 +63,11 @@ class QuerierMorton(AbstractQuerier):
         return ''
     
     def childInsert(self, iMortonRanges, xMortonRanges):
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         cqp = copy.copy(self.qp)
         cqp.statistics = None
         (query, queryArgs) = dbops.getSelectMorton(iMortonRanges, xMortonRanges, cqp, self.flatTable, self.addContainsCondition, self.colsData, self.getHintStatement(self.hints))
-        self.mogrifyExecute(cursor, "INSERT INTO "  + self.resultTable + " " + query, queryArgs)
+        oracleops.mogrifyExecute(cursor, "INSERT INTO "  + self.resultTable + " " + query, queryArgs)
         connection.commit()
         connection.close()

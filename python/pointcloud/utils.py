@@ -307,29 +307,6 @@ def getNRowNCol(v, nummax = 10):
     if len(d) == 0:
         raise Exception('Error getting row col')
     return max(d)
-
-def oraclemogrify(cursor, query, queryArgs = None):
-    query = query.upper()
-    if queryArgs == None:
-        return query
-    else:
-        cursor.prepare(query)
-        bindnames = cursor.bindnames()
-        if len(queryArgs) != len(bindnames):
-            raise Exception('Error: len(queryArgs) != len(bindnames) \n ' + str(queryArgs) + '\n' + str(bindnames))
-        if (type(queryArgs) == list) or (type(queryArgs) == tuple):
-            for i in range(len(queryArgs)):
-                query = query.replace(':'+bindnames[i],str(queryArgs[i]))
-            return query
-        elif type(queryArgs) == dict:
-            upQA = {}
-            for k in queryArgs:
-                upQA[k.upper()] = queryArgs[k]
-            for bindname in bindnames:
-                query = query.replace(':'+bindname, str(upQA[bindname]))
-            return query
-        else:
-            raise Exception('Error: queryArgs must be dict, list or tuple')
              
 def las2txtCommand(inputFile, outputFile = 'stdout', columns = 'xyz', separation = None, tool = 'liblas'):
     separatorArgument = ''

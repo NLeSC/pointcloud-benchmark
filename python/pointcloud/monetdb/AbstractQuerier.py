@@ -16,15 +16,12 @@ class AbstractQuerier(AQuerier, CommonMonetDB):
         AQuerier.__init__(self, configuration)
         self.setVariables(configuration)
 
-    def connect(self, superUser = False):
-        return self.getConnection()
-    
     def initialize(self):
         #Variables used during query
         self.queryIndex = None
         self.resultTable = None
         self.qp = None
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         
         monetdbops.mogrifyExecute(cursor, "SELECT srid, minx, miny, maxx, maxy, scalex, scaley from " + self.metaTable)

@@ -16,9 +16,6 @@ class AbstractQuerier(AQuerier, CommonOracle):
         AQuerier.__init__(self, configuration)
         self.setVariables(configuration)
         
-    def connect(self, superUser = False):    
-        return cx_Oracle.connect(self.connectString(superUser))
-    
     def initialize(self):
         #Variables used during query
         self.queryIndex = None
@@ -27,10 +24,10 @@ class AbstractQuerier(AQuerier, CommonOracle):
  
         # We have to create a new conneciton for each query, reusing it gives error
         
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
-        self.dropTable(cursor, self.queryTable, check = True)
-        self.mogrifyExecute(cursor, "CREATE TABLE " + self.queryTable + " ( id number primary key, geom sdo_geometry) TABLESPACE " + self.tableSpace + " pctfree 0 nologging")
+        oracleops.dropTable(cursor, self.queryTable, check = True)
+        oracleops.mogrifyExecute(cursor, "CREATE TABLE " + self.queryTable + " ( id number primary key, geom sdo_geometry) TABLESPACE " + self.tableSpace + " pctfree 0 nologging")
         connection.commit()
         connection.close()
     
@@ -38,7 +35,7 @@ class AbstractQuerier(AQuerier, CommonOracle):
         return
 
     def prepareQuery(self, queryId, queriesParameters, firstQuery = True):
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         
         self.queryIndex = int(queryId)
@@ -72,7 +69,7 @@ SELECT T.id, SDO_GEOM.SDO_INTERSECTION(A.geom, T.GEOMETRY, """ + str(self.tolera
         null, """ + str(self.srid) + """, """ + str(ncols) +""" - 1, """ + str(nrows) +""" - 1
     ) from A) T, A
 """
-        self.mogrifyExecute(cursor, query)
+        oracleops.mogrifyExecute(cursor, query)
         cursor.connection.commit()
         cursor.execute("CREATE INDEX " + gridTable + "_id_idx ON " + gridTable + "(ID)")
         cursor.connection.commit()
