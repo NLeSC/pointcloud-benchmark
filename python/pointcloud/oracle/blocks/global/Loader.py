@@ -4,7 +4,7 @@
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
 import logging
-from pointcloud import utils, lasops
+from pointcloud import lasops
 from pointcloud.oracle.AbstractLoader import AbstractLoader
 
 # LAS2TXT + SQLLOADER all files to staging table. Then, create blocks globally with R-Tree blocking
@@ -22,7 +22,8 @@ class Loader(AbstractLoader):
             self.createUser()
         
         # Get the point cloud folder description
-        (self.inputFiles, self.srid, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = getPCFolderDetails(self.inputFolder)
+        logging.info('Getting files, extent and SRID from input folder ' + self.inputFolder)
+        (self.inputFiles, self.srid, _, self.minX, self.minY, _, self.maxX, self.maxY, _, _, _, _) = lasops.getPCFolderDetails(self.inputFolder)
         
         # Creates connection
         connection = self.getConnection()
@@ -38,7 +39,7 @@ class Loader(AbstractLoader):
         connection.close()
 
     def process(self):
-        logging.info( 'Files are loaded sequentially...')
+        logging.info('Starting data loading sequentially from ' + self.inputFolder + ' to ' + self.userName)
         return self.processSingle(self.inputFiles, self.loadFromFile)
 
     def loadFromFile(self,  index, fileAbsPath):

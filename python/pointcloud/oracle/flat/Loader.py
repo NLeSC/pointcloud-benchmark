@@ -4,62 +4,50 @@
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
 import logging
-from pointcloud import utils, oracleops
+from pointcloud import oracleops
 from pointcloud.oracle.AbstractLoader import AbstractLoader
 
 class Loader(AbstractLoader):
     def initialize(self):
-        # Check parameters for this loader
-        if self.partition != 'none':
-            raise Exception('ERROR: partitions are not supported!')
+        if self.cUser:
+            self.createUser()
         
-        if self.numProcessesLoad > 1:
-            raise Exception('ERROR: multi-core is not supported!')
+        # Get the point cloud folder description
+        logging.info('Getting files, extent, scale and SRID from input folder ' + self.inputFolder)
+        (self.inputFiles, self.srid, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = lasops.getPCFolderDetails(self.inputFolder)
         
-        if self.clusterhilbert:
-            raise Exception('ERROR: hilbert clustering not supported!')
-
-        self.createUser()
-        
-        (self.inputFiles, self.srid, self.minX, self.minY, self.maxX, self.maxY, self.scaleX, self.scaleY) = self.getPCDescription(self.inputFolder)
-        
+        # Creates connection
         connection = self.getConnection()
         cursor = connection.cursor()
-        self.createFlat(cursor, self.flatTable)
-        self.createFlatMeta(cursor, self.metaTable)
         
+        # Create the flat table
+        self.createFlatTable(cursor, self.flatTable, self.columns)
+        self.createFlatMeta(cursor, self.metaTable)
         connection.close()
         
-        logging.info( 'Files are loaded sequentially...')
-    
     def process(self):
+        logging.info('Starting data loading sequentially from ' + self.inputFolder + ' to ' + self.userName)
         return self.processSingle(self.inputFiles, self.loadFromFile)
     
     def loadFromFile(self,  index, fileAbsPath):
-        self.loadToFlat(fileAbsPath, self.flatTable)
+        self.las2txt_sqlldr(fileAbsPath, self.flatTable, self.columns)
 
     def close(self):
         connection = self.getConnection()
         cursor = connection.cursor()
         metaArgs = (self.flatTable, self.srid, self.minX, self.minY, self.maxX, self.maxY, self.scaleX, self.scaleY)
         oracleops.mogrifyExecute(cursor, "INSERT INTO " + self.metaTable + " VALUES (%s,%s,%s,%s,%s,%s,%s,%s)" , metaArgs)
-
-        if self.cluster:
+        if self.flatTableIOT:
             tempFlatTable = self.flatTable + '_TEMP'
             oracleops.mogrifyExecute(cursor, "ALTER TABLE " + self.flatTable + " RENAME TO " + tempFlatTable )
-            connection.commit()
-            self.createIOT(cursor, self.flatTable, tempFlatTable, self.tableSpace, self.columns, self.columns, self.index)
-            
+            self.createIOTTable(cursor, self.flatTable, tempFlatTable, self.tableSpace, self.columns, self.columns, self.index, self.numProcessesLoad)
             oracleops.dropTable(cursor, tempFlatTable, False)
-            connection.commit()
         else:
-            if self.index != 'false':    
-                self.createIndex(cursor, self.flatTable, self.index)
-        #self.computeStatistics(cursor, self.flatTable)
+            self.createIndex(cursor, self.flatTable, self.index, self.indexTableSpace, self.numProcessesLoad)
         connection.close()
         
     def size(self):
-        return self.sizeFlat()
+        return self.sizeFlat(self.flatTable)
 
     def getNumPoints(self):
-        return self.getNumPointsFlat()
+        return self.getNumPointsFlat(self.flatTable)

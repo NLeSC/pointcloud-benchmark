@@ -6,7 +6,7 @@
 import time, subprocess
 from pointcloud.monetdb.AbstractQuerier import AbstractQuerier
 from pointcloud.monetdb.CommonMonetDB import CommonMonetDB
-from pointcloud import dbops, utils, monetdbops
+from pointcloud import dbops, monetdbops
 
 class Querier(AbstractQuerier, CommonMonetDB):
     """MonetDB querier"""
@@ -14,26 +14,18 @@ class Querier(AbstractQuerier, CommonMonetDB):
         connection = self.getConnection()
         cursor = connection.cursor()
         self.prepareQuery(queryId, queriesParameters)
-        self.dropTable(cursor, self.resultTable, True)    
+        monetdbops.dropTable(cursor, self.resultTable, True)    
         
         t0 = time.time()
         (query, queryArgs) = dbops.getSelect(self.qp, self.flatTable, self.addContainsCondition, self.colsData)
         
         if self.qp.queryMethod != 'stream': # disk or stat
             monetdbops.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS " + query + " WITH DATA", queryArgs)
-            connection.commit()
             (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.colsData, True, self.qp.columns, self.qp.statistics)
-            connection.close()
         else:
             sqlFileName = str(queryId) + '.sql'
-            sqlFile = open(sqlFileName, 'w')
-            sqlFile.write(monetdbops.mogrify(None, query, queryArgs) + ';\n')
-            sqlFile.close()
-            command = 'mclient ' + self.dbName + ' < ' + sqlFileName + ' | wc -l'
-            result = subprocess.Popen(command, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0].replace('\n','')
+            monetdbops.createSQLFile(sqlFileName, query, queryArgs)
+            result = monetdbops.executeSQLFileCount(self.dbName, sqlFileName)
             eTime = time.time() - t0
-            try:
-                result  = int(result) - 5
-            except:
-                result = None
+        connection.close()
         return (eTime, result)

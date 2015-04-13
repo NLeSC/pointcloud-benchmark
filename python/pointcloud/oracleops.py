@@ -65,6 +65,7 @@ def mogrifyExecute(self, cursor, query, queryArgs = None):
         cursor.execute(query, queryArgs)
     else:
         cursor.execute(query)
+    cursor.connection.commit()
         
 def dropTable(self, cursor, tableName, check = False):
     """ Drops a table"""
@@ -74,8 +75,7 @@ def dropTable(self, cursor, tableName, check = False):
             mogrifyExecute(cursor, 'DROP TABLE ' + tableName)
     else:
         mogrifyExecute(cursor, 'DROP TABLE ' + tableName)
-    cursor.connection.commit()
-
+        
 def getSizeTable(cursor, tableName):
     """ Get the size in MB of a table"""
     try:
@@ -145,4 +145,20 @@ END;
     except:
         size = 0
     return size
-     
+
+def createSQLFile(cursor, absPath, query, queryArgs):
+    sqlFile = open(absPath, 'w')
+    sqlFile.write('set linesize 120\n')
+    sqlFile.write('set trimout on\n')
+    sqlFile.write('set pagesize 0\n')
+    sqlFile.write(mogrify(cursor, query, queryArgs) + ';\n')
+    sqlFile.close()
+    
+def executeSQLFileCount(connectionString, sqlFileAbsPath):
+    command = 'sqlplus -s ' + connectionString + ' < ' + sqlFileAbsPath + ' | wc -l'
+    result = subprocess.Popen(command, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0].replace('\n','')
+    try:
+        result  = int(result) - 3
+    except:
+        result = -1
+    return result

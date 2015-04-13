@@ -4,9 +4,12 @@
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
 from shapely.wkt import loads, dumps
-import time,logging
+import time,logging,subprocess
 from pointcloud.monetdb.AbstractQuerier import AbstractQuerier
-from pointcloud import wktops, dbops, qtops, monetdbops
+from pointcloud import wktops, dbops, monetdbops
+from pointcloud.QuadTree import QuadTree
+
+MAXIMUM_RANGES = 10
 
 class QuerierMorton(AbstractQuerier):        
     def __init__(self, configuration):
@@ -16,46 +19,50 @@ class QuerierMorton(AbstractQuerier):
         connection = self.getConnection()
         cursor = connection.cursor()
         
-        (self.mortonGlobalOffsetX, self.mortonGlobalOffsetY) = (self.minX, self.minY)
-        (self.mortonScaleX, self.mortonScaleY) = (self.scaleX, self.scaleY)
-        
         # Create the quadtree
-        (self.quadtree, self.mortonDistinctIn, self.mortonApprox, self.maxRanges) = qtops.getQuadTree(minX, minY, maxX, maxY, self.mortonScaleX, self.mortonScaleY, self.mortonGlobalOffsetX, self.mortonGlobalOffsetY)
-    
-    def queryDisk(self, queryId, iterationId, queriesParameters):
-        connection = self.getConnection()
-        cursor = connection.cursor()
+        qtDomain = (0, 0, int((self.maxX-self.minX)/self.scaleX), int((self.maxY-self.minY)/self.scaleY))
+        self.quadtree = QuadTree(qtDomain, 'auto')    
+        # Differentiate QuadTree nodes that are fully in the query region
+        self.mortonDistinctIn = False
         
-        self.prepareQuery(queryId, queriesParameters)
+        if not ('x' in self.columns and 'y' in self.columns):
+            self.queryColsData = self.colsData.copy()
+            self.queryColsData['x'][0] = 'GetX(morton2D, ' + str(self.scaleX) + ', ' + str(int(self.minX / self.scaleX)) + ')' 
+            self.queryColsData['y'][0] = 'GetY(morton2D, ' + str(self.scaleY) + ', ' + str(int(self.minY / self.scaleY)) + ')'
+        else:
+            self.queryColsData = self.colsData
             
-        if self.mortonApprox:
-            self.queryType = 'approx'
-        
-        self.dropTable(cursor, self.resultTable, True)    
-       
+        connection.close()
+    
+    def query(self, queryId, iterationId, queriesParameters):
+        (eTime, result) = (-1, None)
+        connection = self.getConnection()
+        cursor = connection.cursor() 
+        self.prepareQuery(queryId, queriesParameters)
+        monetdbops.dropTable(cursor, self.resultTable, True)    
+           
         wkt = self.qp.wkt
         if self.qp.queryType == 'nn':
             g = loads(self.qp.wkt)
             wkt = dumps(g.buffer(self.qp.rad))
        
         t0 = time.time()
-        scaledWKT = wktops.scale(wkt, self.mortonScaleX, self.mortonScaleY, self.mortonGlobalOffsetX, self.mortonGlobalOffsetY)    
-        (mimranges,mxmranges) = self.quadtree.getMortonRanges(scaledWKT, self.mortonDistinctIn, maxRanges = self.maxRanges)
+        scaledWKT = wktops.scale(wkt, self.scaleX, self.scaleY, self.minX, self.minY)    
+        (mimranges,mxmranges) = self.quadtree.getMortonRanges(scaledWKT, self.mortonDistinctIn, maxRanges = MAXIMUM_RANGES)
                         
         if len(mimranges) == 0 and len(mxmranges) == 0:
             logging.info('None morton range in specified extent!')
-            return
-        if not ('x' in self.columns and 'y' in self.columns):
-            colsData = self.colsData.copy()
-            colsData['x'][0] = 'GetX(morton2D, ' + str(self.mortonScaleX) + ', ' + str(int(self.mortonGlobalOffsetX / self.mortonScaleX)) + ')' 
-            colsData['y'][0] = 'GetY(morton2D, ' + str(self.mortonScaleY) + ', ' + str(int(self.mortonGlobalOffsetY / self.mortonScaleY)) + ')'
-        else:
-            colsData = self.colsData
-
-        (query, queryArgs) = dbops.getSelectMorton(mimranges, mxmranges, self.qp, self.flatTable, self.addContainsCondition, colsData)
-        monetdbops.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS " + query + " WITH DATA", queryArgs)
+            return (eTime, result)
         
-        (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.colsData, not self.mortonDistinctIn, self.qp.columns, self.qp.statistics)
-
+        (query, queryArgs) = dbops.getSelectMorton(mimranges, mxmranges, self.qp, self.flatTable, self.addContainsCondition, self.queryColsData)
+        
+        if self.qp.queryMethod != 'stream': # disk or stat
+            monetdbops.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS " + query + " WITH DATA", queryArgs)
+            (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.colsData, True, self.qp.columns, self.qp.statistics)
+        else:
+            sqlFileName = str(queryId) + '.sql'
+            monetdbops.createSQLFile(sqlFileName, query, queryArgs)
+            result = monetdbops.executeSQLFileCount(self.dbName, sqlFileName)
+            eTime = time.time() - t0
         connection.close()
         return (eTime, result)

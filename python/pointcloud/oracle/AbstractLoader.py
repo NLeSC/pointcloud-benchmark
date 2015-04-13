@@ -17,6 +17,7 @@ class AbstractLoader(ALoader, CommonOracle):
         self.setVariables(configuration)
         
     def createUser(self):
+        logging.info('Creating user ' + self.userName)
         connectionSuper = self.getConnection(True)
         cursorSuper = connectionSuper.cursor()
         oracleops.createUser(cursorSuper, self.userName, self.password, self.tableSpace, self.tempTableSpace)
@@ -64,8 +65,7 @@ class AbstractLoader(ALoader, CommonOracle):
 
         oracleops.mogrifyExecute(cursor,"""
 CREATE TABLE """ + tableName + """ (""" + (',\n'.join(self.getDBColumns(columns, True))) + """) TABLESPACE """ + self.tableSpace + """ pctfree 0 nologging""")
-        cursor.connection.commit()
-        
+
     def createBlocksTable(self, cursor, blockTable, tableSpace, compression, baseTable = None, includeBlockId = False):    
         """ Create the blocks table and meta-data table"""
         oracleops.dropTable(cursor, blockTable, True)
@@ -87,8 +87,7 @@ as SELECT * FROM mdsys.SDO_PC_BLK_TABLE where 0 = 1""")
             else:
                 oracleops.mogrifyExecute(cursor,"""
     CREATE TABLE """ + baseTable + """ (pc sdo_pc)
-      TABLESPACE """ + tableSpace + """ pctfree 0 nologging""")
-            cursor.connection.commit()     
+      TABLESPACE """ + tableSpace + """ pctfree 0 nologging""")  
          
     def las2txt_sqlldr(self, fileAbsPath, tableName, columns):
         commonFile = os.path.basename(fileAbsPath).replace(fileAbsPath.split('.')[-1],'')
@@ -115,7 +114,7 @@ fields terminated by ','
 )""")
         ctfile.close()
         las2txtCommand = utils.las2txtCommand(fileAbsPath, "stdout", columns = self.columns, separation = ',', tool = 'lastools')
-        sqlLoaderCommand = "sqlldr " + self.connectString() + " direct=true control=" + controlFile + " data=\\'-\\' bad=" + badFile + " log=" + logFile
+        sqlLoaderCommand = "sqlldr " + self.getConnectionString() + " direct=true control=" + controlFile + " data=\\'-\\' bad=" + badFile + " log=" + logFile
         command = las2txtCommand + " | " + sqlLoaderCommand
         logging.debug(command)
         os.system(command)
@@ -128,19 +127,16 @@ fields terminated by ','
         cursor.execute('SELECT view_name FROM all_views WHERE view_name = :1',[viewFlatTable,])
         if len(cursor.fetchall()):
             oracleops.mogrifyExecute(cursor,'DROP VIEW ' + viewFlatTable)
-            cursor.connection.commit()
         
         # Create a view that contains of the flat table to include the rid column required by the blocks
         oracleops.mogrifyExecute(cursor,"CREATE VIEW " + viewFlatTable + " as SELECT '0' rid, " + (','.join(self.getDBColumns(columns, False))) + " from " + flatTable)
 
         #Initialize point cloud metadata and create point cloud   
         self.initCreatePC(cursor, minX, minY, maxX, maxY, viewFlatTable, blockTable, baseTable, blockSize, tolerance, workTableSpace) 
-        cursor.connection.commit()
         
         #oracleops.mogrifyExecute(cursor,"""ALTER TABLE """ + self.blockTable + """ add constraint """ + self.blockTable + """_PK primary key (obj_id, blk_id) using index tablespace """ + self.indexTableSpace)
         oracleops.mogrifyExecute(cursor,"""DROP VIEW """ + viewFlatTable)
-        oracleops.dropTable(cursor, flatTable)
-        cursor.connection.commit()        
+        oracleops.dropTable(cursor, flatTable)    
 
     def initCreatePC(self, cursor, srid, minX, minY, maxX, maxY, flatTable, blockTable, baseTable, blockSize, tolerance, workTableSpace, create = True):
         c=''
@@ -161,11 +157,11 @@ END;
 """)
 
     def createBlockIdIndex(self, cursor, blockTable, indexTableSpace):
-        oracleops.mogrifyExecute(cursor,"""ALTER TABLE """ + blockTable + """ add constraint """ + blockTable + """_PK primary key (obj_id, blk_id) using index tablespace """ + indexTableSpace)
-        cursor.connection.commit()        
+        oracleops.mogrifyExecute(cursor,"""ALTER TABLE """ + blockTable + """ add constraint """ + blockTable + """_PK primary key (obj_id, blk_id) using index tablespace """ + indexTableSpace)      
         
     def createExternalTable(self, cursor, lasFiles, tableName, columns, lasDirVariableName, numProcesses):
         # Executes the external table setting it to use hilbert_prep.sh script (which must be located in the EXE_DIR Oracle directory)
+        oracleops.dropTable(cursor, tableName, True)
         oracleops.mogrifyExecute(cursor, """
 CREATE TABLE """ + tableName + """ (""" + (',\n'.join(self.getDBColumns(columns, True))) + """)
 organization external
@@ -180,11 +176,11 @@ access parameters (
     fields terminated by ',')
 location ('""" + lasFiles + """')
 )
-""" + self.getParallelString(numProcesses) + """ reject limit 0""")
-        cursor.connection.commit()        
+""" + self.getParallelString(numProcesses) + """ reject limit 0""")     
         
     def createIOTTable(self, cursor, iotTableName, tableName, tableSpace, icolumns, ocolumns, keycolumns, numProcesses, check = False, hilbertFactor = None):
         """ Create Index-Organized-Table and populate it from tableName Table"""
+        oracleops.dropTable(cursor, iotTableName, True)
         hilbertColumnName = 'd'
         if hilbertFactor != None:
             hilbertColumnName = 'd+(rownum*' + hilbertFactor + ') d'
@@ -192,7 +188,7 @@ location ('""" + lasFiles + """')
         icols = self.getDBColumns(icolumns,False, hilbertColumnName)
         ocols = self.getDBColumns(ocolumns,False)
         kcols = self.getDBColumns(keycolumns,False)
-               
+        
         oracleops.mogrifyExecute(cursor, """
 CREATE TABLE """ + iotTableName + """
 (""" + (','.join(ocols)) + """
@@ -202,13 +198,16 @@ CREATE TABLE """ + iotTableName + """
     """ + self.getParallelString(numProcesses) + """
 as
     SELECT """ + (','.join(icols)) + """ FROM """ + tableName)
-        cursor.connection.commit()        
     
     def populateBlocksHilbert(self, cursor, srid, minX, minY, maxX, maxY, flatTable, blockTable, baseTable, blockSize, tolerance):
         # NOTE: In this case we do not require to create a view, since the fixed format by the hilbert pre-processor makes it directly compatible
         # if we change the pre-processor we need to change these ones
         self.initCreatePCHilbert(cursor, srid, minX, minY, maxX, maxY, flatTable, blockTable, baseTable, blockSize, tolerance)
+        oracleops.dropTable(cursor, flatTable)
     
+    def updateBlocksSRID(self, cursor, blockTable, srid):
+        oracleops.mogrifyExecute(cursor, "update " + blockTable + " b set b.blk_extent.sdo_srid = " + str(srid))
+        
     def initCreatePCHilbert(self, cursor, srid, minX, minY, maxX, maxY, flatTable, blockTable, baseTable, blockSize, tolerance):
         # this one also populates
         oracleops.mogrifyExecute(cursor,"""
@@ -229,9 +228,7 @@ BEGIN
     sdo_pc_pkg.create_pc (ptcld, '""" + flatTable + """', NULL);
 END;
 """)
-        oracleops.mogrifyExecute(cursor, "update " + blockTable + " b set b.blk_extent.sdo_srid = " + str(srid))
-        oracleops.dropTable(cursor, flatTable)
-        cursor.connection.commit()        
+        self.updateBlocksSRID(cursor, blockTable, srid)
         
     def createBlockIndex(self, cursor, srid, minX, minY, maxX, maxY, blockTable, indexTableSpace, workTableSpace, numProcesses):
         oracleops.mogrifyExecute(cursor,"""insert into USER_SDO_GEOM_METADATA values ('""" + blockTable + """','BLK_EXTENT',
@@ -241,103 +238,58 @@ sdo_dim_array(sdo_dim_element('X',""" + minX + """,""" + maxX + """,""" + self.t
         oracleops.mogrifyExecute(cursor,"""create index """ + blockTable + """_SIDX on """ + blockTable + """ (blk_extent) indextype is mdsys.spatial_index
 parameters ('tablespace=""" + indexTableSpace + """ work_tablespace=""" + workTableSpace + """ layer_gtype=polygon sdo_indx_dims=2 sdo_rtr_pctfree=0')""" + self.getParallelString(numProcesses))
         
-        cursor.connection.commit()
-        
-        
                 
-        
-        
-        
-    def createFlatMeta(self, cursor, tableName):
-        #  Create the meta-data table
-        oracleops.mogrifyExecute(cursor, "CREATE TABLE " + tableName + " (tablename text, srid integer, minx DOUBLE PRECISION, miny float, maxx float, maxy float, scalex float, scaley float)")
-         
-    def loadInc(self, fileAbsPath, objId, blockTable, blockSeq):
-        javaPart = self.javaBinPath + ' -classpath ${ORACLE_HOME}/jdbc/lib/ojdbc6.jar:${ORACLE_HOME}/md/jlib/sdoutl.jar oracle.spatial.util.Las2SqlLdrIndep'
-        (userPass, hostPortName) = self.connectString().split("@//")
+    def loadInc(self, fileAbsPath, objId, blockTable, blockSeq, blockSize, batchSize):
+        javaPart = 'java -classpath ${ORACLE_HOME}/jdbc/lib/ojdbc6.jar:${ORACLE_HOME}/md/jlib/sdoutl.jar oracle.spatial.util.Las2SqlLdrIndep'
+        (userPass, hostPortName) = self.getConnectionString().split("@//")
         (userName,userPass) = userPass.split('/')
         
-        numBlocks = self.batchSize / int(self.blockSize)
+        numBlocks = int(batchSize) / int(blockSize)
         
+        tempFile = None
+        inputFile = fileAbsPath
         if fileAbsPath.lower().endswith('laz'):
             tempFile = '/tmp/' + os.path.basename(fileAbsPath).lower().replace('laz','las')
             os.system('rm -f ' + tempFile)
             cz = 'laszip -i ' + fileAbsPath + ' -o ' + tempFile
             logging.info(cz)
             os.system(cz)
-            
-            command = javaPart + ' ' + str(objId) + ' ' + blockTable + ' ' + blockSeq + ' ' + tempFile + ' ' + str(self.blockSize) + ' jdbc:oracle:thin:@//' + hostPortName + ' ' + userName + ' ' + userPass + ' ' + str(self.batchSize) + ' ' + str(numBlocks)
-            logging.info(command)
-            os.system(command)
-            os.system('rm ' + tempFile)
-        else:
-            command = javaPart + ' ' + str(objId) + ' ' + blockTable + ' ' + blockSeq + ' ' + fileAbsPath + ' ' + str(self.blockSize) + ' jdbc:oracle:thin:@//' + hostPortName + ' ' + userName + ' ' + userPass + ' ' + str(self.batchSize) + ' ' + str(numBlocks)
-            logging.info(command)
-            os.system(command)
-
-    
-    def loadToBlocks(self, cursor, fileAbsPath):
-        cursor.execute('select TREAT(pc as SDO_PC).PC_ID from ' + self.baseTable)
-        pcId = cursor.fetchone()[0]
-        #cursor.callproc('sdo_pc_pkg.create_pc_incrementally', (pcId, self.blockTable, 'BLOCK_ID_SEQ', fileAbsPath, int(self.blockSize)))
-        oracleops.mogrifyExecute(cursor,"""
-BEGIN
-    sdo_pc_pkg.create_pc_incrementally(
-        """ + str(pcId) + """,
-        '""" + self.blockTable + """',
-        'BLOCK_ID_SEQ',
-        '""" + fileAbsPath + """',
-        """ + str(self.blockSize) + """);
-    commit;
-END;""")
-        cursor.connection.commit()
-    
+            inputFile = tempFile
+        command = javaPart + ' ' + str(objId) + ' ' + blockTable + ' ' + blockSeq + ' ' + inputFile + ' ' + str(blockSize) + ' jdbc:oracle:thin:@//' + hostPortName + ' ' + userName + ' ' + userPass + ' ' + str(batchSize) + ' ' + str(numBlocks)
+        logging.info(command)
+        os.system(command)
+        
+    def createFlatMeta(self, cursor, tableName):
+        #  Create the meta-data table
+        oracleops.dropTable(cursor, tableName, True)
+        oracleops.mogrifyExecute(cursor, "CREATE TABLE " + tableName + " (tablename text, srid integer, minx DOUBLE PRECISION, miny float, maxx float, maxy float, scalex float, scaley float)")
                 
-    def createIndex(self, cursor, tableName, columns, partitioned = False):
-        part = ''
-        if partitioned:
-            part = ' local '
-
+    def createIndex(self, cursor, tableName, columns, indexTableSpace, numProcesses):
         oracleops.mogrifyExecute(cursor,"""
 CREATE INDEX """ + tableName + """_IDX on """ + tableName + """ (""" + (','.join(self.getDBColumns(columns, False))) + """) 
-  """ + part + """ tablespace """ + self.indexTableSpace + """ pctfree 0 nologging """ + self.getParallelString(numProcesses))
-        cursor.connection.commit()
-        
+ tablespace """ + indexTableSpace + """ pctfree 0 nologging """ + self.getParallelString(numProcesses))
 
-    
-
-      
-
-
-
-    def createTableAsSelect(self, cursor, newTableName, tableName, columns):
+    def createTableAsSelect(self, cursor, newTableName, tableName, columns, tableSpace, numProcesses):
+        oracleops.dropTable(cursor, newTableName, True)
         oracleops.mogrifyExecute(cursor, """
 CREATE TABLE """ + newTableName + """
-tablespace """ + self.tableSpace + """ pctfree 0 nologging
+tablespace """ + tableSpace + """ pctfree 0 nologging
 """ + self.getParallelString(numProcesses) + """
 as
 select """ + (','.join(self.getDBColumns(columns,False))) + """ from """ + tableName)
-        cursor.connection.commit()
 
-
-        
-
-        
-
-        
     def computeStatistics(self, cursor, tableName):
         oracleops.mogrifyExecute(cursor, "ANALYZE TABLE " + tableName + "  compute system statistics for table")
         oracleops.mogrifyExecute(cursor,"""
 BEGIN
     dbms_stats.gather_table_stats('""" + self.userName + """','""" + tableName + """',NULL,NULL,FALSE,'FOR ALL COLUMNS SIZE AUTO',8,'ALL');
 END;""")
-        cursor.connection.commit()
-        
-    def sizeFlat(self):
+
+    def sizeFlat(self, flatTable):
         connection = self.getConnection()
         cursor = connection.cursor()
         
-        size_total = oracleops.getSizeTable(cursor, self.flatTable)
+        size_total = oracleops.getSizeTable(cursor, flatTable)
         size_indexes = oracleops.getSizeUserIndexes(cursor)
         
         connection.close()
@@ -365,10 +317,10 @@ END;""")
         except:
             return ''
             
-    def getNumPointsFlat(self):
+    def getNumPointsFlat(self, flatTable):
         connection = self.getConnection()
         cursor = connection.cursor()
-        cursor.execute('select count(*) from ' + self.flatTable)
+        cursor.execute('select count(*) from ' + flatTable)
         n = cursor.fetchone()[0]
         connection.close()
         return n

@@ -3,8 +3,8 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ############################
-import os, logging, psycopg2
-from pointcloud import utils, lidaroverview, postgresops, lasops
+import os, logging
+from pointcloud import lidaroverview, postgresops, lasops
 from pointcloud.AbstractLoader import AbstractLoader
 from pointcloud.lastools.CommonLASTools import CommonLASTools
 
@@ -16,12 +16,16 @@ class Loader(AbstractLoader,CommonLASTools):
     
     def initialize(self):
         # Remove possible previous data
+        logging.info('Creating data folder ' + self.dataFolder)
         os.system('rm -rf ' + self.dataFolder)
         os.system('mkdir -p ' + self.dataFolder)
         
+        logging.info('Getting files and SRID from input folder ' + self.inputFolder)
+        (self.inputFiles, self.srid, _, _, _, _, _, _, _, _, _, _) = lasops.getPCFolderDetails(self.inputFolder)
+        
     def process(self):
-        (inputFiles, self.srid, _, _, _, _, _, _, _, _, _, _) = lasops.getPCFolderDetails(self.inputFolder)
-        return self.processMulti(inputFiles, self.numProcessesLoad, self.processFile)
+        logging.info('Starting data preparation (' + str(self.numProcessesLoad) + ' processes) from ' + self.inputFolder + ' to ' + self.dataFolder)
+        return self.processMulti(self.inputFiles, self.numProcessesLoad, self.processFile)
     
     def processFile(self, index, fileAbsPath):
         # Get the file extension
@@ -42,7 +46,7 @@ class Loader(AbstractLoader,CommonLASTools):
         commands.append('lasindex -i ' + outputAbsPath)
         
         for command in commands:
-            logging.debug(command)
+            logging.info(command)
             os.system(command)
         
     def close(self):

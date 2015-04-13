@@ -26,7 +26,6 @@ class CommonLASTools():
         self.numProcessesLoad = configuration.getint('Load','NumberProcesses')
 
         self.outputExtension = configuration.get('Query','OutputExtension')
-        self.numProcessesQuery = configuration.getint('Query','NumberProcesses')
         for extension in (self.dataExtension, self.outputExtension):
             if extension not in utils.PC_FILE_FORMATS:
                 raise Exception('Accepted extensions/formats for point cloud files are: ' + ','.join(utils.PC_FILE_FORMATS))

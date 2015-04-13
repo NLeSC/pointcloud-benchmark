@@ -1,8 +1,9 @@
-import utils
+from pointcloud import utils, lasops
 
-def OracleWriter(inputFileAbsPath, connectionString, dimensionsNames, blockTable, baseTable, srid, blockSize, offsets, scales):
-       """ Create a XML file to load the data, in the given file, into the DB """
-       xmlContent = """
+def OracleWriter(inputFileAbsPath, connectionString, dimensionsNames, blockTable, baseTable, dbsrid, blockSize):
+    (srid, _, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(inputFileAbsPath)  
+    """ Create a XML file to load the data, in the given file, into the DB """
+    xmlContent = """
 <?xml version="1.0" encoding="utf-8"?>
 <Pipeline version="1.0">
  <Writer type="writers.oci">
@@ -17,18 +18,18 @@ def OracleWriter(inputFileAbsPath, connectionString, dimensionsNames, blockTable
    <Option name="solid">false</Option>
    <Option name="overwrite">false</Option>
    <Option name="disable_cloud_trigger">true</Option>
-   <Option name="srid">""" + str(srid) + """</Option>
+   <Option name="srid">""" + str(dbsrid) + """</Option>
    <Option name="create_index">false</Option>
    <Option name="capacity">""" + blockSize + """</Option>
    <Option name="stream_output_precision">8</Option>
    <Option name="pack_ignored_fields">true</Option>
    <Option name="output_dims">""" + ",".join(dimensionsNames) + """</Option>
-   <Option name="offset_x">""" + offsets['X'] + """</Option>
-   <Option name="offset_y">""" + offsets['Y'] + """</Option>
-   <Option name="offset_z">""" + offsets['Z'] + """</Option>
-   <Option name="scale_x">""" + scales['X'] + """</Option>
-   <Option name="scale_y">""" + scales['Y'] + """</Option>
-   <Option name="scale_z">""" + scales['Z'] + """</Option>
+   <Option name="offset_x">""" + offsetX + """</Option>
+   <Option name="offset_y">""" + offsetY + """</Option>
+   <Option name="offset_z">""" + offsetZ + """</Option>
+   <Option name="scale_x">""" + scaleX + """</Option>
+   <Option name="scale_y">""" + scaleY + """</Option>
+   <Option name="scale_z">""" + scaleZ + """</Option>
    <Filter type="filters.chipper">
      <Option name="capacity">""" + blockSize + """</Option>
      <Reader type="readers.las">
@@ -39,9 +40,9 @@ def OracleWriter(inputFileAbsPath, connectionString, dimensionsNames, blockTable
  </Writer>
 </Pipeline>      
 """
-       outputFileName = os.path.basename(inputFileAbsPath) + '.xml'
-       utils.writeToFile(outputFileName, xmlContent)
-       return outputFileName
+    outputFileName = os.path.basename(inputFileAbsPath) + '.xml'
+    utils.writeToFile(outputFileName, xmlContent)
+    return outputFileName
 
 def OracleReaderLAS(outputFileAbsPath, connectionString, blockTable, baseTable, srid, wkt):
     xmlContent = """
@@ -103,27 +104,27 @@ WHERE
 
 """
 
-def PostgreSQLWriter(inputFileAbsPath, connectionString, pcid, dimensionsNames, blockTable, srid, blockSize, compression, offsets, scales):
+def PostgreSQLWriter(inputFileAbsPath, connectionString, pcid, dimensionsNames, blockTable, dbsrid, blockSize, compression):
     """ Create a XML file to load the data, in the given file, into the DB """
-
+    (srid, _, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(inputFileAbsPath)  
     xmlContent = """<?xml version="1.0" encoding="utf-8"?>
 <Pipeline version="1.0">
 <Writer type="writers.pgpointcloud">
     <Option name="connection">""" + connectionString + """</Option>
     <Option name="table">""" + blockTable + """</Option>
     <Option name="column">pa</Option>
-    <Option name="srid">""" + str(srid) + """</Option>
+    <Option name="srid">""" + str(dbsrid) + """</Option>
     <Option name="pcid">""" + str(pcid) + """</Option>
     <Option name="overwrite">false</Option>
     <Option name="capacity">""" + blockSize + """</Option>
     <Option name="compression">""" + compression + """</Option>
     <Option name="output_dims">""" + ",".join(dimensionsNames) + """</Option>
-    <Option name="offset_x">""" + offsets['X'] + """</Option>
-    <Option name="offset_y">""" + offsets['Y'] + """</Option>
-    <Option name="offset_z">""" + offsets['Z'] + """</Option>
-    <Option name="scale_x">""" + scales['X'] + """</Option>
-    <Option name="scale_y">""" + scales['Y'] + """</Option>
-    <Option name="scale_z">""" + scales['Z'] + """</Option>
+    <Option name="offset_x">""" + offsetX + """</Option>
+    <Option name="offset_y">""" + offsetY + """</Option>
+    <Option name="offset_z">""" + offsetZ + """</Option>
+    <Option name="scale_x">""" + scaleX + """</Option>
+    <Option name="scale_y">""" + scaleY + """</Option>
+    <Option name="scale_z">""" + scaleZ + """</Option>
     <Filter type="filters.chipper">
         <Option name="capacity">""" + blockSize + """</Option>
         <Reader type="readers.las">
@@ -137,3 +138,12 @@ def PostgreSQLWriter(inputFileAbsPath, connectionString, pcid, dimensionsNames, 
     outputFileName = os.path.basename(inputFileAbsPath) + '.xml'
     utils.writeToFile(outputFileName, xmlContent)
     return outputFileName
+
+def executePDALCount(xmlFile):
+    command = 'pdal pipeline ' + xmlFile + ' | wc -l'
+    result = subprocess.Popen(command, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0].replace('\n','')
+    try:
+        result  = int(result) - 0
+    except:
+        result = -1
+    return result

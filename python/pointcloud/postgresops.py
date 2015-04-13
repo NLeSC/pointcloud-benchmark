@@ -10,7 +10,7 @@ import utils
 # This module contains methods that use PostgreSQL
 #
 
-def mogrifyExecute(self, cursor, query, queryArgs = None, log = 'INFO'):
+def mogrifyExecute(self, cursor, query, queryArgs = None):
     """ Execute a query with logging"""
     if queryArgs != None:
         logging.info(cursor.mogrify(query, queryArgs))
@@ -18,6 +18,7 @@ def mogrifyExecute(self, cursor, query, queryArgs = None, log = 'INFO'):
     else:
         logging.info(cursor.mogrify(query))
         cursor.execute(query)
+    cursor.connection.commit()
     
 def dropTable(self, cursor, tableName, check = False):
     """ Drops a table"""
@@ -28,7 +29,6 @@ def dropTable(self, cursor, tableName, check = False):
             delete = False
     if delete:
         mogrifyExecute(cursor, 'DROP TABLE ' + tableName)
-    cursor.connection.commit()
     
 def getConnectString(dbName = None, userName= None, password = None, dbHost = None, dbPort = None, cline = False):
     """ Gets the connection string to be used by psycopg2 (if cline is False)

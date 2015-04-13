@@ -4,7 +4,7 @@
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
 import os, logging, math, numpy
-from pointcloud import utils, dbops, monetdbops, lasops
+from pointcloud import dbops, monetdbops, lasops
 from pointcloud.AbstractLoader import AbstractLoader as ALoader
 from pointcloud.monetdb.CommonMonetDB import CommonMonetDB
 
@@ -22,13 +22,15 @@ class LoaderBinary(ALoader, CommonMonetDB):
         self.numPartitions = 0
 
         if self.createDB:
+            logging.info('Creating DB ' + self.dbName)
             # Drop previous DB if exist and create a new one
             os.system('monetdb stop ' + self.dbName)
             os.system('monetdb destroy ' + self.dbName + ' -f')
             os.system('monetdb create ' + self.dbName)
             os.system('monetdb release ' + self.dbName)
         
-        (self.inputFiles, self.srid, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = getPCFolderDetails(self.inputFolder)
+        logging.info('Getting files, extent and SRID from input folder ' + self.inputFolder)
+        (self.inputFiles, self.srid, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = lasops.getPCFolderDetails(self.inputFolder)
         
         if not self.imprints:
             # If we want to create a final indexed table we need to put the 
@@ -48,7 +50,6 @@ class LoaderBinary(ALoader, CommonMonetDB):
         #  Create the meta-data table
         monetdbops.mogrifyExecute(cursor, "CREATE TABLE " + self.metaTable + " (tablename text, srid integer, minx DOUBLE PRECISION, miny DOUBLE PRECISION, maxx DOUBLE PRECISION, maxy DOUBLE PRECISION, scalex DOUBLE PRECISION, scaley DOUBLE PRECISION)")
         # Close connection
-        connection.commit()
         connection.close()    
     
     def getDBColumns(self):
@@ -61,7 +62,7 @@ class LoaderBinary(ALoader, CommonMonetDB):
     
     def close(self):
         # Restart DB to flush data in memory to disk
-        logging.info('Restarting DB...')
+        logging.info('Restarting DB')
         os.system('monetdb stop ' + self.dbName)
         os.system('monetdb start ' + self.dbName)
         
@@ -78,27 +79,23 @@ class LoaderBinary(ALoader, CommonMonetDB):
             for i in range(self.numPartitions):
                 partitionName = ftName + str(i)
                 monetdbops.mogrifyExecute(cursor, "alter table " + partitionName + " set read only")
-                connection.commit()
         else:
             monetdbops.mogrifyExecute(cursor, "alter table " + ftName + " set read only")
-            connection.commit()
         
         if self.imprints:
             if self.partitioning:
                 # Create imprints index
-                logging.info('Creating imprints for different partitions and columns...')
+                logging.info('Creating imprints for different partitions and columns')
                 for c in self.columns:
                     colName = self.colsData[c][0]
                     for i in range(self.numPartitions):
                         partitionName = ftName + str(i)
                         monetdbops.mogrifyExecute(cursor, "select " + colName + " from " + partitionName + " where " + colName + " between 0 and 1")
-                        connection.commit()
                 #TODO create 2 processes, one for x and one for y
             else:
-                logging.info('Creating imprints...')
+                logging.info('Creating imprints')
                 query = "select * from " + self.flatTable + " where x between 0 and 1 and y between 0 and 1"
                 monetdbops.mogrifyExecute(cursor, query)
-                connection.commit()
                 
         else:
             if self.partitioning:
@@ -108,18 +105,15 @@ class LoaderBinary(ALoader, CommonMonetDB):
                     monetdbops.mogrifyExecute(cursor, 'CREATE TABLE ' + newPartitionName + ' AS SELECT * FROM ' + partitionName + ' ORDER BY ' + dbops.getSelectCols(self.index, self.colsData) + ' WITH DATA')
                     monetdbops.mogrifyExecute(cursor, "alter table " + newPartitionName + " set read only")
                     monetdbops.mogrifyExecute(cursor, 'DROP TABLE ' + partitionName)
-                    connection.commit()
             else:
                 monetdbops.mogrifyExecute(cursor, 'CREATE TABLE ' + self.flatTable + ' AS SELECT * FROM ' + self.tempFlatTable + ' ORDER BY ' + dbops.getSelectCols(self.index, self.colsData) + ' WITH DATA')
                 monetdbops.mogrifyExecute(cursor, "alter table " + self.flatTable + " set read only")
                 monetdbops.mogrifyExecute(cursor, 'DROP TABLE ' + self.tempFlatTable)
-                connection.commit()
             
         if self.partitioning:
             for i in range(self.numPartitions):
                 partitionName = self.flatTable + str(i)
                 monetdbops.mogrifyExecute(cursor, "ALTER TABLE " + self.flatTable + " add table " + partitionName)
-                connection.commit()
         
         connection.close()
  
@@ -145,6 +139,7 @@ class LoaderBinary(ALoader, CommonMonetDB):
         return n
     
     def process(self):
+        logging.info('Starting data loading (parallel by las2col) from ' + self.inputFolder + ' to ' + self.dbName)
         return self.processSingle([self.inputFolder, ], self.processInputFolder)
     
     def processInputFolder(self, index, inputFolder):
@@ -172,9 +167,7 @@ class LoaderBinary(ALoader, CommonMonetDB):
             tempFile =  self.tempDir + '/' + str(i) + '_tempFile'    
             c = 'las2col ' + inputArg + ' ' + tempFile + ' --parse ' + self.columns
             if 'k' in self.columns:
-                (mortonGlobalOffsetX, mortonGlobalOffsetY) = (self.minX, self.minY)
-                (mortonScaleX, mortonScaleY) = (self.scaleX, self.scaleY)
-                c += ' --moffset ' + str(int(self.mortonGlobalOffsetX / self.mortonScaleX)) + ','+ str(int(self.mortonGlobalOffsetY / self.mortonScaleY)) + ' --check ' + str(self.mortonScaleX) + ',' + str(self.mortonScaleY)
+                c += ' --moffset ' + str(int(self.minX / self.scaleX)) + ','+ str(int(self.minY / self.scaleY)) + ' --check ' + str(self.scaleX) + ',' + str(self.scaleY)
             # Execute the converter
             logging.info(c)
             os.system(c)
@@ -197,6 +190,4 @@ class LoaderBinary(ALoader, CommonMonetDB):
                 self.numPartitions += 1
             else:
                 monetdbops.mogrifyExecute(cursor, "COPY BINARY INTO " + ftName + " from (" + ','.join(bs) + ")")
-    
-        connection.commit()
         connection.close()

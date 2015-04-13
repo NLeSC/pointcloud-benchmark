@@ -32,7 +32,6 @@ def createResultsTable(cursor, executeMethod, tableName, columnsKeys, columnsNam
         else:
             cs.append(statistics[i] + columnDBName + ' ' + columnDBType) 
     executeMethod(cursor,"create table "  + tableName + " (" + ','.join(cs) + ")")
-    cursor.connection.commit()
    
 def getNumPoints(cursor, tableName):
     try:
@@ -158,7 +157,6 @@ def distinctTable(cursor, tableName, executeMethod):
     executeMethod(cursor, 'alter table  ' + tableName + ' rename to ' + tempTable)
     executeMethod(cursor, 'CREATE TABLE  ' + tableName + ' AS SELECT DISTINCT * FROM ' + tempTable)
     executeMethod(cursor, 'DROP TABLE  ' + tempTable)
-    cursor.connection.commit()
 
 def getSelect(queryParameters, flatTable, addContainsConditionMethod, columnsNameDict, hints = None):
     queryArgs = []

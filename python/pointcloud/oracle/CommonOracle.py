@@ -33,8 +33,9 @@ class CommonOracle():
         self.workTableSpace = configuration.get('Load','WorkTableSpace').strip().upper()
         self.tempTableSpace = configuration.get('Load','TempTableSpace').strip().upper()
                 
-        # Get nuber of processes to be used in Loading
+        # Get number of processes to be used in Loading
         self.numProcessesLoad = configuration.getint('Load','NumberProcesses')
+        self.tolerance = configuration.get('Load','Tolerance')
                 
         # The rest of loading options depend on which mode wer are using (global, incremental, or flat)
         loadingMode = ''
@@ -54,7 +55,6 @@ class CommonOracle():
             self.blockTable = configuration.get('Load','BlockTable').upper()
             self.baseTable = configuration.get('Load','BaseTable').upper()
     
-            self.tolerance = configuration.get('Load','Tolerance')
             self.blockSize =  configuration.get('Load','BlockSize')
             self.blockMethod = configuration.get('Load','BlockMethod').strip().lower()
             self.compression = configuration.get('Load','Compression').strip()
@@ -64,7 +64,6 @@ class CommonOracle():
             self.blockTable = configuration.get('Load','BlockTable').upper()
             self.baseTable = configuration.get('Load','BaseTable').upper()
             
-            self.tolerance = configuration.get('Load','Tolerance')
             self.blockSize =  configuration.get('Load','BlockSize')
             self.batchSize =  configuration.getint('Load','BatchSize')
             self.compression = configuration.get('Load','Compression').strip()
@@ -75,7 +74,6 @@ class CommonOracle():
             self.index = configuration.get('Load','Index').lower()
             
             self.metaTable = configuration.get('Load','MetaTable').upper()
-            self.partitions = configuration.get('Load','Partitions')
         #
         # QUERY VARIABLES
         #
@@ -87,6 +85,7 @@ class CommonOracle():
             self.parallelType = configuration.get('Query','ParallelType').lower()
         self.queryTable = utils.QUERY_TABLE.upper()
         
+        # colsData is dimName: (dbType, controlFileType, controlFileNumDigits)
         self.colsData = {
                     'x': (self.columnType, 'float', 10),# x coordinate
                     'y': (self.columnType, 'float', 10),# y coordinate

@@ -5,7 +5,7 @@
 ################################################################################
 import os
 from pointcloud.oracle.AbstractLoader import AbstractLoader
-from pointcloud import utils, lasops, oracleops
+from pointcloud import lasops
 
 class LoaderExt(AbstractLoader):
     def initialize(self):
@@ -17,7 +17,8 @@ class LoaderExt(AbstractLoader):
             self.createUser()
         
         # Get the point cloud folder description
-        (self.inputFiles, self.srid, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = getPCFolderDetails(self.inputFolder)
+        logging.info('Getting files, extent and SRID from input folder ' + self.inputFolder)
+        (self.inputFiles, self.srid, _, self.minX, self.minY, _, self.maxX, self.maxY, _, _, _, _) = lasops.getPCFolderDetails(self.inputFolder)
         # Get the parent folder and the wildcard text with file selection
         if os.path.isfile(self.inputFolder):
             parentFolder = os.path.abspath(os.path.join(self.inputFolder,'..'))
@@ -51,7 +52,7 @@ class LoaderExt(AbstractLoader):
         connection.close()
 
     def process(self):
-        # We only execute one item, i.e. the input folder
+        logging.info('Starting data loading in parallel by an external table loader from ' + self.inputFolder + ' to ' + self.userName)
         return self.processSingle([self.inputFolder,], self.loadInputFolder)
     
     def loadInputFolder(self, index, inputFolder):

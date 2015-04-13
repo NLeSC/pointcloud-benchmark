@@ -20,7 +20,7 @@ class QuerierMorton(AbstractQuerier):
         return (" _ST_Contains(geom, st_setSRID(st_makepoint(" + xname + "," + yname + "),%s))", '(SELECT ST_GeomFromEWKT(%s) as geom) A')
 
     def queryDisk(self, queryId, iterationId, queriesParameters):
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         
         self.prepareQuery(queryId, queriesParameters, cursor, iterationId == 0)
@@ -46,21 +46,18 @@ class QuerierMorton(AbstractQuerier):
         if self.numProcessesQuery == 1:
             (query, queryArgs) = dbops.getSelectMorton(mimranges, mxmranges, self.qp, self.flatTable, self.addContainsCondition, self.colsData)
             postgresops.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS (" + query + ")", queryArgs)
-            connection.commit()
         else:
             dbops.createResultsTable(cursor, postgresops.mogrifyExecute, self.resultTable, self.qp.columns, self.colsData, None)
-            connection.commit()
             dbops.parallelMorton(mimranges, mxmranges, self.childInsert, self.numProcessesQuery)  
         (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.colsData, (not self.mortonDistinctIn) and (self.numProcessesQuery == 1), self.qp.columns, self.qp.statistics)
         connection.close()
         return (eTime, result)
             
     def childInsert(self, iMortonRanges, xMortonRanges):
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         cqp = copy.copy(self.qp)
         cqp.statistics = None
         (query, queryArgs) = dbops.getSelectMorton(iMortonRanges, xMortonRanges, cqp, self.flatTable, self.addContainsCondition, self.colsData)
         postgresops.mogrifyExecute(cursor, "INSERT INTO "  + self.resultTable + " " + query, queryArgs)
-        connection.commit()
         connection.close()

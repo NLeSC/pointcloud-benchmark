@@ -9,8 +9,6 @@ from pointcloud.AbstractQuerier import AbstractQuerier as AQuerier
 from pointcloud.oracle.CommonOracle import CommonOracle
 
 class AbstractQuerier(AQuerier, CommonOracle):
-    """Abstract class for the queriers to be implemented for each different 
-    solution for the benchmark"""
     def __init__(self, configuration):
         """ Set configuration parameters and create user if required """
         AQuerier.__init__(self, configuration)
@@ -21,20 +19,18 @@ class AbstractQuerier(AQuerier, CommonOracle):
         self.queryIndex = None
         self.resultTable = None
         self.qp = None
+        self.srid = None #to be filled in by the different implementations (in their init method)
  
-        # We have to create a new conneciton for each query, reusing it gives error
-        
         connection = self.getConnection()
         cursor = connection.cursor()
         oracleops.dropTable(cursor, self.queryTable, check = True)
         oracleops.mogrifyExecute(cursor, "CREATE TABLE " + self.queryTable + " ( id number primary key, geom sdo_geometry) TABLESPACE " + self.tableSpace + " pctfree 0 nologging")
-        connection.commit()
         connection.close()
     
     def close(self): 
         return
 
-    def prepareQuery(self, queryId, queriesParameters, firstQuery = True):
+    def prepareQuery(self, queryId, queriesParameters, addGeom = True):
         connection = self.getConnection()
         cursor = connection.cursor()
         
@@ -44,7 +40,7 @@ class AbstractQuerier(AQuerier, CommonOracle):
         self.qp = queriesParameters.getQueryParameters('ora',queryId, self.colsData.keys())
         logging.debug(self.qp.queryKey)
         
-        if firstQuery:
+        if addGeom:
             cursor.setinputsizes(ARG1 = cx_Oracle.CLOB)
             cursor.execute('insert into ' + self.queryTable + ' values (:ARG0,SDO_UTIL.FROM_WKTGEOMETRY(:ARG1))', ARG0=self.queryIndex, ARG1=self.qp.wkt)
             cursor.execute('UPDATE ' + self.queryTable + ' t SET T.GEOM.SDO_SRID = :1 where T.ID = :2', [int(self.srid), self.queryIndex])
@@ -70,7 +66,6 @@ SELECT T.id, SDO_GEOM.SDO_INTERSECTION(A.geom, T.GEOMETRY, """ + str(self.tolera
     ) from A) T, A
 """
         oracleops.mogrifyExecute(cursor, query)
-        cursor.connection.commit()
         cursor.execute("CREATE INDEX " + gridTable + "_id_idx ON " + gridTable + "(ID)")
         cursor.connection.commit()
 

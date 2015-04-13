@@ -3,17 +3,13 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import os
-import psycopg2
+import os, logging, psycopg2
 from pointcloud.AbstractLoader import AbstractLoader as ALoader
 from pointcloud.postgres.CommonPostgres import CommonPostgres
 from pointcloud import utils, postgresops, lasops
 from lxml import etree as ET
 
-#XML_NAMESPACES = {'pc':'http://pointcloud.org/schemas/PC/1.1',
-#              'xsi':'http://www.w3.org/2001/XMLSchema-instance'}
-#for namespace in XML_NAMESPACES:
-#    ET.register_namespace(namespace,XML_NAMESPACES[namespace])
+FILLFACTOR = 99
 
 class AbstractLoader(ALoader, CommonPostgres):
     """Abstract class for the PostgreSQL loaders, some methods are already implemented"""
@@ -23,12 +19,62 @@ class AbstractLoader(ALoader, CommonPostgres):
         self.setVariables(configuration)
 
         self.ordered = False
+
+    def createDB(self):
+        """ Creates the database. Delete any previous database with same name"""
+        # Drop any previous DB and create a new one
+        connectionSuper = self.getConnection(True)
+        cursorSuper = connectionSuper.cursor()
+        cursorSuper.execute('SELECT datname FROM pg_database WHERE datname = %s', (self.dbName,))
+        exists = cursorSuper.fetchone()
+        cursorSuper.close()
+        connectionSuper.close()
+
+        connString= self.getConnectionString(False, True)
+        if exists:
+            os.system('dropdb ' + connString)
+        os.system('createdb ' + connString)
         
-    def connect(self, superUser = False):
-        return psycopg2.connect(self.connectString(superUser))
+        connection = self.getConnection()
+        cursor = connection.cursor()
+        # Add PostGIS extension
+        cursor.execute('CREATE EXTENSION postgis;')
+        connection.commit()
         
+        # Add create fishnet method used for the parallel queries using the PQGR method
+        self.createGridFunction(cursor)
+        connection.close()
+
+    def initPointCloud(self):
+        connection = self.getConnection()
+        cursor = connection.cursor()
+    
+        # Load PostGIS and PointCloud extensions (only if new DB is created)
+        cursor.execute('CREATE EXTENSION pointcloud')
+        cursor.execute('CREATE EXTENSION pointcloud_postgis')
+        # Add columns to pointcloud_format table to monitor the used offsets and scales
+        cursor.execute('ALTER TABLE pointcloud_formats ADD COLUMN scalex double precision')
+        cursor.execute('ALTER TABLE pointcloud_formats ADD COLUMN scaley double precision')
+        cursor.execute('ALTER TABLE pointcloud_formats ADD COLUMN scalez double precision')
+        cursor.execute('ALTER TABLE pointcloud_formats ADD COLUMN offsetx double precision')
+        cursor.execute('ALTER TABLE pointcloud_formats ADD COLUMN offsety double precision')
+        cursor.execute('ALTER TABLE pointcloud_formats ADD COLUMN offsetz double precision')
+        cursor.execute('ALTER TABLE pointcloud_formats ADD CONSTRAINT scale_offset_key UNIQUE (srid,scalex,scaley,scalez,offsetx,offsety,offsetz)')
+        connection.commit()
+        connection.close()
+
+    def createBlocksTable(self, blockTable, tableSpace, quadcell = False):
+        aux = ''
+        if quadcell:
+            aux = ",quadCellId BIGINT"
+        connection = self.getConnection()
+        cursor = connection.cursor()
+        postgresops.mogrifyExecute(cursor, "CREATE TABLE " + blockTable + " (id SERIAL PRIMARY KEY,pa PCPATCH" + aux + ")" + self.getTableSpaceString(tableSpace))
+        connection.close()  
+    
+
     def size(self):
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         row = postgresops.getSizes(cursor)
         for i in range(len(row)):
@@ -39,51 +85,6 @@ class AbstractLoader(ALoader, CommonPostgres):
         connection.close()
         return ' Size indexes= ' + str(size_indexes) + '. Size excluding indexes= ' + str(size_ex_indexes) + '. Size total= ' + str(size_total)
 
-    def createDB(self):
-        """ Creates the database. Delete any previous database with same name"""
-        if self.cDB:
-            # Drop any previous DB and create a new one
-            connectionSuper = self.connect(True)
-            cursorSuper = connectionSuper.cursor()
-            cursorSuper.execute('SELECT datname FROM pg_database WHERE datname = %s', (self.dbName,))
-            exists = cursorSuper.fetchone()
-            cursorSuper.close()
-            connectionSuper.close()
-    
-            connString= self.connectString(False, True)
-            if exists:
-                os.system('dropdb ' + connString)
-            os.system('createdb ' + connString)
-            
-            connection = self.connect()
-            cursor = connection.cursor()
-            # Add PostGIS extension
-            cursor.execute('CREATE EXTENSION postgis;')
-            connection.commit()
-            
-            # Add create fishnet method used for the parallel queries using the PQGR method
-            self.createGridFunction(cursor)
-            connection.close()
-            
-    def initPointCloud(self):
-        if self.cDB:
-            connection = self.connect()
-            cursor = connection.cursor()
-        
-            # Load PostGIS and PointCloud extensions (only if new DB is created)
-            cursor.execute('CREATE EXTENSION pointcloud')
-            cursor.execute('CREATE EXTENSION pointcloud_postgis')
-            # Add columns to pointcloud_format table to monitor the used offsets and scales
-            cursor.execute('ALTER TABLE pointcloud_formats ADD COLUMN scalex double precision')
-            cursor.execute('ALTER TABLE pointcloud_formats ADD COLUMN scaley double precision')
-            cursor.execute('ALTER TABLE pointcloud_formats ADD COLUMN scalez double precision')
-            cursor.execute('ALTER TABLE pointcloud_formats ADD COLUMN offsetx double precision')
-            cursor.execute('ALTER TABLE pointcloud_formats ADD COLUMN offsety double precision')
-            cursor.execute('ALTER TABLE pointcloud_formats ADD COLUMN offsetz double precision')
-            cursor.execute('ALTER TABLE pointcloud_formats ADD CONSTRAINT scale_offset_key UNIQUE (scalex,scaley,scalez,offsetx,offsety,offsetz)')
-            connection.commit()
-            connection.close()
-        
     def createGridFunction(self, cursor):
         cursor.execute("""
     CREATE OR REPLACE FUNCTION ST_CreateFishnet(
@@ -104,7 +105,7 @@ class AbstractLoader(ALoader, CommonPostgres):
         cursor.connection.commit()
     
     def createQuadCellId(self):
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         cursor.execute("""
 CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
@@ -115,31 +116,20 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
         connection.commit()
         connection.close()
     
-    def getTableSpaceString(self):
+    def getTableSpaceString(self, tableSpace):
         tableSpaceString = ''
-        if self.tableSpace != '':
-            tableSpaceString = ' TABLESPACE ' + self.tableSpace
+        if tableSpace != '':
+            tableSpaceString = ' TABLESPACE ' + tableSpace
         return tableSpaceString
     
-    def getIndexTableSpaceString(self):
+    def getIndexTableSpaceString(self, indexTableSpace):
         indexTableSpaceString = ''
-        if self.indexTableSpace != '':
-            indexTableSpaceString = ' TABLESPACE ' + self.indexTableSpace
+        if indexTableSpace != '':
+            indexTableSpaceString = ' TABLESPACE ' + indexTableSpace
         return indexTableSpaceString
-    
-    def process(self):
-        inputFiles = utils.getFiles(self.inputFolder)
-        return self.processMulti(inputFiles, self.numProcessesLoad, self.loadFromFile, self.loadFromFileSequential, self.ordered)
-
-    def loadFromFile(self, index, fileAbsPath):
-        """ Process the input data """
-        raise NotImplementedError( "Should have implemented this" )
-    
-    def loadFromFileSequential(self, fileAbsPath, index, numFiles):
-        return None
      
-    def createFlat(self, flatTable, columns):
-        connection = self.connect()
+    def createFlatTable(self, flatTable, tableSpace, columns):
+        connection = self.getConnection()
         cursor = connection.cursor()
         cols = []
         for c in columns:
@@ -149,85 +139,51 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
         
         # Create the flat table that will contain all the data
         postgresops.mogrifyExecute(cursor, """CREATE TABLE """ + flatTable + """ (
-        """ + (',\n'.join(cols)) + """)""" + self.getTableSpaceString())
-        connection.commit()
+        """ + (',\n'.join(cols)) + """)""" + self.getTableSpaceString(tableSpace))
         connection.close()
     
-    def createBlocks(self, blockTable, quadcell = False):
-        aux = ''
-        if quadcell:
-            aux = ",quadCellId BIGINT"
-        connection = self.connect()
-        cursor = connection.cursor()
-        postgresops.mogrifyExecute(cursor, "CREATE TABLE " + blockTable + " (id SERIAL PRIMARY KEY,pa PCPATCH" + aux + ")" + self.getTableSpaceString())
-        connection.commit()
-        connection.close()  
-    
-    
-    def indexClusterVacuumFlat(self, flatTable, index):
-        connection = self.connect()
+    def indexFlatTable(self, flatTable, indexTableSpace, index, cluster = False):
+        connection = self.getConnection()
         cursor = connection.cursor()
         
-        if index in ('gxy','gxyz'):
-            gistIndexName = flatTable + "_" + index + "_gist_idx"
-            auxindex = index.replace('g','')
-            cursor.execute("create view " + self.viewName + " as select st_setSRID(st_makepoint(" + (','.join(auxindex)) + ")," + self.srid + ") as " + index + ", x, y, z from " + flatTable + ";")
-            connection.commit()
-            postgresops.mogrifyExecute(cursor, "create index " + gistIndexName + " on " + flatTable + " using gist (st_setSRID(st_makepoint(" + (','.join(auxindex)) + ")," + self.srid + ")) WITH (FILLFACTOR=" + str(self.fillFactor) + ")" + self.getIndexTableSpaceString())
-            connection.commit()
-            if self.cluster:
-                postgresops.mogrifyExecute(cursor, "CLUSTER " + flatTable + " USING " + gistIndexName)
-        elif index in ('xy', 'xyz'):
-            btreeIndexName = flatTable + "_" + index + "_btree_idx"
-            postgresops.mogrifyExecute(cursor, "create index " + btreeIndexName + " on " + flatTable + " (" + (','.join(index)) + ") WITH (FILLFACTOR=" + str(self.fillFactor) + ")" + self.getIndexTableSpaceString())
-            connection.commit()
-            if self.cluster:
-                postgresops.mogrifyExecute(cursor, "CLUSTER " + flatTable + " USING " + btreeIndexName)
+        if index in ('xy', 'xyz'):
+            indexName = flatTable + "_" + index + "_btree_idx"
+            postgresops.mogrifyExecute(cursor, "create index " + indexName + " on " + flatTable + " (" + (','.join(index)) + ") WITH (FILLFACTOR=" + str(FILLFACTOR) + ")" + self.getIndexTableSpaceString(indexTableSpace))
         elif index == 'k':
             mortonIndexName = flatTable + "_morton_btree_idx"
-            postgresops.mogrifyExecute(cursor, "create index " + mortonIndexName + " on " + flatTable + " (morton2D) WITH (FILLFACTOR=" + str(self.fillFactor) + ")" + self.getIndexTableSpaceString())
-            connection.commit()
-            if self.cluster:
-                postgresops.mogrifyExecute(cursor, "CLUSTER " + flatTable + " USING " + mortonIndexName)
-        connection.commit()
+            postgresops.mogrifyExecute(cursor, "create index " + indexName + " on " + flatTable + " (morton2D) WITH (FILLFACTOR=" + str(FILLFACTOR) + ")" + self.getIndexTableSpaceString(indexTableSpace))
+        if cluster:
+            postgresops.mogrifyExecute(cursor, "CLUSTER " + flatTable + " USING " + indexName)
         connection.close()
+        #self.vacuumTable(flatTable)
         
-        if self.vacuum:
-            self.vacuumTable(flatTable)
-        
-    def indexClusterVacuumBlock(self, blockTable, quadcell = False):
-        connection = self.connect()
+    def indexBlockTable(self, blockTable, indexTableSpace, quadcell = False, cluster = False):
+        connection = self.getConnection()
         cursor = connection.cursor()
         if quadcell:
             indexName = self.blockTable + "_btree"
-            postgresops.mogrifyExecute(cursor, 'CREATE INDEX ' + indexName + ' ON ' + blockTable + ' (quadCellId)' + self.getIndexTableSpaceString())
+            postgresops.mogrifyExecute(cursor, 'CREATE INDEX ' + indexName + ' ON ' + blockTable + ' (quadCellId)' + self.getIndexTableSpaceString(indexTableSpace))
         else:
             indexName = blockTable + "_gist"
-            postgresops.mogrifyExecute(cursor, 'CREATE INDEX ' + indexName + ' ON ' + blockTable + ' USING GIST ( geometry(pa) )' + self.getIndexTableSpaceString())
-            
-        connection.commit()
-        if self.cluster:
-            postgresops.mogrifyExecute(cursor, "CLUSTER " + blockTable + " USING " + indexName)
-            connection.commit()
-        
+            postgresops.mogrifyExecute(cursor, 'CREATE INDEX ' + indexName + ' ON ' + blockTable + ' USING GIST ( geometry(pa) )' + self.getIndexTableSpaceString(indexTableSpace))
+        if cluster:
+            postgresops.mogrifyExecute(cursor, "CLUSTER " + blockTable + " USING " + indexName)   
         # Close the connection
         connection.close()
-        if self.vacuum:
-            self.vacuumTable(blockTable)
+        #self.vacuumTable(blockTable)
     
     
     def vacuumTable(self, tableName):
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         old_isolation_level = connection.isolation_level
         connection.set_isolation_level(0)
         postgresops.mogrifyExecute(cursor, "VACUUM FULL ANALYZE " + tableName)
-        connection.commit()
         connection.set_isolation_level(old_isolation_level)
         connection.close()
     
     def getNumPointsFlat(self, flatTable):
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         cursor.execute('select count(*) from ' + flatTable)
         n = cursor.fetchone()[0]
@@ -235,7 +191,7 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
         return n
     
     def getNumPointsBlocks(self, blockTable):
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         cursor.execute('select sum(pc_numpoints(pa)) from ' + blockTable)
         n = cursor.fetchone()[0]
@@ -243,10 +199,10 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
         return n
         
     def addPCFormat(self, schemaFile, fileAbsPath):
-        (_, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(fileAbsPath)
+        (srid, _, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(fileAbsPath)
         
         # Get connection to DB
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         
         updatedFormat = False
@@ -257,8 +213,8 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
         while not updatedFormat:
         
             # Check whether there is already a format with current scale-offset values 
-            cursor.execute("SELECT pcid,schema FROM pointcloud_formats WHERE scaleX = %s AND scaleY = %s AND scaleZ = %s AND offsetX = %s AND offsetY = %s AND offsetZ = %s", 
-                            [scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ])
+            cursor.execute("SELECT pcid,schema FROM pointcloud_formats WHERE srid = %s AND scaleX = %s AND scaleY = %s AND scaleZ = %s AND offsetX = %s AND offsetY = %s AND offsetZ = %s", 
+                            [srid, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ])
             rows = cursor.fetchall()
             
             if len(rows):
@@ -290,8 +246,7 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
                     pcid = rows[0][0] + 1
                 try:
                     postgresops.mogrifyExecute(cursor, "INSERT INTO pointcloud_formats (pcid, srid, schema, scalex, scaley, scalez, offsetx, offsety, offsetz) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)", 
-                               [pcid, self.srid, schema, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ])
-                    connection.commit()
+                               [pcid, srid, schema, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ])
                     updatedFormat = True
                 except :
                     connection.rollback() 
@@ -299,13 +254,16 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
         
         # Get the used dimensions if still not acquired (they should be always the same)
         compression = root.find(pc_namespace+'metadata').find('Metadata').text
-        dimensionsOffsets = {}
-        dimensionsScales = {}
         dimensionsNames = []
         for dimension in root.findall(pc_namespace+'dimension'):
             dName = dimension.find(pc_namespace+'name').text
             dimensionsNames.append(dName)
-            if dName in ('X','Y','Z'):
-                dimensionsOffsets[dName] = dimension.find(pc_namespace+'offset').text
-                dimensionsScales[dName] = dimension.find(pc_namespace+'scale').text
-        return (dimensionsNames, pcid, compression, dimensionsOffsets, dimensionsScales)  
+        return (dimensionsNames, pcid, compression)  
+    
+    def loadFromBinaryLoader(self, connectionString, flatTable, fileAbsPath, columns, minX = None, minY = None, scaleX = None, scaleY = None):
+        c1 = 'las2pg -s '+ fileAbsPath +' --stdout --parse ' + columns
+        if 'k' in columns:
+            c1 += ' --moffset ' + str(int(float(minX) / float(scaleX))) + ','+ str(int(float(minY) / float(scaleY))) + ' --check ' + str(scaleX) + ',' + str(scaleY)        
+        c = c1 + ' | psql '+ connectionString +' -c "copy '+ flatTable +' from stdin with binary"'
+        logging.debug(c)
+        os.system(c)

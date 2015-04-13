@@ -19,7 +19,7 @@ class Querier(AbstractQuerier):
                                 }
         
     def queryDisk(self, queryId, iterationId, queriesParameters):
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
     
         self.prepareQuery(queryId, queriesParameters, cursor, False)
@@ -32,8 +32,7 @@ class Querier(AbstractQuerier):
             t0 = time.time()
             (query, queryArgs) = self.getSelect(self.qp)
             postgresops.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS ( " + query + " )", queryArgs)
-            connection.commit()
-                              
+
             (eTime, result) =  dbops.getResult(cursor, t0, self.resultTable, self.colsData, True, self.qp.columns, self.qp.statistics)
         else:
             if self.qp.queryType in ('rectangle','circle','generic'):       
@@ -53,7 +52,7 @@ class Querier(AbstractQuerier):
 
     def queryStream(self, queryId, iterationId, queriesParameters):
         self.prepareQuery(queryId, queriesParameters, None, None)    
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         t0 = time.time()
         (query, queryArgs) = self.getSelect(self.qp)
@@ -61,7 +60,7 @@ class Querier(AbstractQuerier):
         sqlFile = open(sqlFileName, 'w')
         sqlFile.write(cursor.mogrify(query, queryArgs) + ';\n')
         sqlFile.close()
-        command = 'psql ' + self.connectString(False, True) + ' < ' + sqlFileName + ' | wc -l'
+        command = 'psql ' + self.getConnectionString(False, True) + ' < ' + sqlFileName + ' | wc -l'
         result = subprocess.Popen(command, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0].replace('\n','')
         eTime = time.time() - t0
         try:
@@ -118,21 +117,19 @@ class Querier(AbstractQuerier):
         return (query,queryArgs)
             
     def runGenericQueryParallelGridChild(self, sIndex, gridTable):
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor() 
         cqp = copy.copy(self.qp)
         cqp.statistics = None
         (query, queryArgs) = self.getSelectParallel(cursor, cqp, gridTable, sIndex+1)
         postgresops.mogrifyExecute(cursor, "INSERT INTO "  + self.resultTable + " " + query, queryArgs)
-        connection.commit()
         connection.close()
      
     def runGenericQueryParallelCandChild(self, chunkIds):
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         cqp = copy.copy(self.qp)
         cqp.statistics = None
         (query, queryArgs) = self.getSelectParallel(cursor, cqp, self.queryTable, self.queryIndex, True, chunkIds)
         postgresops.mogrifyExecute(cursor, "INSERT INTO "  + self.resultTable + " " + query, queryArgs)
-        connection.commit()
         connection.close()      

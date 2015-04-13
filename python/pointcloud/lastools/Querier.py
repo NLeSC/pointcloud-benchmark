@@ -3,7 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import os, subprocess, time, psycopg2, logging, glob
+import os, subprocess, time, logging, glob
 from pointcloud.AbstractQuerier import AbstractQuerier
 from pointcloud.lastools.CommonLASTools import CommonLASTools
 from pointcloud import postgresops, lasops, utils
@@ -26,6 +26,7 @@ class Querier(AbstractQuerier, CommonLASTools):
         connectionSuper.close()
         # Creates the DB if not existing
         if not self.exists:
+            logging.info('Creating auxiliary DB ' + self.dbName)
             connString = self.getConnectString(False, True)
             os.system('createdb ' + connString)
         #  We create the PostGIS extension
@@ -35,6 +36,7 @@ class Querier(AbstractQuerier, CommonLASTools):
             cursor.execute('CREATE EXTENSION postgis;')
             connection.commit()
             
+        logging.info('Getting default list of files and data SRID')
         # Get the list of PC files
         pcFiles = glob.glob(os.path.join(os.path.abspath(self.dataFolder), '*' + self.dataExtension))
         # We need to know if it is a single file or multiple (in order to use -merged in lasclip or not)
@@ -49,6 +51,7 @@ class Querier(AbstractQuerier, CommonLASTools):
         # Gets the SRID of the PC files (we assume all have the same SRID as the first file)
         self.srid = lasops.getSRID(pcFiles[0])
         
+        logging.info('Creating auxiliary table ' + utils.QUERY_TABLE)
         # Drops possible query table 
         postgresops.dropTable(cursor, utils.QUERY_TABLE, check = True)
         # Create query table
@@ -97,10 +100,6 @@ class Querier(AbstractQuerier, CommonLASTools):
             return (eTime, result)
             
         t0 = time.time()
-        
-        auxnp = ''
-        if self.numProcessesQuery > 1:
-            auxnp = ' -cores ' + str(self.numProcessesQuery) + ' '
 
         if self.dbIndex:
             inputList = 'input' +  str(queryIndex) + '.list'
@@ -117,7 +116,7 @@ class Querier(AbstractQuerier, CommonLASTools):
         elif self.qp.queryType == 'circle':
             command = 'lasmerge -lof ' + inputList + ' -inside_circle ' + str(self.qp.cx) + ' ' + str(self.qp.cy) + ' ' + str(self.qp.rad) + zquery
         elif self.qp.queryType == 'generic':
-            command = 'lasclip.exe -lof ' + inputList + ' -poly ' + shapeFile + ' ' + auxnp + zquery
+            command = 'lasclip.exe -lof ' + inputList + ' -poly ' + shapeFile + ' ' + zquery
             if not self.isSingle :
                 command += ' -merged'                    
         

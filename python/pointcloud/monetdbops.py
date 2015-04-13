@@ -3,7 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import logging
+import logging, subprocess
 from pointcloud import utils
 
 #
@@ -28,7 +28,8 @@ def mogrifyExecute(cursor, query, queryArgs = None):
         return cursor.execute(query, queryArgs)
     else:
         return cursor.execute(query)
- 
+    cursor.connection.commit()
+    
 def dropTable(cursor, tableName, check = False):
     """ Drops a table"""
     toDelete = True
@@ -37,9 +38,22 @@ def dropTable(cursor, tableName, check = False):
             toDelete = False
     if toDelete:
         mogrifyExecute(cursor, 'DROP TABLE ' + tableName)
-        cursor.connection.commit()
 
 def getSizes(cursor):
     """ Get the sizes of the DB (indexes, tables, indexes+tables)"""
     cursor.execute("""select cast(sum(imprints) AS double)/(1024.*1024.), cast(sum(columnsize) as double)/(1024.*1024.), (cast(sum(imprints) AS double)/(1024.*1024.) + cast(sum(columnsize) as double)/(1024.*1024.)) from storage()""")
     return list(cursor.fetchone())
+
+def createSQLFile(absPath, query, queryArgs):
+    sqlFile = open(absPath, 'w')
+    sqlFile.write(mogrify(None, query, queryArgs) + ';\n')
+    sqlFile.close()
+    
+def executeSQLFileCount(connectionString, sqlFileAbsPath):
+    command = 'mclient ' + connectionString + ' < ' + sqlFileAbsPath + ' | wc -l'
+    result = subprocess.Popen(command, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0].replace('\n','')
+    try:
+        result  = int(result) - 5
+    except:
+        result = None
+    return result

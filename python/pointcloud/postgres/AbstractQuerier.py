@@ -4,22 +4,16 @@
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
 import logging
-import psycopg2
 from pointcloud.AbstractQuerier import AbstractQuerier as AQuerier
 from pointcloud.postgres.CommonPostgres import CommonPostgres
 from pointcluod import postgresops
 
 class AbstractQuerier(AQuerier, CommonPostgres):
-    """Abstract class for the queriers to be implemented for each different 
-    solution for the benchmark"""
     def __init__(self, configuration):
         """ Set configuration parameters and create user if required """
         AQuerier.__init__(self, configuration)
         self.setVariables(configuration)
 
-    def connect(self, superUser = False):
-        return psycopg2.connect(self.connectString(superUser))
-    
     def initialize(self):
         #Variables used during query
         self.queryIndex = None
@@ -27,13 +21,12 @@ class AbstractQuerier(AQuerier, CommonPostgres):
         self.qp = None
         
         # Create a table to store the query geometries
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         
         postgresops.dropTable(cursor, self.queryTable, check = True)
         postgresops.mogrifyExecute(cursor, "CREATE TABLE " +  self.queryTable + " (id integer, geom public.geometry(Geometry," + self.srid + "));")
         
-        connection.commit()
         connection.close()
         
     def close(self):

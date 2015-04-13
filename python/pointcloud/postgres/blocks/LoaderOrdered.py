@@ -5,29 +5,24 @@
 ################################################################################
 import os, logging
 import utils
-from pointcloud import pdalxml, postgresops
-from pointcloud.postgres.AbstractLoader import AbstractLoader
+from pointcloud import pdalops, postgresops
+from pointcloud.postgres.blocks.Loader import Loader
 
-class LoaderOrdered(AbstractLoader):
-    def initialize(self):
-        self.ordered = True
-        
-        # Creates the DB and loads pointCloud extension
-        self.createDB()
-        self.initPointCloud()
-        # Creates the table that will contain ALL pathces
-        self.createBlocks(self.blockTable)   
-    
+class LoaderOrdered(Loader):
     def getFileBlockTable(self, index):
         return self.blockTable + '_' + str(index)
-    
+
+    def process(self):
+        logging.info('Starting ordered data loading with PDAL (parallel by python) from ' + self.inputFolder + ' to ' + self.dbName)
+        return self.processMulti(inputFiles, self.numProcessesLoad, self.loadFromFile, self.loadFromFileSequential, True)
+
     def loadFromFile(self, index, fileAbsPath):
-        # Get information of the contents of the LAS file
-        logging.debug(fileAbsPath)
+        # Add point cloud format to poinctcloud_formats table
         fileBlockTable = self.getFileBlockTable(index)
-        self.createBlocks(fileBlockTable)  
-        (dimensionsNames, pcid, compression, offsets, scales) = self.addPCFormat(self.schemaFile, fileAbsPath)
-        xmlFile = pdalxml.PostgreSQLWriter(fileAbsPath, self.connectString(), pcid, dimensionsNames, fileBlockTable, self.srid, self.blockSize, compression, offsets, scales)
+        self.createBlocksTable(fileBlockTable, self.indexTableSpace) # We use the index table space for the temporal table
+        
+        (dimensionsNames, pcid, compression) = self.addPCFormat(self.schemaFile, fileAbsPath)
+        xmlFile = pdalops.PostgreSQLWriter(fileAbsPath, self.getConnectionString(), pcid, dimensionsNames, fileBlockTable, self.srid, self.blockSize, compression)
         c = 'pdal pipeline ' + xmlFile
         logging.debug(c)
         os.system(c)
@@ -36,17 +31,9 @@ class LoaderOrdered(AbstractLoader):
         
     def loadFromFileSequential(self, fileAbsPath, index, numFiles):
         fileBlockTable = self.getFileBlockTable(index)
-        connection = self.connect()
+        connection = self.getConnection()
         cursor = connection.cursor()
         #query = "INSERT INTO " + self.blockTable + " (pa) SELECT pa FROM " + fileBlockTable
         query = "INSERT INTO " + self.blockTable + " (pa) SELECT pa FROM " + fileBlockTable + " ORDER BY id"
         postgresops.mogrifyExecute(cursor, query)
-        connection.commit()
         postgresops.mogrifyExecute(cursor, "DROP TABLE " + fileBlockTable)
-        connection.commit()
-
-    def close(self):
-        self.indexClusterVacuumBlock(self.blockTable)
-        
-    def getNumPoints(self):
-        return self.getNumPointsBlocks(self.blockTable)

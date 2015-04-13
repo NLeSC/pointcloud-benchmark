@@ -23,7 +23,7 @@ class AbstractQuerier(AQuerier, CommonMonetDB):
         self.qp = None
         connection = self.getConnection()
         cursor = connection.cursor()
-        
+        logging.info('Getting SRID and extent from ' + self.dbName)
         monetdbops.mogrifyExecute(cursor, "SELECT srid, minx, miny, maxx, maxy, scalex, scaley from " + self.metaTable)
         (self.srid, self.minX, self.minY, self.maxX, self.maxY, self.scaleX, self.scaleY) = cursor.fetchone()[0]
         
@@ -35,8 +35,7 @@ class AbstractQuerier(AQuerier, CommonMonetDB):
     def prepareQuery(self, queryId, queriesParameters):
         self.queryIndex = int(queryId)
         self.resultTable = 'query_results_' + str(self.queryIndex)
-        
-        self.qp = queriesParameters.getQueryParameters('mon',queryId, self.colsData.keys())
+        self.qp = queriesParameters.getQueryParameters('mon', queryId, self.colsData.keys())
         logging.debug(self.qp.queryKey)
 
     def addContainsCondition(self, queryParameters, queryArgs, xname, yname):

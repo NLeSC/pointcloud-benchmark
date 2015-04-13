@@ -6,48 +6,36 @@
 import os, logging
 import utils
 from pointcloud.oracle.AbstractLoader import AbstractLoader
-from pointcloud import lasops, pdalxml
+from pointcloud import lasops, pdalops
 
 class Loader(AbstractLoader):
     def initialize(self):
-        # Check parameters for this loader
-        if self.partition != 'none':
-            raise Exception('ERROR: partitions are not supported!')
-        
-        if self.cluster:
-            raise Exception('ERROR: clustering is not supported!')
-        
-        #if self.numProcessesLoad != 1:
-        #    raise Exception('ERROR: single process is allowed!')
-        
-        
         # Creates the user that will store the tables
         if self.cUser:
             self.createUser()
         
-        (self.inputFiles, self.srid, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = getPCFolderDetails(self.inputFolder)
+        # Get the point cloud folder description
+        logging.info('Getting files, extent and SRID from input folder ' + self.inputFolder)
+        (self.inputFiles, self.srid, _, self.minX, self.minY, _, self.maxX, self.maxY, _, _, _, _) = lasops.getPCFolderDetails(self.inputFolder)
         
+        # Creates connection
         connection = self.getConnection()
         cursor = connection.cursor()
         
-        # Creates the global blocks tables
-        self.createBlocks(cursor, self.blockTable, self.baseTable, self.tableSpace, includeBlockId = True)
+        # Create blocks table and base table (for PDAL blocks we need the blockID as well in the blocks table)
+        self.createBlocksTable(cursor, self.blockTable, self.tableSpace, self.compression, self.baseTable, includeBlockId = True)
         connection.close()
 
     def process(self):
+        logging.info('Starting data loading in parallel by python from ' + self.inputFolder + ' to ' + self.userName)
         return self.processMulti(self.inputFiles, self.numProcessesLoad, self.loadFromFile, None, True)
 
     def loadFromFile(self, index, fileAbsPath):
         # Get information of the contents of the LAS file
-        logging.debug(fileAbsPath)
-        
-        #(self.dimensionsNames, pcid, compression, offsets, scales) = self.addPCFormat(self.schemaFile, fileAbsPath)
-        (_, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(fileAbsPath)  
-        offsets = {'X': offsetX, 'Y': offsetY, 'Z': offsetZ}
-        scales = {'X': scaleX, 'Y': scaleY, 'Z': scaleZ}
-        xmlFile = pdalxml.OracleWriter(fileAbsPath, self.connectString(), self.dimensionsNames, self.blockTable, self.baseTable, self.srid, self.blockSize, offsets, scales)
-        c = 'pdal pipeline ' + xmlFile + ' -d -v 6'
-        logging.debug(c)
+        logging.info(fileAbsPath)
+        xmlFile = pdalops.OracleWriter(fileAbsPath, self.getConnectionString(), self.columns, self.blockTable, self.baseTable, self.srid, self.blockSize)
+        c = 'pdal pipeline ' + xmlFile # + ' -d -v 6'
+        logging.info(c)
         os.system(c)
         # remove the XML file
         os.system('rm ' + xmlFile)
@@ -55,12 +43,12 @@ class Loader(AbstractLoader):
     def close(self):
         connection = self.getConnection()
         cursor = connection.cursor()
-        self.createBlockIdIndex(cursor)
-        self.createBlockIndex(cursor, self.minX, self.minY, self.maxX, self.maxY)
+        self.createBlockIdIndex(cursor, self.blockTable, self.indexTableSpace)
+        self.createBlockIndex(cursor, self.srid, self.minX, self.minY, self.maxX, self.maxY, self.blockTable, self.indexTableSpace, self.workTableSpace, self.numProcessesLoad)
         connection.close()
         
     def size(self):
-        return self.sizeBlocks()
+        return self.sizeBlocks(self.blockTable, self.baseTable)
         
     def getNumPoints(self):
-        return self.getNumPointsBlocks()
+        return self.getNumPointsBlocks(self.blockTable)
