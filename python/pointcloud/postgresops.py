@@ -3,8 +3,8 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import os, logging
-import utils
+import os, logging, subprocess
+from pointcloud import utils
 
 #
 # This module contains methods that use PostgreSQL
@@ -62,3 +62,17 @@ def getSizes(cursor):
     """ Return tuple with size of indexes, size excluding indexes, and total size (all in MB)"""
     cursor.execute("""SELECT sum(pg_indexes_size(tablename::text)) / (1024*1024) size_indexes,  sum(pg_table_size(tablename::text)) / (1024*1024) size_ex_indexes, sum(pg_total_relation_size(tablename::text)) / (1024*1024) size_total FROM pg_tables where schemaname='public'""")
     return list(cursor.fetchone())
+
+def createSQLFile(cursor, absPath, query, queryArgs):
+    sqlFile = open(absPath, 'w')
+    sqlFile.write(cursor.mogrify(query, queryArgs) + ';\n')
+    sqlFile.close()
+    
+def executeSQLFileCount(connectionString, sqlFileAbsPath):
+    command = 'psql ' + connectionString + ' < ' + sqlFileAbsPath + ' | wc -l'
+    result = subprocess.Popen(command, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0].replace('\n','')
+    try:
+        result  = int(result) - 4
+    except:
+        result = None
+    return result

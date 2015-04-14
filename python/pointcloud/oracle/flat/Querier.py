@@ -8,21 +8,20 @@ from pointcloud import dbops, oracleops
 from pointcloud.oracle.AbstractQuerier import AbstractQuerier
 
 class Querier(AbstractQuerier):
-    def __init__(self, configuration):
-        """ Set configuration parameters and create user if required """
-        AbstractQuerier.__init__(self, configuration)
-        # Create the quadtree
+    def initialize(self):
+        # Get connection
         connection = self.getConnection()
         cursor = connection.cursor()
-        
+        # Get SRID of the stored PC
         oracleops.mogrifyExecute(cursor, "SELECT srid, minx, miny, maxx, maxy, scalex, scaley from " + self.metaTable)
         (self.srid, minX, minY, maxX, maxY, scaleX, scaleY) = cursor.fetchone()[0]
                 
     def query(self, queryId, iterationId, queriesParameters):
+        (eTime, result) = (-1, None)
         connection = self.getConnection()
         cursor = connection.cursor()
     
-        self.prepareQuery(queryId, queriesParameters, iterationId == 0)
+        self.prepareQuery(cursor, queryId, queriesParameters, iterationId == 0)
         oracleops.dropTable(cursor, self.resultTable, True) 
         
         if self.qp.queryMethod != 'stream' and self.numProcessesQuery > 1 and self.parallelType != 'nati' and self.qp.queryType in ('rectangle','circle','generic') :

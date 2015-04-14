@@ -11,24 +11,38 @@ class LoaderBinary(AbstractLoader):
         # Initialize DB and extensions if creation of user is required
         if self.cDB:
             self.createDB()
-        self.createFlatTable(self.flatTable, self.tableSpace, self.columns)
+        # Get connection
+        connection = self.getConnection()
+        cursor = connection.cursor()
+        # Create flat table
+        self.createFlatTable(cursor, self.flatTable, self.tableSpace, self.columns)
         
         logging.info('Getting files, extent and SRID from input folder ' + self.inputFolder)
         (self.inputFiles, self.srid, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = lasops.getPCFolderDetails(self.inputFolder)
         
-        postgresops.mogifyExecute(cursor, "CREATE TABLE " + self.metaTable + " (tablename text, srid integer, minx DOUBLE PRECISION, miny DOUBLE PRECISION, maxx DOUBLE PRECISION, maxy DOUBLE PRECISION, scalex DOUBLE PRECISION, scaley DOUBLE PRECISION)")
+        # Create meta table to save the extent of the PC
+        self.createMetaTable(cursor, self.metaTable)
+        connection.close()
         
     def process(self):
         logging.info('Starting data loading with las2pg (parallel by python) from ' + self.inputFolder + ' to ' + self.dbName)
+        # Insert the extent of the loaded PC
+        connection = self.getConnection()
+        cursor = connection.cursor()
         metaArgs = (self.flatTable, self.srid, self.minX, self.minY, self.maxX, self.maxY, self.scaleX, self.scaleY)
         postgresops.mogrifyExecute(cursor, "INSERT INTO " + self.metaTable + " VALUES (%s,%s,%s,%s,%s,%s,%s,%s)" , metaArgs)
+        connection.close()
+        # Start the multiprocessing (las2pg in parallel)
         return self.processMulti(self.inputFiles, self.numProcessesLoad, self.loadFromFile)
      
     def loadFromFile(self, index, fileAbsPath):
         self.loadFromBinaryLoader(self.getConnectionString(False, True), self.flatTable, fileAbsPath, self.columns, self.minX, self.minY, self.scaleX, self.scaleY)
  
     def close(self):
-        self.indexFlatTable(self.flatTable, self.indexTableSpace, self.index, self.cluster)
-    
+        connection = self.getConnection()
+        cursor = connection.cursor()
+        self.indexFlatTable(cursor, self.flatTable, self.indexTableSpace, self.index, self.cluster)
+        connection.close()
+        
     def getNumPoints(self):
         return self.getNumPointsFlat(self.flatTable)

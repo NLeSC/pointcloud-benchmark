@@ -5,7 +5,7 @@
 ################################################################################
 import time, os
 from pointcloud import lasops, pdalops, oracleops
-from pointcloud.oracle.AbstractQuerier import AbstractQuerier
+from pointcloud.postgres.AbstractQuerier import AbstractQuerier
 
 class QuerierPDAL(AbstractQuerier):    
     def initialize(self):
@@ -16,12 +16,13 @@ class QuerierPDAL(AbstractQuerier):
         connection = self.getConnection()
         cursor = connection.cursor()
         # Get SRID of the stored PC
-        oracleops.mogrifyExecute(cursor, "SELECT srid FROM user_sdo_geom_metadata WHERE table_name = '" + self.blockTable + "'")
-        (self.srid,) = cursor.fetchone()[0]
+        cursor.execute('SELECT srid from pointcloud_formats LIMIT 1')
+        self.srid = cursor.fetchone()[0]
         
         # Create table to store the query geometries
-        #oracleops.dropTable(cursor, self.queryTable, check = True)
-        #oracleops.mogrifyExecute(cursor, "CREATE TABLE " + self.queryTable + " ( id number primary key, geom sdo_geometry) TABLESPACE " + self.tableSpace + " pctfree 0 nologging")
+        #postgresops.dropTable(cursor, self.queryTable, check = True)
+        #postgresops.mogrifyExecute(cursor, "CREATE TABLE " +  self.queryTable + " (id integer, geom public.geometry(Geometry," + self.srid + "));")
+        
         connection.close()
          
     def query(self, queryId, iterationId, queriesParameters):    
@@ -34,9 +35,9 @@ class QuerierPDAL(AbstractQuerier):
         
         if self.qp.queryMethod != 'stream':
             outputFileAbsPath = 'output' +  str(queryIndex) + '.las'
-            xmlFile = pdalops.OracleReaderLAS(outputFileAbsPath, self.getConnectionString(), self.blockTable, self.baseTable, self.srid, self.qp.wkt)
+            xmlFile = pdalops.PostgreSQLReaderLAS(outputFileAbsPath, self.getConnectionString(), self.blockTable, self.srid, self.qp.wkt)
         else:
-            xmlFile = pdalops.OracleReaderStdOut(self.getConnectionString(), self.blockTable, self.baseTable, self.srid, self.qp.wkt)
+            xmlFile = pdalops.PostgreSQLReaderStdOut(self.getConnectionString(), self.blockTable, self.srid, self.qp.wkt)
             
         t0 = time.time()
         if self.qp.queryMethod != 'stream': # disk or stat

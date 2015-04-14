@@ -3,6 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
+from shapely.wkt import loads, dumps
 import time,copy,logging
 from pointcloud.postgres.AbstractQuerier import AbstractQuerier
 from pointcloud import wktops, dbops, postgresops
@@ -17,8 +18,8 @@ class QuerierMorton(AbstractQuerier):
         
         self.metaTable = self.blockTable + '_meta'
         postgresops.mogrifyExecute(cursor, "SELECT srid, minx, miny, maxx, maxy, scalex, scaley from " + self.metaTable)
-        (self.srid, self.minX, self.minY, self.maxX, self.maxY, self.scaleX, self.scaleY) = cursor.fetchone()[0]
-
+        (self.srid, self.minX, self.minY, self.maxX, self.maxY, self.scaleX, self.scaleY) = cursor.fetchone()
+        
         postgresops.dropTable(cursor, self.queryTable, check = True)
         postgresops.mogrifyExecute(cursor, "CREATE TABLE " +  self.queryTable + " (id integer, geom public.geometry(Geometry," + self.srid + "));")
         
@@ -33,51 +34,50 @@ class QuerierMorton(AbstractQuerier):
         # Differentiate QuadTree nodes that are fully in the query region
         self.mortonDistinctIn = False
         
-        
-    def queryDisk(self, queryId, iterationId, queriesParameters):
+    def query(self, queryId, iterationId, queriesParameters):
+        (eTime, result) = (-1, None)
         connection = self.getConnection()
         cursor = connection.cursor()
-        
-        self.prepareQuery(queryId, queriesParameters, cursor, iterationId == 0)
-        
+               
+        self.prepareQuery(cursor, queryId, queriesParameters, iterationId == 0)
         postgresops.dropTable(cursor, self.resultTable, True)    
- 
+       
+        wkt = self.qp.wkt
         if self.qp.queryType == 'nn':
-            raise Exception('Not support for NN queries!')
+            g = loads(self.qp.wkt)
+            wkt = dumps(g.buffer(self.qp.rad))
        
         t0 = time.time()
-        
-        (mimranges,mxmranges) = self.quadtree.getMortonRanges(wktops.scale(self.qp.wkt, float(self.mortonScaleX), float(self.mortonScaleY)), self.mortonDistinctIn, maxRanges = MAXIMUM_RANGES)
+        scaledWKT = wktops.scale(wkt, self.scaleX, self.scaleY, self.minX, self.minY)    
+        (mimranges,mxmranges) = self.quadtree.getMortonRanges(scaledWKT, self.mortonDistinctIn, maxRanges = MAXIMUM_RANGES)
+       
         if len(mimranges) == 0 and len(mxmranges) == 0:
             logging.info('None morton range in specified extent!')
-            return
- 
-        if self.numProcessesQuery == 1:
-            (query, queryArgs) = self.getSelect(self.qp, mimranges, mxmranges)        
+            return (eTime, result)
+
+        if self.qp.queryMethod != 'stream' and self.numProcessesQuery > 1 and self.qp.queryType in ('rectangle','circle','generic') :
+            return self.pythonParallelization(t0, mimranges, mxmranges)
+        
+        (query, queryArgs) = self.getSelect(self.qp, mimranges, mxmranges)        
+        
+        if self.qp.queryMethod != 'stream': # disk or stat
             postgresops.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS (" + query + ")", queryArgs)
+            (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.colsData, (not self.mortonDistinctIn), self.qp.columns, self.qp.statistics)
         else:
-            dbops.createResultsTable(cursor, postgresops.mogrifyExecute, self.resultTable, self.qp.columns, self.colsData, None)
-            dbops.parallelMorton(mimranges, mxmranges, self.childInsert, self.numProcessesQuery)    
-
-        (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.colsData, (not self.mortonDistinctIn) and (self.numProcessesQuery == 1), self.qp.columns, self.qp.statistics)
-
+            sqlFileName = str(queryId) + '.sql'
+            postgresops.createSQLFile(cursor, sqlFileName, query, queryArgs)
+            result = postgresops.executeSQLFileCount(self.getConnectionString(False), sqlFileName)
+            eTime = time.time() - t0
+            
         connection.close()
         return (eTime, result)
-        
-    def childInsert(self, iMortonRanges, xMortonRanges):
-        connection = self.getConnection()
-        cqp = copy.copy(self.qp)
-        cqp.statistics = None
-        (query, queryArgs) = self.getSelect(cqp, iMortonRanges, xMortonRanges)
-        postgresops.mogrifyExecute(connection.cursor(), "INSERT INTO " + self.resultTable + " "  + query, queryArgs)
-        connection.close()  
-        
+ 
     def addContains(self, queryArgs):
         queryArgs.append(self.queryIndex)
         return "pc_intersects(pa,geom) and " + self.queryTable + ".id = %s"
     
     def getSelect(self, qp, iMortonRanges, xMortonRanges):
-        queryArgs = ['SRID='+self.srid+';'+self.qp.wkt, ]
+        queryArgs = []
         query = ''
         
         zname = self.columnsNameDict['z'][0]
@@ -98,8 +98,28 @@ class QuerierMorton(AbstractQuerier):
         if qp.queryType in ('rectangle', 'circle', 'generic'):
             containsCondition = self.addContains(queryArgs)
             zCondition = dbops.addZCondition(qp, zname, queryArgs)
-            query += "SELECT " + cols + " FROM (SELECT PC_Explode(PC_Intersection(pa,geom)) as qpoint from " + self.blockTable + ', (SELECT ST_GeomFromEWKT(%s) as geom) A ' + dbops.getWhereStatement([mortonCondition, containsCondition]) + ") as qtable2 " + dbops.getWhereStatement(zCondition)
+            query += "SELECT " + cols + " FROM (SELECT PC_Explode(PC_Intersection(pa,geom)) as qpoint from " + self.blockTable + ', ' + self.queryTable + dbops.getWhereStatement([mortonCondition, containsCondition]) + ") as qtable2 " + dbops.getWhereStatement(zCondition)
         elif qp.queryType != 'nn':
             #Approximation
-            query += "SELECT " + cols + " FROM (SELECT PC_Explode(pa) as qpoint from " + self.blockTable + ', (SELECT ST_GeomFromEWKT(%s) as geom) A ' + dbops.getWhereStatement(mortonCondition) + ") as qtable3 "
+            query += "SELECT " + cols + " FROM (SELECT PC_Explode(pa) as qpoint from " + self.blockTable + dbops.getWhereStatement(mortonCondition) + ") as qtable3 "
         return (query, queryArgs)
+   
+    #
+    # METHOD RELATED TO THE QUERIES OUT-OF-CORE PYTHON PARALLELIZATION 
+    #
+    def pythonParallelization(self, t0, mimranges, mxmranges):
+        connection = self.getConnection()
+        cursor = connection.cursor()
+        dbops.createResultsTable(cursor, postgresops.mogrifyExecute, self.resultTable, self.qp.columns, self.colsData)
+        dbops.parallelMorton(mimranges, mxmranges, self.childInsert, self.numProcessesQuery)
+        (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.colsData, False, self.qp.columns, self.qp.statistics)
+        connection.close()
+        return (eTime, result)
+    
+    def childInsert(self, iMortonRanges, xMortonRanges):
+        connection = self.getConnection()
+        cqp = copy.copy(self.qp)
+        cqp.statistics = None
+        (query, queryArgs) = self.getSelect(cqp, iMortonRanges, xMortonRanges)
+        postgresops.mogrifyExecute(connection.cursor(), "INSERT INTO " + self.resultTable + " "  + query, queryArgs)
+        connection.close()  

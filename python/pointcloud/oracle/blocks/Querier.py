@@ -9,13 +9,11 @@ from pointcloud import dbops, utils, oracleops
 from pointcloud.oracle.AbstractQuerier import AbstractQuerier
 
 class Querier(AbstractQuerier):      
-    def __init__(self, configuration):
-        """ Set configuration parameters and create user if required """
-        AbstractQuerier.__init__(self, configuration)
-        # Create the quadtree
+    def initialize(self):
+        # Get connection
         connection = self.getConnection()
         cursor = connection.cursor()
-        
+        # Get SRID of the stored PC
         oracleops.mogrifyExecute(cursor, "SELECT srid FROM user_sdo_geom_metadata WHERE table_name = '" + self.blockTable + "'")
         (self.srid,) = cursor.fetchone()[0]
         
@@ -24,18 +22,23 @@ class Querier(AbstractQuerier):
         for col in self.columns:
             self.columnsNamesTypesDict[col] = ('pnt.' + col,)
         
+        # Create table to store the query geometries
+        oracleops.dropTable(cursor, self.queryTable, check = True)
+        oracleops.mogrifyExecute(cursor, "CREATE TABLE " + self.queryTable + " ( id number primary key, geom sdo_geometry) TABLESPACE " + self.tableSpace + " pctfree 0 nologging")
+        connection.close()
           
     def query(self, queryId, iterationId, queriesParameters):
-        oracleops.dropTable(cursor, self.resultTable, True) 
-            
-        self.prepareQuery(queryId, queriesParameters, iterationId == 0)
-        
-        if self.qp.queryMethod != 'stream' and self.numProcessesQuery > 1 and self.parallelType != 'nati' and self.qp.queryType in ('rectangle','circle','generic') :
-             return self.pythonParallelization()
-        
+        (eTime, result) = (-1, None)
         connection = self.getConnection()
         cursor = connection.cursor()
         
+        oracleops.dropTable(cursor, self.resultTable, True) 
+            
+        self.prepareQuery(cursor, queryId, queriesParameters, iterationId == 0)
+        
+        if self.qp.queryMethod != 'stream' and self.numProcessesQuery > 1 and self.parallelType != 'nati' and self.qp.queryType in ('rectangle','circle','generic') :
+             return self.pythonParallelization()
+
         t0 = time.time()
         query = self.getSelect()
         

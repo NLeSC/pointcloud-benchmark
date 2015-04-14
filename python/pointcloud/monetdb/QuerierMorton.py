@@ -11,14 +11,18 @@ from pointcloud.QuadTree import QuadTree
 
 MAXIMUM_RANGES = 10
 
-class QuerierMorton(AbstractQuerier):        
-    def __init__(self, configuration):
-        """ Set configuration parameters and create user if required """
-        AbstractQuerier.__init__(self, configuration)
-        
+class QuerierMorton(AbstractQuerier):      
+    def initialize(self):
+        #Variables used during query
+        self.queryIndex = None
+        self.resultTable = None
+        self.qp = None
         connection = self.getConnection()
         cursor = connection.cursor()
-        
+        logging.info('Getting SRID and extent from ' + self.dbName)
+        monetdbops.mogrifyExecute(cursor, "SELECT srid, minx, miny, maxx, maxy, scalex, scaley from " + self.metaTable)
+        (self.srid, self.minX, self.minY, self.maxX, self.maxY, self.scaleX, self.scaleY) = cursor.fetchone()[0]
+
         # Create the quadtree
         qtDomain = (0, 0, int((self.maxX-self.minX)/self.scaleX), int((self.maxY-self.minY)/self.scaleY))
         self.quadtree = QuadTree(qtDomain, 'auto')    
@@ -32,13 +36,19 @@ class QuerierMorton(AbstractQuerier):
         else:
             self.queryColsData = self.colsData
             
+        # Drops possible query table 
+        monetdbops.dropTable(cursor, utils.QUERY_TABLE, check = True)
+        # Create query table
+        cursor.execute("CREATE TABLE " +  utils.QUERY_TABLE + " (id integer, geom Geometry);")
+        connection.commit()
+                    
         connection.close()
     
     def query(self, queryId, iterationId, queriesParameters):
         (eTime, result) = (-1, None)
         connection = self.getConnection()
         cursor = connection.cursor() 
-        self.prepareQuery(queryId, queriesParameters)
+        self.prepareQuery(cursor, queryId, queriesParameters, iterationId == 0)
         monetdbops.dropTable(cursor, self.resultTable, True)    
            
         wkt = self.qp.wkt

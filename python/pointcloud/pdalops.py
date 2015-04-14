@@ -1,4 +1,14 @@
+#!/usr/bin/env python
+################################################################################
+#    Created by Oscar Martinez                                                 #
+#    o.rubi@esciencecenter.nl                                                  #
+################################################################################
+import logging
 from pointcloud import utils, lasops
+
+#
+# This module contains methods that use PDAL or are useful for PDAL
+#
 
 def OracleWriter(inputFileAbsPath, connectionString, dimensionsNames, blockTable, baseTable, dbsrid, blockSize):
     (srid, _, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(inputFileAbsPath)  
@@ -83,25 +93,27 @@ def OracleReaderStdOut(connectionString, blockTable, baseTable, srid, wkt):
   <Writer type="writers.text">
     <Option name="filename">STDOUT</Option>
     <Option name="order">X,Y,Z</Option>
-    <Reader type="readers.oci">
-      <Option name="query">
-SELECT l."OBJ_ID", l."BLK_ID", l."BLK_EXTENT",
-       l."BLK_DOMAIN", l."PCBLK_MIN_RES",
-       l."PCBLK_MAX_RES", l."NUM_POINTS",
-       l."NUM_UNSORTED_POINTS", l."PT_SORT_DIM",
-       l."POINTS", b.pc
-FROM """ + blockTable + """ l, """ + baseTable + """ b
-WHERE
-    l.obj_id = b.id
-    AND
-    SDO_FILTER(l.blk_extent,SDO_GEOMETRY('""" + wkt + """', """ + srid + """)) = 'TRUE'
-      </Option>
-          <Option name="connection">""" + connectionString + """</Option>
-          <Option name="spatialreference">EPSG:""" + srid + """</Option>
-    </Reader>
+    <Filter type="filters.crop">
+        <Option name="polygon">""" + wkt + """</Option>
+        <Reader type="readers.oci">
+          <Option name="query">
+    SELECT l."OBJ_ID", l."BLK_ID", l."BLK_EXTENT",
+           l."BLK_DOMAIN", l."PCBLK_MIN_RES",
+           l."PCBLK_MAX_RES", l."NUM_POINTS",
+           l."NUM_UNSORTED_POINTS", l."PT_SORT_DIM",
+           l."POINTS", b.pc
+    FROM """ + blockTable + """ l, """ + baseTable + """ b
+    WHERE
+        l.obj_id = b.id
+        AND
+        SDO_FILTER(l.blk_extent,SDO_GEOMETRY('""" + wkt + """', """ + srid + """)) = 'TRUE'
+          </Option>
+              <Option name="connection">""" + connectionString + """</Option>
+              <Option name="spatialreference">EPSG:""" + srid + """</Option>
+        </Reader>
+    </Filter>
   </Writer>
 </Pipeline>
-
 """
 
 def PostgreSQLWriter(inputFileAbsPath, connectionString, pcid, dimensionsNames, blockTable, dbsrid, blockSize, compression):
@@ -139,6 +151,54 @@ def PostgreSQLWriter(inputFileAbsPath, connectionString, pcid, dimensionsNames, 
     utils.writeToFile(outputFileName, xmlContent)
     return outputFileName
 
+def PostgresSQLReaderLAS(outputFileAbsPath, connectionString, blockTable, srid, wkt):
+    xmlContent = """
+<?xml version="1.0" encoding="utf-8"?>
+<Pipeline version="1.0">
+  <Writer type="writers.las">
+    <Option name="filename">""" + outputFileAbsPath + """</Option>
+    <Filter type="filters.crop">
+        <Option name="polygon">""" + wkt + """</Option>
+        <Reader type="readers.pgpointcloud">
+          <Option name="connection">""" + connectionString + """</Option>
+          <Option name="table">""" + blockTable + """</Option>
+          <Option name="column">pa</Option>
+          <Option name="spatialreference">EPSG:""" + srid + """</Option>
+          <Option name="where">
+            PC_Intersects(pa, ST_GeomFromEWKT('SRID=""" + srid + """;""" + wkt + """'))
+          </Option>
+        </Reader>
+    </Filter>
+  </Writer>
+</Pipeline>
+"""
+    outputFileName = os.path.basename(outputFileAbsPath) + '.xml'
+    utils.writeToFile(outputFileName, xmlContent)
+    return outputFileName
+
+def PostgresSQLReaderStdOut(connectionString, blockTable, srid, wkt):
+    xmlContent = """
+<?xml version="1.0" encoding="utf-8"?>
+<Pipeline version="1.0">
+  <Writer type="writers.text">
+    <Option name="filename">STDOUT</Option>
+    <Option name="order">X,Y,Z</Option>
+    <Filter type="filters.crop">
+        <Option name="polygon">""" + wkt + """</Option>
+        <Reader type="readers.pgpointcloud">
+          <Option name="connection">""" + connectionString + """</Option>
+          <Option name="table">""" + blockTable + """</Option>
+          <Option name="column">pa</Option>
+          <Option name="spatialreference">EPSG:""" + srid + """</Option>
+          <Option name="where">
+            PC_Intersects(pa, ST_GeomFromEWKT('SRID=""" + srid + """;""" + wkt + """'))
+          </Option>
+        </Reader>
+    </Filter>
+  </Writer>
+</Pipeline>
+"""
+
 def executePDALCount(xmlFile):
     command = 'pdal pipeline ' + xmlFile + ' | wc -l'
     result = subprocess.Popen(command, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0].replace('\n','')
@@ -147,3 +207,10 @@ def executePDALCount(xmlFile):
     except:
         result = -1
     return result
+
+def executePDAL(xmlFile):
+    c = 'pdal pipeline ' + xmlFile
+    logging.debug(c)
+    os.system(c)
+    # remove the XML file
+    os.system('rm ' + xmlFile)

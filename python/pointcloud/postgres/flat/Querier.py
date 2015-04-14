@@ -10,44 +10,62 @@ from pointcloud.QueryParameters import QueryParameters
 
 class Querier(AbstractQuerier):        
     """ Querier for tables with X,Y,Z (and possibly B-Tree index, but not required)"""
-    
-    def __init__(self, configuration):
-        """ Set configuration parameters and create user if required """
-        AbstractQuerier.__init__(self, configuration)
-        
+    def initialize(self):
         connection = self.getConnection()
         cursor = connection.cursor()
-        cursor.execute('SELECT srid from ' + self.metaTable)
+        
+        self.metaTable = self.blockTable + '_meta'
+        postgresops.mogrifyExecute(cursor, "SELECT srid from " + self.metaTable)
         self.srid = cursor.fetchone()[0]
+
+        postgresops.dropTable(cursor, self.queryTable, check = True)
+        postgresops.mogrifyExecute(cursor, "CREATE TABLE " +  self.queryTable + " (id integer, geom public.geometry(Geometry," + self.srid + "));")
         connection.close()
         
-    def queryDisk(self, queryId, iterationId, queriesParameters):
+    def query(self, queryId, iterationId, queriesParameters):
+        (eTime, result) = (-1, None)
         connection = self.getConnection()
-        cursor = connection.cusor()
-
-        self.prepareQuery(queryId, queriesParameters, cursor, iterationId == 0)
-        gridTable = 'query_grid_' + str(self.queryIndex)
-        
-        for table in (self.resultTable, gridTable):
-            postgresops.dropTable(cursor, table, True) 
+        cursor = connection.cursor()
     
-        if self.numProcessesQuery > 1:
-            if self.qp.queryType in ('rectangle','circle','generic'):            
-                (eTime, result) = dbops.genericQueryParallelGrid(cursor, postgresops.mogrifyExecute, self.qp.columns, self.colsData, 
-                                                                     self.qp.statistics, self.resultTable, gridTable, self.createGridTableMethod,
-                                                                     self.runGenericQueryParallelGridChild, self.numProcessesQuery, 
-                                                                     (self.parallelType == 'griddis'))
-        else:
-            t0 = time.time()
-            (query, queryArgs) = dbops.getSelect(self.qp, self.flatTable, self.addContainsCondition, self.colsData)
+        self.prepareQuery(cursor, queryId, queriesParameters, iterationId == 0)
+        postgresops.dropTable(cursor, self.resultTable, True) 
+        
+        if self.qp.queryMethod != 'stream' and self.numProcessesQuery > 1 and self.qp.queryType in ('rectangle','circle','generic') :
+             return self.pythonParallelization()
+        
+        t0 = time.time()
+        (query, queryArgs) = dbops.getSelect(self.qp, self.flatTable, self.addContainsCondition, self.colsData)
+        
+        if self.qp.queryMethod != 'stream': # disk or stat
             postgresops.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS ( " + query + " )", queryArgs)
             (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.colsData, True, self.qp.columns, self.qp.statistics)
+        else:
+            sqlFileName = str(queryId) + '.sql'
+            postgresops.createSQLFile(cursor, sqlFileName, query, None)
+            result = postgresops.executeSQLFileCount(self.getConnectionString(False), sqlFileName)
+            eTime = time.time() - t0
         connection.close()
         return (eTime, result)
-        
+
     def addContainsCondition(self, queryParameters, queryArgs, xname, yname):
-        queryArgs.extend(['SRID='+self.srid+';'+self.qp.wkt, self.srid, ])
-        return (" _ST_Contains(geom, st_setSRID(st_makepoint(" + xname + "," + yname + "),%s))", '(SELECT ST_GeomFromEWKT(%s) as geom) A')
+        queryArgs.extend([self.queryIndex, self.srid, ])
+        return (self.queryTable, " id = %s AND _ST_Contains(geom, st_setSRID(st_makepoint(" + xname + "," + yname + "),%s))")
+    
+            
+    #
+    # METHOD RELATED TO THE QUERIES OUT-OF-CORE PYTHON PARALLELIZATION 
+    #
+    def pythonParallelization(self):
+        connection = self.getConnection()
+        cursor = connection.cursor()
+        gridTable = ('query_grid_' + str(self.queryIndex)).upper()
+        postgresops.dropTable(cursor, gridTable, True)
+        (eTime, result) =  dbops.genericQueryParallelGrid(cursor, postgresops.mogrifyExecute, self.qp.columns, self.colsData, 
+             self.qp.statistics, self.resultTable, gridTable, self.createGridTableMethod,
+             self.runGenericQueryParallelGridChild, self.numProcessesQuery, 
+             (self.parallelType == 'griddis'))
+        connection.close()
+        return (eTime, result)
     
     def runGenericQueryParallelGridChild(self, sIndex, gridTable):
         connection = self.getConnection()

@@ -22,80 +22,72 @@ class Querier(AbstractQuerier):
         connection.close()
         
         self.columnsNameDict = {'x':["PC_Get(qpoint, 'x')"],
-                        'y':["PC_Get(qpoint, 'y')"],
-                        'z':["PC_Get(qpoint, 'z')"]}
-        
-    def queryDisk(self, queryId, iterationId, queriesParameters):
+                                'y':["PC_Get(qpoint, 'y')"],
+                                'z':["PC_Get(qpoint, 'z')"]}
+                
+    def query(self, queryId, iterationId, queriesParameters):
+        (eTime, result) = (-1, None)
         connection = self.getConnection()
         cursor = connection.cursor()
     
-        self.prepareQuery(queryId, queriesParameters, cursor, False)
-        gridTable = 'query_grid_' + str(self.queryIndex)
-        
-        for table in (self.resultTable, gridTable):
-            postgresops.dropTable(cursor, table, True) 
+        postgresops.dropTable(cursor, self.resultTable, True) 
     
-        if self.numProcessesQuery == 1:
-            t0 = time.time()
-            (query, queryArgs) = self.getSelect(self.qp)
-            postgresops.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS ( " + query + " )", queryArgs)
-
-            (eTime, result) =  dbops.getResult(cursor, t0, self.resultTable, self.colsData, True, self.qp.columns, self.qp.statistics)
-        else:
-            if self.qp.queryType in ('rectangle','circle','generic'):       
-                if self.parallelType == 'cand':
-                    idsQuery = "SELECT " + self.blockTable +".id FROM " + self.blockTable +", (SELECT ST_GeomFromEWKT(%s) as geom) A WHERE pc_intersects(pa,geom)"
-                    idsQueryArgs =  ['SRID='+self.srid+';'+self.qp.wkt, ]
-                    (eTime, result) = dbops.genericQueryParallelCand(cursor,postgresops.mogrifyExecute, self.qp.columns, self.colsData, 
-                                                                     self.qp.statistics, self.resultTable, idsQuery, idsQueryArgs, 
-                                                                     self.runGenericQueryParallelCandChild, self.numProcessesQuery)
-                else:     
-                    (eTime, result) = dbops.genericQueryParallelGrid(cursor, postgresops.mogrifyExecute, self.qp.columns, self.colsData, 
-                                                                     self.qp.statistics, self.resultTable, gridTable, self.createGridTableMethod,
-                                                                     self.runGenericQueryParallelGridChild, self.numProcessesQuery, 
-                                                                     (self.parallelType == 'griddis'))
-        connection.close()
-        return (eTime, result)
-
-    def queryStream(self, queryId, iterationId, queriesParameters):
-        self.prepareQuery(queryId, queriesParameters, None, None)    
-        connection = self.getConnection()
-        cursor = connection.cursor()
+        self.prepareQuery(cursor, queryId, queriesParameters, iterationId == 0)
+        
+        if self.qp.queryMethod != 'stream' and self.numProcessesQuery > 1 and self.qp.queryType in ('rectangle','circle','generic') :
+             return self.pythonParallelization()
+        
         t0 = time.time()
         (query, queryArgs) = self.getSelect(self.qp)
-        sqlFileName = str(queryId) + '.sql'
-        sqlFile = open(sqlFileName, 'w')
-        sqlFile.write(cursor.mogrify(query, queryArgs) + ';\n')
-        sqlFile.close()
-        command = 'psql ' + self.getConnectionString(False, True) + ' < ' + sqlFileName + ' | wc -l'
-        result = subprocess.Popen(command, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0].replace('\n','')
-        eTime = time.time() - t0
-        try:
-            result  = int(result) - 4
-        except:
-            result = -1
+        
+        if self.qp.queryMethod != 'stream': # disk or stat
+            postgresops.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS ( " + query + " )", queryArgs)
+            (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, None, True, self.qp.columns, self.qp.statistics)
+        else:
+            sqlFileName = str(queryId) + '.sql'
+            postgresops.createSQLFile(cursor, sqlFileName, query, queryArgs)
+            postgresops.executeSQLFileCount(self.getConnectionString(False, True), sqlFileName)
+            eTime = time.time() - t0
+        connection.close()
         return (eTime, result)
-
-
+   
     def getSelect(self, qp):
         cols = dbops.getSelectCols(qp.columns, self.columnsNameDict, qp.statistics, True)
         if qp.queryType != 'nn':
-            queryArgs = ['SRID='+self.srid+';'+self.qp.wkt, ]
+            queryArgs = [self.queryIndex, ]
             zCondition = dbops.addZCondition(qp, self.columnsNameDict['z'][0], queryArgs)   
-            query = "SELECT " + cols + " from (SELECT pc_explode(pc_intersection(pa,geom)) AS qpoint from " + self.blockTable + ", (SELECT ST_GeomFromEWKT(%s) as geom) A WHERE pc_intersects(pa,geom)) AS qtable " + dbops.getWhereStatement(zCondition)
+            query = "SELECT " + cols + " from (SELECT pc_explode(pc_intersection(pa,geom)) AS qpoint from " + self.blockTable + ", (SELECT geom FROM " + self.queryTable + " WHERE id = %s) A WHERE pc_intersects(pa,geom)) AS qtable " + dbops.getWhereStatement(zCondition)
         else:
             numBlocksNeigh = int(math.pow(2 + math.ceil(math.sqrt(math.ceil(float(qp.num)/float(self.blockSize)))), 2))
-            queryArgs = ['SRID='+self.srid+';'+self.qp.wkt, numBlocksNeigh]            
+            queryArgs = [self.queryIndex, numBlocksNeigh]            
             zCondition = dbops.addZCondition(qp, self.columnsNameDict['z'][0], queryArgs)
             queryArgs.extend([qp.cx, qp.cy, qp.num])
             orderBy = "ORDER BY ((" + self.columnsNameDict['x'][0] + " - %s)^2 + (" + self.columnsNameDict['y'][0] + " - %s)^2)"
-            query = "SELECT " + cols + " FROM ( SELECT PC_explode(pa) as qpoint FROM  (SELECT pa FROM " + self.blockTable + " ORDER BY geometry(pa) <#> %s LIMIT ST_GeomFromEWKT(%s)) as A ) as B " + dbops.getWhereStatement(zCondition) + orderBy + " LIMIT %s"
+            query = "SELECT " + cols + " FROM ( SELECT PC_explode(pa) as qpoint FROM  (SELECT pa FROM " + self.blockTable + ", " + self.queryTable + " C WHERE C.id = %s ORDER BY geometry(pa) <#> geom LIMIT %s) as A ) as B " + dbops.getWhereStatement(zCondition) + orderBy + " LIMIT %s"
         return (query,queryArgs)
 
-
-    def addContains(self, queryArgs, queryIndex, queryTable):
-        queryArgs.append(queryIndex)
-        return "pc_intersects(pa,geom) and " + queryTable + ".id = %s"
+    
+    #
+    # METHOD RELATED TO THE QUERIES OUT-OF-CORE PYTHON PARALLELIZATION 
+    #
+    def pythonParallelization(self):
+        connection = self.getConnection()
+        cursor = connection.cursor()
+        if self.parallelType == 'cand':
+            idsQuery = "SELECT " + self.blockTable +".id FROM " + self.blockTable +", (SELECT geom FROM " + self.queryTable + " WHERE id = %s) A WHERE pc_intersects(pa,geom)"
+            idsQueryArgs =  [self.queryIndex, ]
+            (eTime, result) = dbops.genericQueryParallelCand(cursor,postgresops.mogrifyExecute, self.qp.columns, self.colsData, 
+                                                             self.qp.statistics, self.resultTable, idsQuery, idsQueryArgs, 
+                                                             self.runGenericQueryParallelCandChild, self.numProcessesQuery)
+        else:     
+            gridTable = 'query_grid_' + str(self.queryIndex)
+            postgresops.dropTable(cursor, gridTable, True)
+            (eTime, result) = dbops.genericQueryParallelGrid(cursor, postgresops.mogrifyExecute, self.qp.columns, self.colsData, 
+                                                             self.qp.statistics, self.resultTable, gridTable, self.createGridTableMethod,
+                                                             self.runGenericQueryParallelGridChild, self.numProcessesQuery, 
+                                                             (self.parallelType == 'griddis'))
+        connection.close()
+        return (eTime, result)
     
     def addContainsChunkIds(self, queryArgs, queryIndex, queryTable, chunkIds):
         queryArgs.append(queryIndex)
@@ -110,6 +102,10 @@ class Querier(AbstractQuerier):
                 queryArgs.append(listcrange[0])
                 queryArgs.append(listcrange[-1])
         return queryTable + ".id = %s AND (" + ' OR '.join(elements) + ")"
+
+    def addContains(self, queryArgs, queryIndex, queryTable):
+        queryArgs.append(queryIndex)
+        return "pc_intersects(pa,geom) and " + queryTable + ".id = %s" 
 
     def getSelectParallel(self, cursor, qp, queryTable, queryIndex, isCand = False, chunkIds = None):
         cols = dbops.getSelectCols(qp.columns, self.columnsNameDict, qp.statistics, True)

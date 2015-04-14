@@ -11,29 +11,26 @@ from pointcloud.QuadTree import QuadTree
 MAXIMUM_RANGES = 10
 
 class QuerierMorton(AbstractQuerier):
-    def __init__(self, configuration):
-        """ Set configuration parameters and create user if required """
-        AbstractQuerier.__init__(self, configuration)
-        
+    def initialize(self):
+        # Get connection
         connection = self.getConnection()
         cursor = connection.cursor()
-        
+        # Get SRID of the stored PC
         oracleops.mogrifyExecute(cursor, "SELECT srid, minx, miny, maxx, maxy, scalex, scaley from " + self.metaTable)
         (self.srid, minX, minY, maxX, maxY, scaleX, scaleY) = cursor.fetchone()[0]
-        
+            
         # Create the quadtree
         qtDomain = (0, 0, int((maxX-minX)/scaleX), int((maxY-minY)/scaleY))
         self.quadtree = QuadTree(qtDomain, 'auto')    
         # Differentiate QuadTree nodes that are fully in the query region
         self.mortonDistinctIn = False
-        
         connection.close()
         
     def query(self, queryId, iterationId, queriesParameters):
         (eTime, result) = (-1, None)
         connection = self.getConnection()
         cursor = connection.cursor()
-        self.prepareQuery(queryId, queriesParameters, iterationId == 0)
+        self.prepareQuery(cursor, queryId, queriesParameters, iterationId == 0)
         oracleops.dropTable(cursor, self.resultTable, True)    
        
         wkt = self.qp.wkt

@@ -4,7 +4,6 @@
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
 import os, logging
-import utils
 from pointcloud import pdalops, postgresops
 from pointcloud.postgres.blocks.Loader import Loader
 
@@ -17,23 +16,27 @@ class LoaderOrdered(Loader):
         return self.processMulti(inputFiles, self.numProcessesLoad, self.loadFromFile, self.loadFromFileSequential, True)
 
     def loadFromFile(self, index, fileAbsPath):
-        # Add point cloud format to poinctcloud_formats table
+        # Get connection
+        connection = self.getConnection()
+        cursor = connection.cursor()
+        #Create a temporal blocks table for the blocks of the current file
         fileBlockTable = self.getFileBlockTable(index)
-        self.createBlocksTable(fileBlockTable, self.indexTableSpace) # We use the index table space for the temporal table
+        self.createBlocksTable(cursor, fileBlockTable, self.indexTableSpace) # We use the index table space for the temporal table
         
-        (dimensionsNames, pcid, compression) = self.addPCFormat(self.schemaFile, fileAbsPath, self.srid)
+        # Add point cloud format to poinctcloud_formats table
+        (dimensionsNames, pcid, compression) = self.addPCFormat(cursor, self.schemaFile, fileAbsPath, self.srid)
+        connection.close()
+        # Get PDAL config and run PDAL
         xmlFile = pdalops.PostgreSQLWriter(fileAbsPath, self.getConnectionString(), pcid, dimensionsNames, fileBlockTable, self.srid, self.blockSize, compression)
-        c = 'pdal pipeline ' + xmlFile
-        logging.debug(c)
-        os.system(c)
-        # remove the XML file
-        os.system('rm ' + xmlFile)
+        pdalops.executePDAL(xmlFile)
         
     def loadFromFileSequential(self, fileAbsPath, index, numFiles):
         fileBlockTable = self.getFileBlockTable(index)
         connection = self.getConnection()
         cursor = connection.cursor()
-        #query = "INSERT INTO " + self.blockTable + " (pa) SELECT pa FROM " + fileBlockTable
+        # Insert the blocks on the global blocks table (with correct order)
         query = "INSERT INTO " + self.blockTable + " (pa) SELECT pa FROM " + fileBlockTable + " ORDER BY id"
         postgresops.mogrifyExecute(cursor, query)
-        postgresops.mogrifyExecute(cursor, "DROP TABLE " + fileBlockTable)
+        # Drop the temporal table
+        postgresops.dropTable(cursor, fileBlockTable)
+        connection.close()

@@ -34,12 +34,8 @@ class Loader(AbstractLoader):
         # Get information of the contents of the LAS file
         logging.info(fileAbsPath)
         xmlFile = pdalops.OracleWriter(fileAbsPath, self.getConnectionString(), self.columns, self.blockTable, self.baseTable, self.srid, self.blockSize)
-        c = 'pdal pipeline ' + xmlFile # + ' -d -v 6'
-        logging.info(c)
-        os.system(c)
-        # remove the XML file
-        os.system('rm ' + xmlFile)
-
+        pdalops.executePDAL(xmlFile)
+        
     def close(self):
         connection = self.getConnection()
         cursor = connection.cursor()

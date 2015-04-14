@@ -13,24 +13,12 @@ class AbstractQuerier(AQuerier, CommonOracle):
         """ Set configuration parameters and create user if required """
         AQuerier.__init__(self, configuration)
         self.setVariables(configuration)
-        
-    def initialize(self):
-        #Variables used during query
-        self.queryIndex = None
-        self.resultTable = None
-        self.qp = None
         self.srid = None #to be filled in by the different implementations (in their init method)
- 
-        connection = self.getConnection()
-        cursor = connection.cursor()
-        oracleops.dropTable(cursor, self.queryTable, check = True)
-        oracleops.mogrifyExecute(cursor, "CREATE TABLE " + self.queryTable + " ( id number primary key, geom sdo_geometry) TABLESPACE " + self.tableSpace + " pctfree 0 nologging")
-        connection.close()
-    
+            
     def close(self): 
         return
 
-    def prepareQuery(self, queryId, queriesParameters, addGeom = True):
+    def prepareQuery(self, cursor, queryId, queriesParameters, addGeom = True):
         self.queryIndex = int(queryId)
         self.resultTable = ('query_results_' + str(self.queryIndex)).upper()
         
@@ -38,16 +26,13 @@ class AbstractQuerier(AQuerier, CommonOracle):
         logging.debug(self.qp.queryKey)
         
         if addGeom:
-            connection = self.getConnection()
-            cursor = connection.cursor()
             cursor.setinputsizes(ARG1 = cx_Oracle.CLOB)
             cursor.execute('insert into ' + self.queryTable + ' values (:ARG0,SDO_UTIL.FROM_WKTGEOMETRY(:ARG1))', ARG0=self.queryIndex, ARG1=self.qp.wkt)
             cursor.execute('UPDATE ' + self.queryTable + ' t SET T.GEOM.SDO_SRID = :1 where T.ID = :2', [int(self.srid), self.queryIndex])
-            connection.commit()
-            connection.close()
+            cursor.connection.commit()
     
     def addContainsCondition(self, queryParameters, queryArgs, xname, yname):
-        return ("(select geom from " + self.queryTable + " where id = " + str(self.queryIndex) + "), " + str(self.tolerance) + ", NULL ", None)    
+        return (None, "(select geom from " + self.queryTable + " where id = " + str(self.queryIndex) + "), " + str(self.tolerance) + ", NULL ")    
     
     def createGridTableMethod(self, cursor, gridTable, ncols, nrows):
         query = """

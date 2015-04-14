@@ -45,10 +45,7 @@ class AbstractLoader(ALoader, CommonPostgres):
         self.createGridFunction(cursor)
         connection.close()
 
-    def initPointCloud(self):
-        connection = self.getConnection()
-        cursor = connection.cursor()
-    
+    def initPointCloud(self, cursor):
         # Load PostGIS and PointCloud extensions (only if new DB is created)
         cursor.execute('CREATE EXTENSION pointcloud')
         cursor.execute('CREATE EXTENSION pointcloud_postgis')
@@ -60,30 +57,13 @@ class AbstractLoader(ALoader, CommonPostgres):
         cursor.execute('ALTER TABLE pointcloud_formats ADD COLUMN offsety double precision')
         cursor.execute('ALTER TABLE pointcloud_formats ADD COLUMN offsetz double precision')
         cursor.execute('ALTER TABLE pointcloud_formats ADD CONSTRAINT scale_offset_key UNIQUE (scalex,scaley,scalez,offsetx,offsety,offsetz)')
-        connection.commit()
-        connection.close()
-
-    def createBlocksTable(self, blockTable, tableSpace, quadcell = False):
+        cursor.connection.commit()
+        
+    def createBlocksTable(self, cursor, blockTable, tableSpace, quadcell = False):
         aux = ''
         if quadcell:
             aux = ",quadCellId BIGINT"
-        connection = self.getConnection()
-        cursor = connection.cursor()
         postgresops.mogrifyExecute(cursor, "CREATE TABLE " + blockTable + " (id SERIAL PRIMARY KEY,pa PCPATCH" + aux + ")" + self.getTableSpaceString(tableSpace))
-        connection.close()  
-    
-
-    def size(self):
-        connection = self.getConnection()
-        cursor = connection.cursor()
-        row = postgresops.getSizes(cursor)
-        for i in range(len(row)):
-            if row[i] != None:
-                row[i] = '%.3f MB' % row[i]
-        (size_indexes, size_ex_indexes, size_total) = row
-        cursor.close()
-        connection.close()
-        return ' Size indexes= ' + str(size_indexes) + '. Size excluding indexes= ' + str(size_ex_indexes) + '. Size total= ' + str(size_total)
 
     def createGridFunction(self, cursor):
         cursor.execute("""
@@ -104,17 +84,14 @@ class AbstractLoader(ALoader, CommonPostgres):
     $$ LANGUAGE sql IMMUTABLE STRICT""")
         cursor.connection.commit()
     
-    def createQuadCellId(self):
-        connection = self.getConnection()
-        cursor = connection.cursor()
+    def createQuadCellId(self, cursor):
         cursor.execute("""
 CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
     AS $$SELECT (((1 << ($2<<1)) - 1) << (64 - ($2<<1))) & $1;$$ 
     LANGUAGE SQL 
     IMMUTABLE       
     RETURNS NULL ON NULL INPUT""")
-        connection.commit()
-        connection.close()
+        cursor.connection.commit()
     
     def getTableSpaceString(self, tableSpace):
         tableSpaceString = ''
@@ -128,9 +105,7 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
             indexTableSpaceString = ' TABLESPACE ' + indexTableSpace
         return indexTableSpaceString
      
-    def createFlatTable(self, flatTable, tableSpace, columns):
-        connection = self.getConnection()
-        cursor = connection.cursor()
+    def createFlatTable(self, cursor, flatTable, tableSpace, columns):
         cols = []
         for c in columns:
             if c not in self.colsData:
@@ -140,12 +115,11 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
         # Create the flat table that will contain all the data
         postgresops.mogrifyExecute(cursor, """CREATE TABLE """ + flatTable + """ (
         """ + (',\n'.join(cols)) + """)""" + self.getTableSpaceString(tableSpace))
-        connection.close()
     
-    def indexFlatTable(self, flatTable, indexTableSpace, index, cluster = False):
-        connection = self.getConnection()
-        cursor = connection.cursor()
+    def createMetaTable(self, cursor, metaTable):
+        postgresops.mogifyExecute(cursor, "CREATE TABLE " + metaTable + " (tablename text, srid integer, minx DOUBLE PRECISION, miny DOUBLE PRECISION, maxx DOUBLE PRECISION, maxy DOUBLE PRECISION, scalex DOUBLE PRECISION, scaley DOUBLE PRECISION)")
         
+    def indexFlatTable(self, cursor, flatTable, indexTableSpace, index, cluster = False):
         if index in ('xy', 'xyz'):
             indexName = flatTable + "_" + index + "_btree_idx"
             postgresops.mogrifyExecute(cursor, "create index " + indexName + " on " + flatTable + " (" + (','.join(index)) + ") WITH (FILLFACTOR=" + str(FILLFACTOR) + ")" + self.getIndexTableSpaceString(indexTableSpace))
@@ -154,12 +128,9 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
             postgresops.mogrifyExecute(cursor, "create index " + indexName + " on " + flatTable + " (morton2D) WITH (FILLFACTOR=" + str(FILLFACTOR) + ")" + self.getIndexTableSpaceString(indexTableSpace))
         if cluster:
             postgresops.mogrifyExecute(cursor, "CLUSTER " + flatTable + " USING " + indexName)
-        connection.close()
-        #self.vacuumTable(flatTable)
+        #self.vacuumTable(cursor, flatTable)
         
-    def indexBlockTable(self, blockTable, indexTableSpace, quadcell = False, cluster = False):
-        connection = self.getConnection()
-        cursor = connection.cursor()
+    def indexBlockTable(self, cursor, blockTable, indexTableSpace, quadcell = False, cluster = False):
         if quadcell:
             indexName = self.blockTable + "_btree"
             postgresops.mogrifyExecute(cursor, 'CREATE INDEX ' + indexName + ' ON ' + blockTable + ' (quadCellId)' + self.getIndexTableSpaceString(indexTableSpace))
@@ -169,18 +140,25 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
         if cluster:
             postgresops.mogrifyExecute(cursor, "CLUSTER " + blockTable + " USING " + indexName)   
         # Close the connection
-        connection.close()
-        #self.vacuumTable(blockTable)
+        #self.vacuumTable(cursor, blockTable)
     
-    
-    def vacuumTable(self, tableName):
-        connection = self.getConnection()
-        cursor = connection.cursor()
+    def vacuumTable(self, cursor, tableName):
         old_isolation_level = connection.isolation_level
         connection.set_isolation_level(0)
         postgresops.mogrifyExecute(cursor, "VACUUM FULL ANALYZE " + tableName)
         connection.set_isolation_level(old_isolation_level)
+
+    def size(self):
+        connection = self.getConnection()
+        cursor = connection.cursor()
+        row = postgresops.getSizes(cursor)
+        for i in range(len(row)):
+            if row[i] != None:
+                row[i] = '%.3f MB' % row[i]
+        (size_indexes, size_ex_indexes, size_total) = row
+        cursor.close()
         connection.close()
+        return ' Size indexes= ' + str(size_indexes) + '. Size excluding indexes= ' + str(size_ex_indexes) + '. Size total= ' + str(size_total)
     
     def getNumPointsFlat(self, flatTable):
         connection = self.getConnection()
@@ -198,12 +176,8 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
         connection.close()
         return n
         
-    def addPCFormat(self, schemaFile, fileAbsPath, srid):
+    def addPCFormat(self, cursor, schemaFile, fileAbsPath, srid):
         (_, _, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(fileAbsPath)
-        
-        # Get connection to DB
-        connection = self.getConnection()
-        cursor = connection.cursor()
         
         updatedFormat = False
         schema = None
@@ -249,8 +223,7 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
                                [pcid, srid, schema, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ])
                     updatedFormat = True
                 except :
-                    connection.rollback() 
-        connection.close()
+                    cursor.connection.rollback() 
         
         # Get the used dimensions if still not acquired (they should be always the same)
         compression = root.find(pc_namespace+'metadata').find('Metadata').text

@@ -179,9 +179,9 @@ def getSelect(queryParameters, flatTable, addContainsConditionMethod, columnsNam
         specificCondition = addCircleCondition(queryParameters, xname, yname, queryArgs)
         query = "SELECT "  + cols + " FROM (select " + hints + "* FROM " + flatTable  + getWhereStatement(bBoxCondition,zCondition) + ") b " + getWhereStatement(specificCondition)
     elif queryParameters.queryType == 'generic':
-        (specificCondition,queryTable) = addContainsConditionMethod(queryParameters, queryArgs, xname, yname)
+        (queryTable, specificCondition) = addContainsConditionMethod(queryParameters, queryArgs, xname, yname)
         if queryParameters.db != 'ora':
-            tables = ['a']
+            tables = ['ftf']
             if queryTable != None:
                 tables.append(queryTable)
             query = "SELECT " + cols + " FROM ( SELECT * FROM " + flatTable + getWhereStatement([bBoxCondition,zCondition]) + ") " + ",".join(tables) + getWhereStatement(specificCondition)
@@ -231,9 +231,9 @@ def getSelectMorton(iMortonRanges, xMortonRanges, queryParameters, flatTable, ad
             specificCondition = addCircleCondition(queryParameters, xname, yname, queryArgs)
         query += "SELECT " + hints + cols + " FROM (SELECT * FROM " + flatTable + getWhereStatement([mortonCondition,zCondition]) + ") a " + getWhereStatement(specificCondition)
     elif queryParameters.queryType == 'generic' :
-        (specificCondition,queryTable) = addContainsConditionMethod(queryParameters,queryArgs, xname, yname)
+        (queryTable, specificCondition) = addContainsConditionMethod(queryParameters,queryArgs, xname, yname)
         if queryParameters.db != 'ora':
-            tables = ['a']
+            tables = ['ftf']
             if queryTable != None:
                 tables.append(queryTable)
             query += "SELECT " + cols + " FROM (SELECT * FROM " + flatTable + getWhereStatement([mortonCondition,zCondition]) + ") " + ",".join(tables) + getWhereStatement(specificCondition)

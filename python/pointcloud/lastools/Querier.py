@@ -62,6 +62,7 @@ class Querier(AbstractQuerier, CommonLASTools):
         connection.close()
 
     def query(self, queryId, iterationId, queriesParameters):
+        (eTime, result) = (-1, None)
         queryIndex = int(queryId)
         
         self.qp = queriesParameters.getQueryParameters('psql', queryId, self.colsData)
@@ -92,9 +93,6 @@ class Querier(AbstractQuerier, CommonLASTools):
                 logging.info(precommand)
                 os.system(precommand)
 
-        eTime = -1
-        result = None
-    
         if self.qp.queryType not in ('rectangle', 'circle', 'generic'):
             connection.close()
             return (eTime, result)

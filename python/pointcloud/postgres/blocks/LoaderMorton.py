@@ -14,50 +14,67 @@ class LoaderMorton(AbstractLoader):
         # Initialize DB and extensions if creation of user is required
         if self.cDB:
             self.createDB()
-            self.initPointCloud()
+            connection = self.getConnection()
+            cursor = connection.cursor()
+            self.initPointCloud(cursor)
+        else:
+            connection = self.getConnection()
+            cursor = connection.cursor()
         # Create the blocks table 
-        self.createBlocksTable(self.blockTable, self.tableSpace, True)
+        self.createBlocksTable(cursor, self.blockTable, self.tableSpace, True)
+        # Create SQL method to get the quad cell id
         self.createQuadCellId(cursor)
         
         logging.info('Getting files, extent and SRID from input folder ' + self.inputFolder)
         (self.inputFiles, self.srid, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = lasops.getPCFolderDetails(self.inputFolder)
         
+        # Create meta table to save the extent of the PC
         self.metaTable = self.blockTable + '_meta'
-        postgresops.mogifyExecute(cursor, "CREATE TABLE " + self.metaTable + " (tablename text, srid integer, minx DOUBLE PRECISION, miny DOUBLE PRECISION, maxx DOUBLE PRECISION, maxy DOUBLE PRECISION, scalex DOUBLE PRECISION, scaley DOUBLE PRECISION)")
-        
+        self.createMetaTable(cursor, self.metaTable)
 
     def process(self):
         logging.info('Starting data loading with las2pg (parallel by python) from ' + self.inputFolder + ' to ' + self.dbName)
+        # Insert the extent of the loaded PC
         metaArgs = (self.blockTable, self.srid, self.minX, self.minY, self.maxX, self.maxY, self.scaleX, self.scaleY)
+        connection = self.getConnection()
+        cursor = connection.cursor()
         postgresops.mogrifyExecute(cursor, "INSERT INTO " + self.metaTable + " VALUES (%s,%s,%s,%s,%s,%s,%s,%s)" , metaArgs)
+        connection.close()
+        # Start the multiprocessing (las2pg in parallel)
         return self.processMulti(self.inputFiles, self.numProcessesLoad, self.loadFromFile)
 
     def loadFromFile(self, index, fileAbsPath):
-        (dimensionsNames, pcid, compression) = self.addPCFormat(self.schemaFile, fileAbsPath, self.srid)
+        connection = self.getConnection()
+        cursor = connection.cursor()
+        # Add PC format to pointcloud_formats
+        (dimensionsNames, pcid, compression) = self.addPCFormat(cursor, self.schemaFile, fileAbsPath, self.srid)
         columns = []
         for dimName in self.dimensionsNames:
             for col in self.colsData:
                 if self.colsData[col][-1] == dimName:
                     columns.append(col)
-        # Add the morton2D code
+        # Add the morton2D code to the requeste columns
         colsWithk = columns[:]
         colsWithk.append('k')
-        
+        # Create a temporal flat table and load the points to it
         flatTable = self.blockTable + '_temp_' + str(index)
         cols = ''.join(colsWithk)
-        self.createFlatTable(flatTable, self.indexTableSpace, cols) # use index table space for temporal table
+        self.createFlatTable(cursor, flatTable, self.indexTableSpace, cols) # use index table space for temporal table
         self.loadFromBinaryLoader(self.getConnectionString(False, True), flatTable, fileAbsPath, cols, self.minX, self.minY, self.scaleX, self.scaleY)
+        # Create the blocks by grouping points in QuadTree cells
         query = """INSERT INTO """ + self.blockTable + """ (pa,quadcellid)
 SELECT PC_Patch(pt),quadCellId FROM (SELECT PC_MakePoint(%s, ARRAY[x,y,z]) pt, quadCellId(morton2D,%s) as quadCellId FROM """ + flatTable + """) A GROUP BY quadCellId"""
         queryArgs = [pcid, BLOCKQUADTREELEVEL]
-        connection = self.getConnection()
-        cursor = connection.cursor()
         cursor.execute(query, queryArgs)
         connection.commit()
+        # Drop the temporal table
         postgresops.dropTable(cursor, flatTable)
 
     def close(self):
-        self.indexBlockTable(self.blockTable, self.indexTableSpace, True, self.cluster)
+        connection = self.getConnection()
+        cursor = connection.cursor()
+        self.indexBlockTable(cursor, self.blockTable, self.indexTableSpace, True, self.cluster)
+        connection.close()
         
     def getNumPoints(self):
         return self.getNumPointsBlocks(self.blockTable)
