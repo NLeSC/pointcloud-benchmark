@@ -70,18 +70,11 @@ Adding a new PCDMS
 ------------------
 
 If one wants to add a new PCDMS into this benchmark platform it is required:
- - To add a Loader class
- - To add a Querier class
- - To add a ini file
- 
- 
- --Loader class-- must inherit from AbstractLoader and implement the methods 
+ - To add a Loader class. The new class must inherit from AbstractLoader and implement the methods 
  initialize, process, close, size, getNumPoints.
- 
- --Querier class-- must inherit from AbstractQuerier and implement the methods
- initialize, query, close
- 
- --ini file-- must contain at least the following sections and options:
+ - To add a Querier class. The new class must inherit from AbstractQuerier and implement the methods
+ initialize, query, close.
+ - To add a ini file which must contain at least the following sections and options:
  
  ```
  [General]
