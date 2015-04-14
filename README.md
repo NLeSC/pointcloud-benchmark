@@ -74,6 +74,7 @@ If one wants to add a new PCDMS into this benchmark platform it is required:
  - To add a Querier class
  - To add a ini file
  
+ 
  --Loader class-- must inherit from AbstractLoader and implement the methods 
  initialize, process, close, size, getNumPoints.
  
