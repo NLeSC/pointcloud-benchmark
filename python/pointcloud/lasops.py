@@ -4,7 +4,7 @@
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
 import os
-import utils
+from pointcloud import utils
 from osgeo import osr
 import liblas
 
@@ -37,9 +37,8 @@ def getPCFileDetails(absPath):
     (offsetX, offsetY, offsetZ) = (None, None, None)
     
     srid = getSRID(absPath)
-    
-    outputLASInfo = subprocess.Popen('lasinfo ' + absPath + ' -nc -nv -nco', shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-    for line in outputLASInfo[1].split('\n'):
+    command = 'lasinfo ' + absPath + ' -nc -nv -nco'
+    for line in utils.shellExecute(command).split('\n'):
         if line.count('min x y z:'):
             [minX, minY, minZ] = line.split(':')[-1].strip().split(' ')
         elif line.count('max x y z:'):

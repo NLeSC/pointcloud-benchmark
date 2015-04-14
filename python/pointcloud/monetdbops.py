@@ -3,7 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import logging, subprocess
+import logging
 from pointcloud import utils
 
 #
@@ -51,7 +51,7 @@ def createSQLFile(absPath, query, queryArgs):
     
 def executeSQLFileCount(connectionString, sqlFileAbsPath):
     command = 'mclient ' + connectionString + ' < ' + sqlFileAbsPath + ' | wc -l'
-    result = subprocess.Popen(command, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0].replace('\n','')
+    result = utils.shellExecute(command).replace('\n','')
     try:
         result  = int(result) - 5
     except:

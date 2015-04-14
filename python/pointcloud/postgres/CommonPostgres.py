@@ -11,7 +11,6 @@ class CommonPostgres():
         """ Set configuration parameters and create user if required """
         # DB connection parameters
         self.userName = configuration.get('DB','User')
-        self.cDB = configuration.getboolean('DB','CreateDB')
         self.password = configuration.get('DB','Pass')
         self.dbName = configuration.get('DB','Name')
         self.dbHost = configuration.get('DB','Host')
@@ -24,6 +23,7 @@ class CommonPostgres():
         # Input data to use
         self.inputFolder = configuration.get('Load','Folder')
         self.columns = configuration.get('Load','Columns')
+        self.cDB = configuration.getboolean('Load','CreateDB')
         
         # Table spaces to use
         self.tableSpace = configuration.get('Load','TableSpace').strip().upper()

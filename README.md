@@ -65,3 +65,38 @@ In order to run the benchmark you need to execute the loader tool and the querie
 
 where `[init file]` is the initialization file for the related PCDMS that you are 
 using (use the files in `ini` folder as templates)
+
+Adding a new PCDMS
+------------------
+
+If one wants to add a new PCDMS into this benchmark platform it is required:
+ - To add a Loader class
+ - To add a Querier class
+ - To add a ini file
+ 
+ --Loader class-- must inherit from AbstractLoader and implement the methods 
+ initialize, process, close, size, getNumPoints.
+ 
+ --Querier class-- must inherit from AbstractQuerier and implement the methods
+ initialize, query, close
+ 
+ --ini file-- must contain at least the following sections and options:
+ 
+ ```
+ [General]
+Loader: pointcloud.newpcdms.Loader
+Querier: pointcloud.newpcdms.Querier
+ExecutionPath: newpcdms
+LogLevel: DEBUG
+UsageMonitor: True
+IOMonitor:
+
+[Load]
+Folder: 
+
+[Query]
+File: 
+NumberUsers: 1
+NumberIterations: 2
+```
+ 

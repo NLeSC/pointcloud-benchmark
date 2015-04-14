@@ -25,25 +25,17 @@ class AbstractLoader:
         if not os.path.isdir(executionPath):
             os.makedirs(executionPath)
         os.chdir(executionPath)
-        usageMonitor = config.get('General','UsageMonitor').lower()
+        usageMonitor = config.getboolean('General','UsageMonitor')
         ioMonitorParam = config.get('General','IOMonitor').strip()
         ioMonitor = False
         ioDevices = None
         if ioMonitorParam != '':
             ioMonitor = True
             ioDevices = ioMonitorParam.split(',')
-        usageMethod = None
-        if usageMonitor == 'python':
-            usageMethod = utils.getUsagePy
-        elif usageMonitor == 'top':
-            usageMethod = utils.getUsageTop
-        elif usageMonitor == 'ps':
-            usageMethod = utils.getUsagePS
-        elif usageMonitor != '':
-            raise Exception('ERROR: UsageMonitor must be python, ps or top')
         
+        inputFolder = config.getboolean('Load','Folder')
         
-        resultsFileAbsPath = os.path.abspath('loading_' + config.get('Query','OutputFileName'))
+        resultsFileAbsPath = os.path.abspath('loading_results')
         usageAbsPath = os.path.abspath('loading.usage')
         usageImageAbsPath = os.path.abspath('loading_usage.png')
         ioAbsPath = None
@@ -52,11 +44,11 @@ class AbstractLoader:
             ioImageAbsPath = os.path.abspath('loading_io.png')
         
         t0 = time.time()
-        utils.runMonitor(self.load, (resultsFileAbsPath,), usageMethod, usageAbsPath, ioDevices, ioAbsPath)
+        utils.runMonitor(self.load, (resultsFileAbsPath,), usageMonitor, usageAbsPath, ioDevices, ioAbsPath)
         totalTime = time.time()-t0
         cpu = '-'
         mem = '-'
-        if usageMethod != None:
+        if usageMonitor:
             (times, cpus, mems) = utils.parseUsage(usageAbsPath)
             utils.saveUsage(times, cpus, mems, 'Loading CPU/MEM', usageImageAbsPath)
             cpu = '%.2f' % cpus.mean()
@@ -65,6 +57,7 @@ class AbstractLoader:
             (times, rdata, wdata) = utils.parseIO(ioAbsPath)
             utils.saveIO(times, rdata, wdata, 'Loading IO', ioImageAbsPath)
         resultsFile = open(resultsFileAbsPath,'a')
+        logging.info('Finished loading from' + inputFolder)
         size = self.size()
         numpoints = 'Total Num. points: ' + str(self.getNumPoints())
         logging.info('Total time is: %.2f seconds' % totalTime)

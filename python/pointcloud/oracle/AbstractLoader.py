@@ -4,10 +4,9 @@
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
 import os, logging
-import cx_Oracle
 from pointcloud.AbstractLoader import AbstractLoader as ALoader
 from pointcloud.oracle.CommonOracle import CommonOracle
-from pointcloud import utils, lasops, oracleops
+from pointcloud import oracleops
 
 class AbstractLoader(ALoader, CommonOracle):
     """ Abstract class for the Oracle loaders, some methods are already implemented"""
@@ -113,7 +112,7 @@ fields terminated by ','
 """ + (',\n'.join(cols)) + """
 )""")
         ctfile.close()
-        las2txtCommand = utils.las2txtCommand(fileAbsPath, "stdout", columns = self.columns, separation = ',', tool = 'lastools')
+        las2txtCommand = 'las2txt -i ' + fileAbsPath + ' -o stodut -parse ' + self.columns + ' -sep comma'
         sqlLoaderCommand = "sqlldr " + self.getConnectionString() + " direct=true control=" + controlFile + " data=\\'-\\' bad=" + badFile + " log=" + logFile
         command = las2txtCommand + " | " + sqlLoaderCommand
         logging.debug(command)

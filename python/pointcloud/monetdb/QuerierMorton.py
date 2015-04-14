@@ -4,7 +4,7 @@
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
 from shapely.wkt import loads, dumps
-import time,logging,subprocess
+import time,logging
 from pointcloud.monetdb.AbstractQuerier import AbstractQuerier
 from pointcloud import wktops, dbops, monetdbops
 from pointcloud.QuadTree import QuadTree

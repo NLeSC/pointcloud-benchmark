@@ -15,11 +15,10 @@ class CommonMonetDB():
         self.dbName = configuration.get('DB','Name')
         self.dbHost = configuration.get('DB','Host')
         self.dbPort = configuration.get('DB','Port')
-        self.createDB = configuration.getboolean('DB','CreateDB')
         self.dbDataDir = configuration.get('DB','DataDirectory')
 
         self.inputFolder = configuration.get('Load','Folder')
-        
+        self.createDB = configuration.getboolean('Load','CreateDB')
         self.columns = configuration.get('Load','Columns')
         self.index = configuration.get('Load','Index')
         self.imprints = False

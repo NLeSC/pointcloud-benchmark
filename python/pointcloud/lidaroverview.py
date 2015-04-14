@@ -3,7 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import os, optparse, subprocess, psycopg2, multiprocessing, logging
+import os, optparse, psycopg2, multiprocessing, logging
 from pointcloud import utils, postgresops, lasops
 
 def runChild(childId, childrenQueue, connectionString, dbtable, lasinfotool):

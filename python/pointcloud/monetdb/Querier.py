@@ -3,7 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import time, subprocess
+import time
 from pointcloud.monetdb.AbstractQuerier import AbstractQuerier
 from pointcloud.monetdb.CommonMonetDB import CommonMonetDB
 from pointcloud import dbops, monetdbops

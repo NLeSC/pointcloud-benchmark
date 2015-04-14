@@ -11,7 +11,6 @@ class CommonOracle():
         """ Set configuration parameters and create user if required """
         # DB connection parameters
         self.userName = configuration.get('DB','User').upper()
-        self.cUser = configuration.getboolean('DB','CreateUser')
         self.password = configuration.get('DB','Pass')
         self.superUserName = configuration.get('DB','SuperUser') 
         self.superPassword = configuration.get('DB','SuperPass')
@@ -26,7 +25,7 @@ class CommonOracle():
         # Input data to use
         self.inputFolder = configuration.get('Load','Folder')
         self.columns = configuration.get('Load','Columns')
-        
+        self.cUser = configuration.getboolean('Load','CreateUser')
         # Table spaces to use
         self.tableSpace = configuration.get('Load','TableSpace').strip().upper()
         self.indexTableSpace = configuration.get('Load','IndexTableSpace').strip().upper()

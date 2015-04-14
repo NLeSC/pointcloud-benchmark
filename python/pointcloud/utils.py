@@ -7,12 +7,10 @@ import os, time, numpy, multiprocessing, psutil, subprocess, logging, math
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-#from matplotlib.font_manager import FontProperties
 
 
 RESULTS_FILE_NAME = 'results'
 QUERY_TABLE = 'query_polygons'
-
 
 DEFAULT_TIMEFORMAT = "%Y/%m/%d/%H:%M:%S"
 
@@ -68,9 +66,10 @@ def showOptions(config, sections = None):
     if sections == None:
         sections = config.sections()
     for section in sections:
-        ostr += '[' + section + ']\n'
-        for option in config.options(section):
-            ostr += option+":" + str(config.get(section, option)) + '\n'
+        if section in config.sections():
+            ostr += '[' + section + ']\n'
+            for option in config.options(section):
+                ostr += option+":" + str(config.get(section, option)) + '\n'
     return ostr
 
 def getFiles(inputElement, extensions = PC_FILE_FORMATS, recursive = False):
@@ -110,48 +109,6 @@ returns a list with only one element, the given file """
         raise Exception("ERROR: inputElement is neither a valid folder nor file")
     return []    
 
-def getCurrentTimeStamp(timeFormat = DEFAULT_TIMEFORMAT):
-    """ Get current local time stamp """
-    return str(time.strftime(timeFormat))
-
-def getUsagePy():
-    #return [time.time(), psutil.virtual_memory().percent , psutil.cpu_percent(interval=1)]
-    return [time.time(), psutil.cpu_percent(), psutil.virtual_memory().percent]
-
-def getUsageTop():
-    tcpu = 0.
-    tmem = 0.
-    for line in os.popen("top -b -n 1 | tail -n +8 | awk '{ print $9 \" \" $10}'").read().split('\n'):
-        if line != '':
-            fields = line.strip().split(' ')
-            if len(fields) == 2:
-                try:
-                    cpu = float(fields[0])
-                    mem = float(fields[1])
-                except:
-                    cpu = 0.
-                    mem = 0.
-                tcpu += cpu
-                tmem += mem
-    return [time.time(), tcpu , tmem]
-
-def getUsagePS():
-    tcpu = 0.
-    tmem = 0.
-    for line in os.popen("ps aux | tail -n +2 | awk '{ print $3 \" \" $4}'").read().split('\n'):
-        if line != '':
-            fields = line.strip().split(' ')
-            if len(fields) == 2:
-                try:
-                    cpu = float(fields[0])
-                    mem = float(fields[1])
-                except:
-                    cpu = 0.
-                    mem = 0.
-                tcpu += cpu
-                tmem += mem
-    return [time.time(), tcpu , tmem]
-
 def initIO(devices = None):
     d = sorted(psutil.disk_io_counters(True).keys())
     if devices == None:
@@ -170,10 +127,23 @@ def getIO(devices):
        r.append(iodata[device].write_bytes)
     return r
 
-def addUsage(usageMethod, output):
-    if usageMethod != None:
-        u = usageMethod()
-        output.write('%.2f %.2f %.2f\n' % (u[0], u[1], u[2]))
+def addUsage(usageMonitor, output):
+    if usageMonitor:
+        tcpu = 0.
+        tmem = 0.
+        for line in os.popen("ps aux | tail -n +2 | awk '{ print $3 \" \" $4}'").read().split('\n'):
+            if line != '':
+                fields = line.strip().split(' ')
+                if len(fields) == 2:
+                    try:
+                        cpu = float(fields[0])
+                        mem = float(fields[1])
+                    except:
+                        cpu = 0.
+                        mem = 0.
+                    tcpu += cpu
+                    tmem += mem
+        output.write('%.2f %.2f %.2f\n' % (time.time(), tcpu , tmem))
         output.flush()
     
 def addIO(devices, output):
@@ -199,7 +169,7 @@ def parseIO(outputAbsPath):
         wdata[devices[i]] = usage[:,(2 + (2*i))]
     return (times, rdata, wdata)
 
-def runMonitor(function, arguments = None, usageMethod = None, usageAbsPath = None, ioDevices = None, ioAbsPath = None):
+def runMonitor(function, arguments = None, usageMonitor = False, usageAbsPath = None, ioDevices = None, ioAbsPath = None):
     """ Run the function with the given arguments while checking CPU and MEM consumption"""
     usageOutputFile = open(usageAbsPath, 'w')
     if ioAbsPath != None:
@@ -207,7 +177,7 @@ def runMonitor(function, arguments = None, usageMethod = None, usageAbsPath = No
         devices = initIO(ioDevices)
         ioOutputFile.write('#' + (' '.join(devices)) + '\n')
         addIO(devices, ioOutputFile)
-    addUsage(usageMethod, usageOutputFile)
+    addUsage(usageMonitor, usageOutputFile)
     if arguments != None:
         child = multiprocessing.Process(target=function, args=arguments)
     else:
@@ -216,12 +186,12 @@ def runMonitor(function, arguments = None, usageMethod = None, usageAbsPath = No
     while child.is_alive():
         if ioAbsPath != None:
             addIO(devices, ioOutputFile)
-        addUsage(usageMethod, usageOutputFile)
+        addUsage(usageMonitor, usageOutputFile)
         child.join(1)  
     if ioAbsPath != None:
         addIO(devices, ioOutputFile)
         ioOutputFile.close()
-    addUsage(usageMethod, usageOutputFile)
+    addUsage(usageMonitor, usageOutputFile)
     usageOutputFile.close()
 
 def saveUsage(times, cpus, mems, title, outputFileName):
@@ -280,9 +250,6 @@ def saveIO(times, rdata, wdata, title, outputFileName):
     except:
         logging.error('ERROR: Could not save IO image!')
     
-def dbExists(dbname):
-    return (int(subprocess.Popen('psql -l | grep ' + dbname + ' | wc -l', shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0].split('\n')[0]) > 0)
-
 def sizeof_fmt(num):
     try:
         for x in ['bytes','KB','MB','GB']:
@@ -308,31 +275,6 @@ def getNRowNCol(v, nummax = 10):
         raise Exception('Error getting row col')
     return max(d)
              
-def las2txtCommand(inputFile, outputFile = 'stdout', columns = 'xyz', separation = None, tool = 'liblas'):
-    separatorArgument = ''
-    if separation != None:
-        if tool in ('lastools','lasnlesc'):
-            cd = {' ':'space', '\t':'tab', ',':'comma', ':':'colon', '-':'hyphen', '.':'dot', ';':'semicolon'}
-            if separation in cd:
-                separatorArgument = ' -sep ' + cd[separation] + ' '
-            else:
-                raise Exception('ERROR: separation ' + separation + ' not supported in ' + tool + '!')
-        else:
-            separatorArgument = ' --delimiter "' + separation + '" '
-
-    if tool == 'liblas':
-        c = 'las2txt --input ' + inputFile + ' --output ' + outputFile + ' --parse ' + columns + separatorArgument
-    elif tool == 'lastools':
-        c = 'las2txt -i ' + inputFile + ' -o ' + outputFile + ' -parse ' + columns + separatorArgument
-    elif tool == 'lasnlesc':
-        c = 'las2txt -i ' + inputFile + ' --stdout --parse ' + columns + separatorArgument
-        if outputFile != 'stdout':
-            c += ' > ' + outputFile
-    else:
-        raise Exception('ERROR: unknown las2txt tool (' + tool + ')')
-        
-    return c       
-
 def getElements(rangeString):
     elements = []
     for e in rangeString.split(','):

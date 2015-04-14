@@ -3,7 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import time, math, subprocess
+import time, math
 from itertools import groupby, count
 from pointcloud import dbops, utils, oracleops
 from pointcloud.oracle.AbstractQuerier import AbstractQuerier

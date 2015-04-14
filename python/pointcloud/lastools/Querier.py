@@ -3,7 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import os, subprocess, time, logging, glob
+import os, time, logging, glob
 from pointcloud.AbstractQuerier import AbstractQuerier
 from pointcloud.lastools.CommonLASTools import CommonLASTools
 from pointcloud import postgresops, lasops, utils
@@ -126,14 +126,14 @@ class Querier(AbstractQuerier, CommonLASTools):
             eTime = time.time() - t0
             npointscommand = "lasinfo " + outputFile+ " -nc -nv -nco 2>&1 | grep 'number of point records:'"
             try:
-                result  = int(subprocess.Popen(npointscommand, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0].split()[-1])
+                result  = int(utils.shellExecute(npointscommand).split()[-1])
             except:
                 result = None
         elif self.qp.queryMethod != 'stream':
             
             command += ' -stdout -otxt -oparse xyz | wc -l'
             logging.debug(command)
-            result = subprocess.Popen(command, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0].replace('\n','')
+            result = utils.shellExecute(command).replace('\n','')
             eTime = time.time() - t0
             try:
                 result  = int(result)
@@ -153,7 +153,7 @@ class Querier(AbstractQuerier, CommonLASTools):
                 
                 statcommand = "lasinfo -i " + outputFile +  options + " | grep 'min \|max\|average'"
                 logging.info(statcommand)
-                lines  = subprocess.Popen(statcommand, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0].split('\n')
+                lines  = utils.shellExecute(statcommand).split('\n')
                 results= []
                 colIs = {'x':4, 'y':5, 'z':6}
                 for i in range(len(self.qp.statistics)):

@@ -37,16 +37,7 @@ class AbstractQuerier:
             ioDevices = ioMonitorParam.split(',')
         # Get the method to monitor the system usage (CPU / memory)
         # Nothe that all system is monitored (not only the processes related to the queries)
-        usageMonitor = config.get('General','UsageMonitor').lower()
-        usageMethod = None
-        if usageMonitor == 'python':
-            usageMethod = utils.getUsagePy
-        elif usageMonitor == 'top':
-            usageMethod = utils.getUsageTop
-        elif usageMonitor == 'ps':
-            usageMethod = utils.getUsagePS
-        elif usageMonitor != '':
-            raise Exception('ERROR: UsageMonitor must be python, ps or top')
+        usageMonitor = config.getboolean('General','UsageMonitor')
         
         # Read the query file 
         queryFileAbsPath = config.get('Query','File')
@@ -74,7 +65,7 @@ class AbstractQuerier:
         # We start numUsers users processes
         for i in range(numUsers):
             users.append(multiprocessing.Process(target=self.runUser, 
-                args=(i, queriesQueue, resultsQueue, numIterations, queriesParameters, usageMethod, ioDevices)))
+                args=(i, queriesQueue, resultsQueue, numIterations, queriesParameters, usageMonitor, ioDevices)))
             users[-1].start()
         
         # We need to receive for each query the two iterations and for each iteration both the results from the query execution and from the monitor 
@@ -98,7 +89,7 @@ class AbstractQuerier:
         self.close()
         return stats
     
-    def runUser(self, userIndex, tasksQueue, resultsQueue, numIterations, queriesParameters, usageMethod, ioDevices):
+    def runUser(self, userIndex, tasksQueue, resultsQueue, numIterations, queriesParameters, usageMonitor, ioDevices):
         childResultQueue = multiprocessing.Queue()
         kill_received = False
         while not kill_received:
@@ -122,17 +113,16 @@ class AbstractQuerier:
                     if ioDevices != None:
                         ioAbsPath = os.path.abspath(queryName + '.io')
                         
-                    utils.runMonitor(self.runQuery,(queryId, iterationId, queriesParameters, childResultQueue), usageMethod, usageAbsPath, ioDevices, ioAbsPath)
+                    utils.runMonitor(self.runQuery,(queryId, iterationId, queriesParameters, childResultQueue), usageMonitor, usageAbsPath, ioDevices, ioAbsPath)
                     
                     [queryId, iterationId, qTime, qResult] = childResultQueue.get()
-                    
-                    (times, cpus, mems) = utils.parseUsage(usageAbsPath)
-                    (qCPU,qMEM) = (cpus.mean(), mems.mean())
-                    imageAbsPath = os.path.abspath(queryName + '_usage.png')
-                    utils.saveUsage(times, cpus, mems, queryName + ' CPU/MEM', imageAbsPath)
+                    (qCPU,qMEM) = (None, None)
+                    if usageMonitor:
+                        (times, cpus, mems) = utils.parseUsage(usageAbsPath)
+                        (qCPU,qMEM) = (cpus.mean(), mems.mean())
+                        imageAbsPath = os.path.abspath(queryName + '_usage.png')
+                        utils.saveUsage(times, cpus, mems, queryName + ' CPU/MEM', imageAbsPath)
                     if ioDevices != None:
-
-
                         (times, rdata, wdata) = utils.parseIO(ioAbsPath)
                         ioImageAbsPath = os.path.abspath(queryName + '_io.png')
                         utils.saveIO(times, rdata, wdata, queryName + ' IO', ioImageAbsPath)

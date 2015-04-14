@@ -3,7 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import time, math, copy, subprocess
+import time, math, copy
 from pointcloud import dbops, postgresops
 from pointcloud.postgres.AbstractQuerier import AbstractQuerier
 from itertools import groupby, count

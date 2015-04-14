@@ -156,7 +156,7 @@ def createSQLFile(cursor, absPath, query, queryArgs):
     
 def executeSQLFileCount(connectionString, sqlFileAbsPath):
     command = 'sqlplus -s ' + connectionString + ' < ' + sqlFileAbsPath + ' | wc -l'
-    result = subprocess.Popen(command, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0].replace('\n','')
+    result = utils.shellExecute(command).replace('\n','')
     try:
         result  = int(result) - 3
     except:

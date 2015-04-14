@@ -3,7 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import matplotlib, sys, subprocess, numpy, os
+import matplotlib, sys, numpy, os
 matplotlib.use('Agg')
 from matplotlib.font_manager import FontProperties
 import matplotlib.pyplot as plt
