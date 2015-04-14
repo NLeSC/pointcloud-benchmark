@@ -62,7 +62,7 @@ if __name__ == "__main__":
     description = "Run the querier"
     op = optparse.OptionParser(usage=usage, description=description)
     op.add_option('-i','--ini',default='',help='Configuration file describing the parameters for the queries execution',type='string')
-    op.add_option('-o','--options',default='',help='Options to override .ini file [optional]. If you specify an option using this method the one in the .ini file is ignored. Use [section]:[option]:[value]. If multiple, specify them blank space separated. You will have to use "" in such case. Example -o "General:ExecutionPath:test DB:Host:mydb"',type='string')
+    op.add_option('-o','--options',default='',help='Options to override .ini file [optional]. If you specify an option using this method the one in the .ini file is ignored. Use [section]:[option]:[value]. If multiple, specify them blank space separated. You will have to use "" in such case. Example -o "General:ExecutionPath:test DB:Name:mydb"',type='string')
     op.add_option('-s','--show',help='Show options and exit? [default False]',default=False,action='store_true')
     (opts, args) = op.parse_args()
     main(opts)
