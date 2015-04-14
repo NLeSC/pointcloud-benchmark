@@ -60,6 +60,7 @@ Execution
 In order to run the benchmark you need to execute the loader tool and the querier tool:
 
 `python/pointcloud/run/load_pc.py -i [init file]` 
+
 `python/pointcloud/run/query_pc.py -i [init file]`
 
 where `[init file]` is the initialization file for the related PCDMS that you are 
