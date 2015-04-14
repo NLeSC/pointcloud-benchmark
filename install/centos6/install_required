@@ -1,17 +1,17 @@
-# This instructions are to install liblas 1.7.0 in a CentOS 6.6
-# They are inspired from
+# Most of these instructions are inspired from
 # http://scigeo.org/articles/howto-install-latest-geospatial-software-on-linux.html
 ************************************************************************************
 yum update
+
+# Install GNOME desktop and X window system
+yum -y groupinstall "Desktop" "Desktop Platform" "X Window System" "Fonts"
+yum install kernel-headers kernel-devel
+yum groupinstall "Development Tools"
+
 yum install wget cmake28 make CUnit-devel autoconf automake gcc cpp gcc-c++ \
 python-devel swig sudo yum install libjpeg-turbo-devel bzip2-devel zlib-devel \
 git libxml2-devel numpy flann flann-devel sqlite sqlite-devel
 
-# Custom installations done in /opt/sw. 
-mkdir /opt/sw
-cd /opt/sw
-# Custom installations are added to environmental variables with script /opt/sw/export_custom.sh
-touch /opt/sw/export_custom.sh
 
 # Install geos
 wget http://download.osgeo.org/geos/geos-3.4.2.tar.bz2
@@ -24,9 +24,12 @@ cd makefiles
 make 
 make install
 cd /opt/sw
-# Add paths to export_custom.sh (see end of file)
+# Add paths to export_custom.sh
+# export LD_LIBRARY_PATH="/opt/sw/geos-3.4.2/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/geos-3.4.2/build/bin:$PATH"
 
-# Install libtiff
+
+# Install proj
 source export_custom.sh
 wget http://download.osgeo.org/proj/proj-4.9.0RC2.tar.gz
 tar xvzf proj-4.9.0RC2.tar.gz 
@@ -39,8 +42,10 @@ make
 make install
 cd /opt/sw/
 # Add paths to export_custom.sh 
+# export LD_LIBRARY_PATH="/opt/sw/proj-4.9.0/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/proj-4.9.0/build/bin:$PATH"
 
-# Install proj
+# Install libtiff
 source export_custom.sh 
 wget http://download.osgeo.org/libtiff/tiff-4.0.3.tar.gz
 tar xvzf tiff-4.0.3.tar.gz 
@@ -53,12 +58,8 @@ make
 make install
 cd /opt/sw/
 # Add paths to export_custom.sh 
-
-# Install openmpi
-source export_custom.sh 
-yum install openmpi-devel
-cd /opt/sw/
-# Requires to add paths to export_custom.sh 
+# export LD_LIBRARY_PATH="/opt/sw/tiff-4.0.3/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/tiff-4.0.3/build/bin:$PATH"
 
 # Install Boost  
 # IMPORTANT: PDAL requires version 1.55 and not higher!. PDAL did not compile with Boost 1.57 
@@ -68,12 +69,11 @@ tar xvjf boost_1_55_0.tar.bz2
 cd boost_1_55_0
 mkdir build
 ./bootstrap.sh --prefix=/opt/sw/boost_1_55_0/build
-# for mpi support: edit project-config.jam and add this line:
-#   using mpi ; 
-./b2 -j2 stage threading=multi --layout=tagged link=shared
+./b2 -j2 stage threading=multi  --layout=tagged link=shared
 ./b2 install
 cd /opt/sw/
 # Add paths to export_custom.sh 
+# export LD_LIBRARY_PATH="/opt/sw/boost_1_55_0/build/lib:$LD_LIBRARY_PATH"
 
 # Install libgeotiff
 source export_custom.sh 
@@ -86,8 +86,12 @@ make
 make install
 cd /opt/sw/
 # Add paths to export_custom.sh 
+# export LD_LIBRARY_PATH="/opt/sw/libgeotiff-1.4.1/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/libgeotiff-1.4.1/build/bin:$PATH"
 
-# If the system is going to have PostgreSQL. This is the moment to install it
+#### IMPORTANT ####
+# If the system is going to use PostgreSQL, this is the moment to install it (only PostgreSQL, not PostGIS)
+# If the system is going to use Oracle, this is the moment to install it.
 
 # Install GDAL
  yum install subversion expat-devel libcurl-devel
@@ -105,6 +109,8 @@ make -j2
 make install
 cd /opt/sw/
 # Add paths to export_custom.sh 
+# export LD_LIBRARY_PATH="/opt/sw/gdal-trunk/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/gdal-trunk/build/bin:$PATH"
 source export_custom.sh 
 mkdir -p /opt/sw/gdal-trunk/build/lib64/python2.6/site-packages
 export PYTHONPATH="$PYTHONPATH:/opt/sw/gdal-trunk/build/lib64/python2.6/site-packages"
@@ -113,7 +119,10 @@ make
 cd python/
 python setup.py install --prefix=/opt/sw/gdal-trunk/build/
 cd /opt/sw/
-# Add paths to  vim export_custom.sh 
+# Add paths to export_custom.sh 
+# export PATH="/opt/sw/gdal-trunk/swig/python/scripts:$PATH"
+# export PYTHONPATH="$PYTHONPATH:/opt/sw/gdal-trunk/build/lib64/python2.6/site-packages"
+
 
 # Install laszip
 source export_custom.sh 
@@ -129,6 +138,8 @@ make
 make install
 cd /opt/sw/
 # Add paths to export_custom.sh 
+# export LD_LIBRARY_PATH="/opt/sw/laszip-2.1.0/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/laszip-2.1.0/build/bin:$PATH"
 
 # Install liblas (if you want it for Oracle you may need extra steps. Look at liblas compilation web page)
 source export_custom.sh 
@@ -170,12 +181,20 @@ mkdir -p /opt/sw/liblas/build/lib/python2.6/site-packages
 export PYTHONPATH="$PYTHONPATH:/opt/sw/liblas/build/lib/python2.6/site-packages"
 python setup.py install --prefix=/opt/sw/liblas/build
 cd /opt/sw/
-# Add paths to export_custom.sh 
+# Add paths to export_custom.sh
+# export LD_LIBRARY_PATH="/opt/sw/liblas/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/liblas/build/bin:$PATH"
+# export CPATH="/opt/sw/liblas/build/include:$CPATH"
+# export PYTHONPATH="$PYTHONPATH:/opt/sw/liblas/build/lib/python2.6/site-packages" 
 source export_custom.sh
 
-# IMPORTANT: After all installations, if you have updated the export_custom.sh properly it should like the one in this directory
-# If you want all the users to have access to this software:
-echo "source /opt/sw/export_custom.sh" > /etc/profile.d/custom.sh
-
-# Give read/execute access to all users
-chmod -R 775 /opt/sw
+# Install LAStools (open-source part, i.e. no wine is required)
+cd /opt/sw
+wget http://www.cs.unc.edu/~isenburg/lastools/download/lastools.zip
+unzip lastools.zip
+cd lastools
+make -j$threads
+# Binaries will be found in the 'bin' directory. 
+# Recommended not to run 'make install' because most of lastools' executables have the same names as the liblas utilities. 
+# Add paths to export_custom.sh
+# export PATH="/opt/sw/lastools/bin:$PATH"

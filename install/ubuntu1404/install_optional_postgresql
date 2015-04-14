@@ -1,0 +1,3 @@
+# Install PostgreSQL
+apt-get install postgresql postgresql-contrib
+apt-get install  postgresql-server-dev-9.3

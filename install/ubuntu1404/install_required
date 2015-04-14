@@ -1,16 +1,6 @@
-HOW TO INSTALL POSTGRESL POINT CLOUD EXTENSION (AND LIBLAS AND PDAL) in UBUNTU14.04
-###################################################################################
-ALSO MONETDB and LASTOOLS
-#########################
-
-# NOT FINISHED YET
-
 sudo su -
 apt-get update
 apt-get install g++
-
-mkdir /opt/sw
-touch /opt/sw/export.sh
 
 # Install geos
 apt-get install build-essential swig python-dev
@@ -79,9 +69,6 @@ make install
 # export LD_LIBRARY_PATH="/opt/sw/libgeotiff-1.4.1/build/lib:$LD_LIBRARY_PATH"
 # export PATH="/opt/sw/libgeotiff-1.4.1/build/bin:$PATH"
 
-# Install PostgreSQL
-apt-get install postgresql postgresql-contrib
-apt-get install  postgresql-server-dev-9.3
 
 # Install GDAL
 cd /opt/sw
@@ -172,80 +159,14 @@ cd /opt/sw/
 # export PYTHONPATH="$PYTHONPATH:/opt/sw/liblas/build/lib/python2.7/site-packages"
 source export.sh
 
-# Install PostGIS
-apt-get install libxml2-dev libjson0-dev xsltproc docbook-xsl docbook-mathml
-wget http://download.osgeo.org/postgis/source/postgis-2.1.5.tar.gz
-tar xvzf postgis-2.1.5.tar.gz 
-cd postgis-2.1.5
-./configure --with-pgconfig=/usr/bin/pg_config --with-gdalconfig=/opt/sw/gdal-trunk/build/bin/gdal-config --with-geosconfig=/opt/sw/geos-3.4.2/build/bin/geos-config --with-projdir=/opt/sw/proj-4.8.0/build
-make
-make install
 
-# Install PDAL
-cd /opt/sw/
-source export.sh
-git clone https://github.com/PDAL/PDAL.git PDAL-trunk
-cd PDAL-trunk
-mkdir build
-mkdir makefiles
-cd makefiles
-cmake .. -DCMAKE_INSTALL_PREFIX=/opt/sw/PDAL-trunk/build -DCMAKE_BUILD_TYPE=Release \
--DWITH_APPS=ON -DWITH_GEOTIFF=ON \
--DWITH_LASZIP=ON \
--DWITH_TESTS=ON \
--DGDAL_CONFIG=/opt/sw/gdal-trunk/build/bin/gdal-config \
--DGDAL_INCLUDE_DIR=/opt/sw/gdal-trunk/build/include \
--DGDAL_LIBRARY=/opt/sw/gdal-trunk/build/lib/libgdal.so \
--DGEOTIFF_INCLUDE_DIR=/opt/sw/libgeotiff-1.4.1/build/include \
--DGEOTIFF_LIBRARY=/opt/sw/libgeotiff-1.4.1/build/lib/libgeotiff.so \
--DLASZIP_INCLUDE_DIR=/opt/sw/laszip-2.1.0/build/include \
--DLASZIP_LIBRARY=/opt/sw/laszip-2.1.0/build/lib/liblaszip.so \
--DPG_CONFIG=/usr/bin/pg_config \
--DPOSTGRESQL_INCLUDE_DIR=/usr/include/postgresql \
--DPOSTGRESQL_LIBRARIES=/usr/lib/libpq.so
-make
-make install
-#Add paths to export.sh
-# export LD_LIBRARY_PATH="/opt/sw/PDAL-trunk/build/lib:$LD_LIBRARY_PATH"
-# export PATH="/opt/sw/PDAL-trunk/build/bin:$PATH"
-# export CPATH="/opt/sw/PDAL-trunk/build/include:$CPATH"
-
-# Install PostgreSQL extension
-cd /opt/sw/
-source export.sh
-apt-get install libcunit1-dev autoconf
-git clone https://github.com/pramsey/pointcloud.git
-cd pointcloud
-./autogen.sh
-./configure
-make
-sudo make install
-
-# Make all stuff in /opt/sw readable for everybody
-chown -R root:root *
-chmod -R 755 *
-
-# PostGIS is not happy with location of libraries, you may need to create soft links 
-ln -s /opt/sw/geos-3.4.2/build/lib/libgeos_c.so /usr/local/lib
-ln -s /opt/sw/proj-4.8.0/build/lib/libproj.so.0 /usr/local/lib/
-ln -s /opt/sw/gdal-trunk/build/lib/libgdal.so /usr/local/lib
-ln -s /opt/sw/libgeotiff-1.4.1/build/lib/libgeotiff.so.2 /usr/local/lib
-ln -s /opt/sw/tiff-4.0.3/build/lib/libtiff.so.5 /usr/local/lib
-ln -s /opt/sw/geos-3.4.2/build/lib/libgeos-3.4.2.so /usr/local/lib
-ldconfig
-
-# Make system aware of libraries in /usr/local/lib and /usr/local/lib64
-echo /usr/local/lib > /etc/ld.so.conf.d/local.conf
-echo /usr/local/lib64 >> /etc/ld.so.conf.d/local.conf
-ldconfig
-
-# Add to export.sh
-# export CPATH="/usr/local/include/:$CPATH"
-# export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
-
-# Add to the user .bashrc
-export LANGUAGE=en_US.UTF-8
-export LANG=en_US.UTF-8
-export LC_ALL=en_US.UTF-8
-locale-gen en_US.UTF-8
-source /opt/sw/export.sh 
+# LASTOOLS (open-source part, i.e. no wine is required)
+cd /opt/sw
+wget http://www.cs.unc.edu/~isenburg/lastools/download/lastools.zip
+unzip lastools.zip
+cd lastools
+make -j$threads
+# Binaries will be found in the 'bin' directory. 
+# Recommended not to run 'make install' because most of lastools' executables have the same names as the liblas utilities. 
+# Add to paths
+# export PATH="/opt/sw/LAStools/bin:$PATH"

@@ -1,17 +1,10 @@
 # These are the steps to install oracle 12c in a clean CentOS 6.4 (minimal install) 
 
-# update packages to latest 
-yum update
-
-# Install GNOME desktop and X window system
-yum -y groupinstall "Desktop" "Desktop Platform" "X Window System" "Fonts"
 #vi /etc/inittab and change to use GUI 
-yum install kernel-headers kernel-devel
-yum groupinstall "Development Tools"
 
 # Install required packages
-yum install ksh unzip make sysstat compat-libstdc* elfutils-devel kernel-headers \
-   xorg-x11-utils unixODBC unixODBC-devel elfutils-libelf-devel gcc gcc-c++ glibc  \
+yum install ksh unzip sysstat compat-libstdc* elfutils-devel \
+   xorg-x11-utils unixODBC unixODBC-devel elfutils-libelf-devel glibc  \
    glibc-devel glibc-devel.i686 libaio-devel  libaio  libgcc  libstdc++-devel  \
    libtool-ltdl nss-softokn-freebl readline  ncurses-libs  libcap  libattr \
    compat-libcap1 binutils libXext libXtst libX11 libXau libxcb libXi

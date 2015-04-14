@@ -1,0 +1,25 @@
+# This instructions are to install postgresl 9.4 in Centos 7
+# This is a custo install of postgres using non default directories
+
+# POSTGRESQL
+wget https://ftp.postgresql.org/pub/source/v9.4.1/postgresql-9.4.1.tar.gz
+tar xvzf postgresql-9.4.1.tar.gz 
+cd postgresql-9.4.1
+mkdir build
+mkdir makefiles
+cd makefiles/
+../configure --prefix=/opt/sw/postgresql-9.4.1/build
+make -j32
+make install
+# Add to paths
+# export LD_LIBRARY_PATH="/opt/sw/postgresql-9.4.1/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/postgresql-9.4.1/build/bin:$PATH"
+# export CPATH="/opt/sw/postgresql-9.4.1/build/include:$CPATH"
+
+# Start PostgreSQL DB (create postgres user and start DB server)
+useradd postgres
+mkdir /data1/postgres
+chown postgres:postgres /data1/postgres
+su - postgres
+/opt/sw/postgresql-9.4.1/build/bin/pg_ctl -D /data1/postgres initdb
+/opt/sw/postgresql-9.4.1/build/bin/pg_ctl -D /data1/postgres -l /data1/postgres/postgresql.log start

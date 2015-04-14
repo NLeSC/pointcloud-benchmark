@@ -1,0 +1,26 @@
+# This instructions are to install PostGIS and the pointcloud extension in Centos 7
+# They must be executed after installing the install_required and install_optional_postgres
+
+# POSTGIS
+wget http://download.osgeo.org/postgis/source/postgis-2.1.5.tar.gz
+tar xvzf postgis-2.1.5.tar.gz 
+cd postgis-2.1.5
+mkdir build
+./configure --prefix=/opt/sw/postgis-2.1.5/build --with-pgconfig=/opt/sw/postgresql-9.4.1/build/bin/pg_config --with-geosconfig=/opt/sw/geos-3.4.2/build/bin/geos-config --with-projdir=/opt/sw/proj-4.8.0/build/ --with-gdalconfig=/opt/sw/gdal-trunk/build/bin/gdal-config 
+make -j32
+make install
+cd /opt/sw/
+vim export.sh 
+# Add to paths
+# export LD_LIBRARY_PATH="/opt/sw/postgis-2.1.5/build/lib:$LD_LIBRARY_PATH"
+# export CPATH="/opt/sw/postgis-2.1.5/build/include:$CPATH"
+source export.sh 
+
+# POSTGRESQL PC
+git clone https://github.com/pramsey/pointcloud.git
+cd pointcloud/
+export PATH=$PATH:/opt/sw/postgresql-9.4.1/build/bin
+./autogen.sh 
+CFLAGS=-fpic ./configure
+make -j32
+make install

@@ -1,0 +1,44 @@
+# Install PostGIS
+apt-get install libxml2-dev libjson0-dev xsltproc docbook-xsl docbook-mathml
+wget http://download.osgeo.org/postgis/source/postgis-2.1.5.tar.gz
+tar xvzf postgis-2.1.5.tar.gz 
+cd postgis-2.1.5
+./configure --with-pgconfig=/usr/bin/pg_config --with-gdalconfig=/opt/sw/gdal-trunk/build/bin/gdal-config --with-geosconfig=/opt/sw/geos-3.4.2/build/bin/geos-config --with-projdir=/opt/sw/proj-4.8.0/build
+make
+make install
+
+# Install PostgreSQL extension
+cd /opt/sw/
+source export.sh
+apt-get install libcunit1-dev autoconf
+git clone https://github.com/pramsey/pointcloud.git
+cd pointcloud
+./autogen.sh
+./configure
+make
+sudo make install
+
+# PostGIS is not happy with location of libraries, you may need to create soft links 
+ln -s /opt/sw/geos-3.4.2/build/lib/libgeos_c.so /usr/local/lib
+ln -s /opt/sw/proj-4.8.0/build/lib/libproj.so.0 /usr/local/lib/
+ln -s /opt/sw/gdal-trunk/build/lib/libgdal.so /usr/local/lib
+ln -s /opt/sw/libgeotiff-1.4.1/build/lib/libgeotiff.so.2 /usr/local/lib
+ln -s /opt/sw/tiff-4.0.3/build/lib/libtiff.so.5 /usr/local/lib
+ln -s /opt/sw/geos-3.4.2/build/lib/libgeos-3.4.2.so /usr/local/lib
+ldconfig
+
+# Make system aware of libraries in /usr/local/lib and /usr/local/lib64
+echo /usr/local/lib > /etc/ld.so.conf.d/local.conf
+echo /usr/local/lib64 >> /etc/ld.so.conf.d/local.conf
+ldconfig
+
+# Add to export.sh
+# export CPATH="/usr/local/include/:$CPATH"
+# export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
+
+# Add to the user .bashrc
+export LANGUAGE=en_US.UTF-8
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+locale-gen en_US.UTF-8
+source /opt/sw/export.sh 

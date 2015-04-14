@@ -1,0 +1,8 @@
+# This is to install (be able to use) the close part of LAStools in a Centos 6
+### We need Wine to run windows executables of the close LAStools
+# it requires EPEL
+yum install http://mirror.its.dal.ca/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm
+# Check that the main repository is enabled in /etc/yum.repos.d/epel.repo (should say enabled=1 under the first, base package).
+sudo yum install wine
+cd /opt/sw/lastools/bin
+chmod +x *.exe

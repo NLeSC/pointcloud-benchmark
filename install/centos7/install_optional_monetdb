@@ -1,0 +1,30 @@
+# This instructions are to install MonetDB in Centos 7
+# They must be executed after installing the install_required
+
+# MONETDB
+cd /opt/sw
+mkdir MonetDB
+cd MonetDB/
+hg clone http://dev.monetdb.org/hg/MonetDB MonetDBsrc
+cd MonetDBsrc/
+./bootstrap
+cd ..
+mkdir build
+cd build/
+../MonetDBsrc/configure --enable-geom --prefix=/opt/sw/MonetDB/install --disable-debug --enable-optimize --disable-assert --enable-bits=64 --disable-strict
+make
+make install
+# Add to paths
+# export PATH="$PATH:/opt/sw/MonetDB/install/bin"
+# export PYTHONPATH="/opt/sw/MonetDB/install/lib/python2.7/site-packages:$PYTHONPATH"
+
+# create file ~/.monetdb with
+user=monetdb
+password=monetdb
+
+# Initialized the MonetDB
+monetdbd create /home/oscar/MonetDB/dbfarm
+monetdbd start /home/oscar/MonetDB/dbfarm
+# Create a DB
+monetdb create test
+monetdb release test

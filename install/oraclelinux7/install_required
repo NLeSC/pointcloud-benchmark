@@ -1,6 +1,3 @@
-HOW TO INSTALL AND LIBLAS AND PDAL in ORACLE LINUX 7
-###################################################################################
-
 yum update
 yum install wget cmake make CUnit-devel autoconf automake gcc cpp gcc-c++ \
 python-devel swig libjpeg-turbo-devel bzip2-devel zlib-devel \
@@ -172,19 +169,13 @@ vim export.sh
 source export.sh 
 python -c 'import liblas; print liblas.__file__'
 
-# PDAL
-git clone https://github.com/PDAL/PDAL.git PDAL-trunk
-cd PDAL-trunk
-mkdir build
-mkdir makefiles
-cd makefiles
-cmake .. -DCMAKE_INSTALL_PREFIX=/home/oscar/sw/PDAL-trunk/build -DCMAKE_BUILD_TYPE=Release -DWITH_APPS=ON -DWITH_GEOTIFF=ON -DWITH_LASZIP=ON -DWITH_TESTS=ON -DGDAL_CONFIG=/home/oscar/sw/gdal-trunk/build/bin/gdal-config -DGDAL_INCLUDE_DIR=/home/oscar/sw/gdal-trunk/build/include -DGDAL_LIBRARY=/home/oscar/sw/gdal-trunk/build/lib/libgdal.so -DGEOTIFF_INCLUDE_DIR=/home/oscar/sw/libgeotiff-1.4.1/build/include -DGEOTIFF_LIBRARY=/home/oscar/sw/libgeotiff-1.4.1/build/lib/libgeotiff.so -DLASZIP_INCLUDE_DIR=/home/oscar/sw/laszip-2.1.0/build/include -DLASZIP_LIBRARY=/home/oscar/sw/laszip-2.1.0/build/lib/liblaszip.so -DBoost_FILESYSTEM_LIBRARY=/home/oscar/sw/boost_1_55_0/build/lib/libboost_filesystem.so -DBoost_FILESYSTEM_LIBRARY_DEBUG=/home/oscar/sw/boost_1_55_0/build/lib/libboost_filesystem.so -DBoost_FILESYSTEM_LIBRARY_RELEASE=/home/oscar/sw/boost_1_55_0/build/lib/libboost_filesystem.so -DBoost_INCLUDE_DIR=/home/oscar/sw/boost_1_55_0/build/include -DBoost_IOSTREAMS_LIBRARY=/home/oscar/sw/boost_1_55_0/build/lib/libboost_iostreams.so -DBoost_IOSTREAMS_LIBRARY_DEBUG=/home/oscar/sw/boost_1_55_0/build/lib/libboost_iostreams.so -DBoost_IOSTREAMS_LIBRARY_RELEASE=/home/oscar/sw/boost_1_55_0/build/lib/libboost_iostreams.so -DBoost_LIBRARY_DIRS=/home/oscar/sw/boost_1_55_0/build/lib -DBoost_PROGRAM_OPTIONS_LIBRARY=/home/oscar/sw/boost_1_55_0/build/lib/libboost_program_options.so -DBoost_PROGRAM_OPTIONS_LIBRARY_RELEASE=/home/oscar/sw/boost_1_55_0/build/lib/libboost_program_options.so -DBoost_PROGRAM_OPTIONS_LIBRARY_DEBUG=/home/oscar/sw/boost_1_55_0/build/lib/libboost_program_options.so -DBoost_SYSTEM_LIBRARY=/home/oscar/sw/boost_1_55_0/build/lib/libboost_system.so -DBoost_SYSTEM_LIBRARY_DEBUG=/home/oscar/sw/boost_1_55_0/build/lib/libboost_system.so -DBoost_SYSTEM_LIBRARY_RELEASE=/home/oscar/sw/boost_1_55_0/build/lib/libboost_system.so -DCMAKE_CXX_FLAGS="-std=c++11"
-make -j32
-make install
-cd /home/oscar/sw/
-vim export.sh 
-# Add to apths
-# export LD_LIBRARY_PATH="/home/oscar/sw/PDAL-trunk/build/lib:$LD_LIBRARY_PATH"
-# export PATH="/home/oscar/sw/PDAL-trunk/build/bin:$PATH"
-source export.sh 
-pdal
+# LASTOOLS (open-source part, i.e. no wine is required)
+cd /opt/sw
+wget http://www.cs.unc.edu/~isenburg/lastools/download/lastools.zip
+unzip lastools.zip
+cd lastools
+make -j$threads
+# Binaries will be found in the 'bin' directory. 
+# Recommended not to run 'make install' because most of lastools' executables have the same names as the liblas utilities. 
+# Add to paths
+# export PATH="/opt/sw/LAStools/bin:$PATH"
