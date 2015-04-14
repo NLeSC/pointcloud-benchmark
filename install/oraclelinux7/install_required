@@ -179,3 +179,23 @@ make -j$threads
 # Recommended not to run 'make install' because most of lastools' executables have the same names as the liblas utilities. 
 # Add to paths
 # export PATH="/opt/sw/LAStools/bin:$PATH"
+
+# Python modules for the benchmark platform
+# EPEL is required
+yum install http://mirror.its.dal.ca/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm
+# Check that the main repository is enabled in /etc/yum.repos.d/epel.repo (should say enabled=1 under the first, base package).
+
+yum install python-devel freetype freetype-devel libxml2 libxml2-devel libxslt \
+libxslt-devel libpng-devel python-pip python-psycopg2 python-matplotlib
+
+pip install --upgrade setuptools
+# This may give problems, in that case install from:
+wget https://bootstrap.pypa.io/ez_setup.py -O - | python
+
+#Requirements:
+pip install lxml
+pip install psutil
+pip install numpy --upgrade 
+
+# Add python/pointcloud directory to pythonpath
+# export PYTHONPATH="$PYTHONPATH:/opt/sw/pointcloud-benchmark/python/pointcloud"
