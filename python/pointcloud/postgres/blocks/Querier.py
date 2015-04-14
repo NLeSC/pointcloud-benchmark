@@ -8,15 +8,22 @@ from pointcloud import dbops, postgresops
 from pointcloud.postgres.AbstractQuerier import AbstractQuerier
 from itertools import groupby, count
 
-class Querier(AbstractQuerier):   
-    def __init__(self, configuration):
-        """ Set configuration parameters and create user if required """
-        AbstractQuerier.__init__(self, configuration)
+class Querier(AbstractQuerier):          
+    def initialize(self):
+        connection = self.getConnection()
+        cursor = connection.cursor()
+        
+        cursor.execute('SELECT srid from pointcloud_formats LIMIT 1')
+        self.srid = cursor.fetchone()[0]
+        
+        postgresops.dropTable(cursor, self.queryTable, check = True)
+        postgresops.mogrifyExecute(cursor, "CREATE TABLE " +  self.queryTable + " (id integer, geom public.geometry(Geometry," + self.srid + "));")
+        
+        connection.close()
         
         self.columnsNameDict = {'x':["PC_Get(qpoint, 'x')"],
-                                'y':["PC_Get(qpoint, 'y')"],
-                                'z':["PC_Get(qpoint, 'z')"]
-                                }
+                        'y':["PC_Get(qpoint, 'y')"],
+                        'z':["PC_Get(qpoint, 'z')"]}
         
     def queryDisk(self, queryId, iterationId, queriesParameters):
         connection = self.getConnection()

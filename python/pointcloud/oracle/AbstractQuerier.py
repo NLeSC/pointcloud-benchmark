@@ -31,9 +31,6 @@ class AbstractQuerier(AQuerier, CommonOracle):
         return
 
     def prepareQuery(self, queryId, queriesParameters, addGeom = True):
-        connection = self.getConnection()
-        cursor = connection.cursor()
-        
         self.queryIndex = int(queryId)
         self.resultTable = ('query_results_' + str(self.queryIndex)).upper()
         
@@ -41,11 +38,13 @@ class AbstractQuerier(AQuerier, CommonOracle):
         logging.debug(self.qp.queryKey)
         
         if addGeom:
+            connection = self.getConnection()
+            cursor = connection.cursor()
             cursor.setinputsizes(ARG1 = cx_Oracle.CLOB)
             cursor.execute('insert into ' + self.queryTable + ' values (:ARG0,SDO_UTIL.FROM_WKTGEOMETRY(:ARG1))', ARG0=self.queryIndex, ARG1=self.qp.wkt)
             cursor.execute('UPDATE ' + self.queryTable + ' t SET T.GEOM.SDO_SRID = :1 where T.ID = :2', [int(self.srid), self.queryIndex])
             connection.commit()
-        connection.close()
+            connection.close()
     
     def addContainsCondition(self, queryParameters, queryArgs, xname, yname):
         return ("(select geom from " + self.queryTable + " where id = " + str(self.queryIndex) + "), " + str(self.tolerance) + ", NULL ", None)    

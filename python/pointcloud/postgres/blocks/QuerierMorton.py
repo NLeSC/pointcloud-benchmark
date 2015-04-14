@@ -5,29 +5,40 @@
 ################################################################################
 import time,copy,logging
 from pointcloud.postgres.AbstractQuerier import AbstractQuerier
-from pointcloud import wktops, dbops, qtops, postgresops
+from pointcloud import wktops, dbops, postgresops
+from pointcloud.QuadTree import QuadTree
+
+MAXIMUM_RANGES = 10
 
 class QuerierMorton(AbstractQuerier):        
-    def __init__(self, configuration):
-        """ Set configuration parameters and create user if required """
-        AbstractQuerier.__init__(self, configuration)
+    def initialize(self):
+        connection = self.getConnection()
+        cursor = connection.cursor()
         
-        # Create the quadtree
-        (self.quadtree, self.mortonDistinctIn, self.mortonApprox, self.maxRanges) = qtops.getQuadTree(configuration, float(self.minX), float(self.minY), float(self.maxX), float(self.maxY), float(self.mortonScaleX), float(self.mortonScaleY))
-         
+        self.metaTable = self.blockTable + '_meta'
+        postgresops.mogrifyExecute(cursor, "SELECT srid, minx, miny, maxx, maxy, scalex, scaley from " + self.metaTable)
+        (self.srid, self.minX, self.minY, self.maxX, self.maxY, self.scaleX, self.scaleY) = cursor.fetchone()[0]
+
+        postgresops.dropTable(cursor, self.queryTable, check = True)
+        postgresops.mogrifyExecute(cursor, "CREATE TABLE " +  self.queryTable + " (id integer, geom public.geometry(Geometry," + self.srid + "));")
+        
+        connection.close()
+        
         self.columnsNameDict = {'x':["PC_Get(qpoint, 'x')"],
                                 'y':["PC_Get(qpoint, 'y')"],
-                                'z':["PC_Get(qpoint, 'z')"]
-                                }
-
+                                'z':["PC_Get(qpoint, 'z')"]}
+        
+        qtDomain = (0, 0, int((self.maxX-self.minX)/self.scaleX), int((self.maxY-self.minY)/self.scaleY))
+        self.quadtree = QuadTree(qtDomain, 'auto')    
+        # Differentiate QuadTree nodes that are fully in the query region
+        self.mortonDistinctIn = False
+        
+        
     def queryDisk(self, queryId, iterationId, queriesParameters):
         connection = self.getConnection()
         cursor = connection.cursor()
         
         self.prepareQuery(queryId, queriesParameters, cursor, iterationId == 0)
-        
-        if self.mortonApprox:
-            self.queryType = 'approx'
         
         postgresops.dropTable(cursor, self.resultTable, True)    
  
@@ -36,7 +47,7 @@ class QuerierMorton(AbstractQuerier):
        
         t0 = time.time()
         
-        (mimranges,mxmranges) = self.quadtree.getMortonRanges(wktops.scale(self.qp.wkt, float(self.mortonScaleX), float(self.mortonScaleY)), self.mortonDistinctIn, maxRanges = self.maxRanges )
+        (mimranges,mxmranges) = self.quadtree.getMortonRanges(wktops.scale(self.qp.wkt, float(self.mortonScaleX), float(self.mortonScaleY)), self.mortonDistinctIn, maxRanges = MAXIMUM_RANGES)
         if len(mimranges) == 0 and len(mxmranges) == 0:
             logging.info('None morton range in specified extent!')
             return

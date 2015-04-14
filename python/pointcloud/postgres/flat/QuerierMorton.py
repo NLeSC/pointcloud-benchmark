@@ -8,12 +8,24 @@ import time,copy,logging
 from pointcloud.postgres.AbstractQuerier import AbstractQuerier
 from pointcloud import qtops,wktops,dbops,postgresops
 
+MAXIMUM_RANGES = 10
+
 class QuerierMorton(AbstractQuerier):        
     def __init__(self, configuration):
         """ Set configuration parameters and create user if required """
         AbstractQuerier.__init__(self, configuration)
-        # Create the quadtree
-        (self.quadtree, self.mortonDistinctIn, self.mortonApprox, self.maxRanges) = qtops.getQuadTree(configuration, float(self.minX), float(self.minY), float(self.maxX), float(self.maxY), float(self.mortonScaleX), float(self.mortonScaleY), float(self.mortonGlobalOffsetX), float(self.mortonGlobalOffsetY))
+        
+        connection = self.getConnection()
+        cursor = connection.cursor()
+        postgresops.mogrifyExecute(cursor, "SELECT srid, minx, miny, maxx, maxy, scalex, scaley from " + self.metaTable)
+        (self.srid, self.minX, self.minY, self.maxX, self.maxY, self.scaleX, self.scaleY) = cursor.fetchone()[0]
+        connection.close()
+        
+        qtDomain = (0, 0, int((self.maxX-self.minX)/self.scaleX), int((self.maxY-self.minY)/self.scaleY))
+        self.quadtree = QuadTree(qtDomain, 'auto')    
+        # Differentiate QuadTree nodes that are fully in the query region
+        self.mortonDistinctIn = False
+    
     
     def addContainsCondition(self, queryParameters, queryArgs, xname, yname):
         queryArgs.extend(['SRID='+self.srid+';'+self.qp.wkt, self.srid, self.srid ])
@@ -25,9 +37,6 @@ class QuerierMorton(AbstractQuerier):
         
         self.prepareQuery(queryId, queriesParameters, cursor, iterationId == 0)
         
-        if self.mortonApprox:
-            self.queryType = 'approx'
-        
         postgresops.dropTable(cursor, self.resultTable, True)    
         
         wkt = self.qp.wkt
@@ -37,7 +46,7 @@ class QuerierMorton(AbstractQuerier):
        
         t0 = time.time()
         scaledWKT = wktops.scale(wkt, float(self.mortonScaleX), float(self.mortonScaleY), float(self.mortonGlobalOffsetX), float(self.mortonGlobalOffsetY))    
-        (mimranges,mxmranges) = self.quadtree.getMortonRanges(scaledWKT, self.mortonDistinctIn, maxRanges = self.maxRanges)
+        (mimranges,mxmranges) = self.quadtree.getMortonRanges(scaledWKT, self.mortonDistinctIn, maxRanges = MAXIMUM_RANGES)
 
         if len(mimranges) == 0 and len(mxmranges) == 0:
             logging.info('None morton range in specified extent!')

@@ -21,7 +21,7 @@ class LoaderOrdered(Loader):
         fileBlockTable = self.getFileBlockTable(index)
         self.createBlocksTable(fileBlockTable, self.indexTableSpace) # We use the index table space for the temporal table
         
-        (dimensionsNames, pcid, compression) = self.addPCFormat(self.schemaFile, fileAbsPath)
+        (dimensionsNames, pcid, compression) = self.addPCFormat(self.schemaFile, fileAbsPath, self.srid)
         xmlFile = pdalops.PostgreSQLWriter(fileAbsPath, self.getConnectionString(), pcid, dimensionsNames, fileBlockTable, self.srid, self.blockSize, compression)
         c = 'pdal pipeline ' + xmlFile
         logging.debug(c)

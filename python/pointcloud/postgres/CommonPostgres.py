@@ -47,6 +47,7 @@ class CommonPostgres():
             self.blockSize =  configuration.getint('Load','BlockSize')
         else:
             self.flatTable = configuration.get('Load','FlatTable').lower()
+            self.metaTable = configuration.get('Load','MetaTable').lower()
             self.index = configuration.get('Load','Index').lower()
             
         # Variables for queries

@@ -13,12 +13,15 @@ class AbstractQuerier(AQuerier, CommonPostgres):
         """ Set configuration parameters and create user if required """
         AQuerier.__init__(self, configuration)
         self.setVariables(configuration)
-
-    def initialize(self):
-        #Variables used during query
+        
         self.queryIndex = None
         self.resultTable = None
         self.qp = None
+        self.srid = None #to be filled in by the different implementations (in their initialize method)
+
+    def initialize(self):
+        #Variables used during query
+
         
         # Create a table to store the query geometries
         connection = self.getConnection()
@@ -32,12 +35,18 @@ class AbstractQuerier(AQuerier, CommonPostgres):
     def close(self):
         return
     
-    def prepareQuery(self, queryId, queriesParameters, cursor, firstQuery = True):
+    def prepareQuery(self, queryId, queriesParameters, addGeom = False):
         self.queryIndex = int(queryId)
         self.resultTable = 'query_results_' + str(self.queryIndex)
         
         self.qp = queriesParameters.getQueryParameters('psql',queryId, self.colsData.keys())
         logging.debug(self.qp.queryKey)
+        
+        if addGeom:
+            connection = self.getConnection()
+            cursor = connection.cursor()
+            cursor.execute('insert into ' + self.queryTable + ' values (%s,ST_GeomFromEWKT(%s))', [self.queryIndex,'SRID='+self.srid+';'+self.qp.wkt])
+            connection.close()
 
     def getBBoxGeometry(self, cursor, table, qId):
         cursor.execute('select st_xmin(geom), st_xmax(geom), st_ymin(geom), st_ymax(geom) from ' + table + ' where id = %s', [qId,])

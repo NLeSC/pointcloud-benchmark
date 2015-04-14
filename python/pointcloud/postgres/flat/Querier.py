@@ -10,6 +10,17 @@ from pointcloud.QueryParameters import QueryParameters
 
 class Querier(AbstractQuerier):        
     """ Querier for tables with X,Y,Z (and possibly B-Tree index, but not required)"""
+    
+    def __init__(self, configuration):
+        """ Set configuration parameters and create user if required """
+        AbstractQuerier.__init__(self, configuration)
+        
+        connection = self.getConnection()
+        cursor = connection.cursor()
+        cursor.execute('SELECT srid from ' + self.metaTable)
+        self.srid = cursor.fetchone()[0]
+        connection.close()
+        
     def queryDisk(self, queryId, iterationId, queriesParameters):
         connection = self.getConnection()
         cursor = connection.cusor()

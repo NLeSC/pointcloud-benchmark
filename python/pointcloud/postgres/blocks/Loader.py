@@ -25,7 +25,7 @@ class Loader(AbstractLoader):
         
     def loadFromFile(self, index, fileAbsPath):
         # Add poitn cloud format to poinctcloud_formats table
-        (dimensionsNames, pcid, compression) = self.addPCFormat(self.schemaFile, fileAbsPath)
+        (dimensionsNames, pcid, compression) = self.addPCFormat(self.schemaFile, fileAbsPath, self.srid)
         xmlFile = pdalops.PostgreSQLWriter(fileAbsPath, self.getConnectionString(), pcid, dimensionsNames, self.blockTable, self.srid, self.blockSize, compression)
         c = 'pdal pipeline ' + xmlFile
         logging.info(c)
