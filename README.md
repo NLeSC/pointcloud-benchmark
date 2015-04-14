@@ -23,7 +23,7 @@ The software available in this project can be used:
 Installation
 ------------
 
-In the install folder you can find details on the requirements of the
+In the `install` folder you can find details on the requirements of the
 Python benchmark platform as well as installation instructions. 
 
 
@@ -42,7 +42,7 @@ applications to load point clouds in the PCDMS.
 
 Content
 -------
-
+- The `install` folder contains the installation instructions.
 - The `python/pointcloud` folder mainly contains the Loader and Querier classes for
 the different PCDMS as well as the loader tool (`run/load_pc.py`) and the querier tool
 (`run/query_pc.py`). 
