@@ -6,7 +6,7 @@
 import logging
 from pointcloud.AbstractQuerier import AbstractQuerier as AQuerier
 from pointcloud.postgres.CommonPostgres import CommonPostgres
-from pointcluod import postgresops
+from pointcloud import postgresops
 
 class AbstractQuerier(AQuerier, CommonPostgres):
     def __init__(self, configuration):

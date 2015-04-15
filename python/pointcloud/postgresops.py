@@ -20,15 +20,9 @@ def mogrifyExecute(cursor, query, queryArgs = None):
         cursor.execute(query)
     cursor.connection.commit()
     
-def dropTable(self, cursor, tableName, check = False):
+def dropTable(cursor, tableName, check = False):
     """ Drops a table"""
-    delete = True
-    if check:
-        cursor.execute("select exists(select * from information_schema.tables where table_name=%s)", (tableName, ))
-        if len(cursor.fetchone()[0]) == 0:
-            delete = False
-    if delete:
-        mogrifyExecute(cursor, 'DROP TABLE ' + tableName)
+    mogrifyExecute(cursor, 'DROP TABLE IF EXISTS ' + tableName)
     
 def getConnectString(dbName = None, userName= None, password = None, dbHost = None, dbPort = None, cline = False):
     """ Gets the connection string to be used by psycopg2 (if cline is False)

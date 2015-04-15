@@ -17,7 +17,7 @@ class Querier(AbstractQuerier):
         self.srid = cursor.fetchone()[0]
         
         postgresops.dropTable(cursor, self.queryTable, check = True)
-        postgresops.mogrifyExecute(cursor, "CREATE TABLE " +  self.queryTable + " (id integer, geom public.geometry(Geometry," + self.srid + "));")
+        postgresops.mogrifyExecute(cursor, "CREATE TABLE " +  self.queryTable + " (id integer, geom public.geometry(Geometry," + str(self.srid) + "));")
         
         connection.close()
         
@@ -30,9 +30,8 @@ class Querier(AbstractQuerier):
         connection = self.getConnection()
         cursor = connection.cursor()
     
-        postgresops.dropTable(cursor, self.resultTable, True) 
-    
         self.prepareQuery(cursor, queryId, queriesParameters, iterationId == 0)
+        postgresops.dropTable(cursor, self.resultTable, True)
         
         if self.qp.queryMethod != 'stream' and self.numProcessesQuery > 1 and self.qp.queryType in ('rectangle','circle','generic') :
              return self.pythonParallelization()

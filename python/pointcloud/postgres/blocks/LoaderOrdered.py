@@ -13,7 +13,7 @@ class LoaderOrdered(Loader):
 
     def process(self):
         logging.info('Starting ordered data loading with PDAL (parallel by python) from ' + self.inputFolder + ' to ' + self.dbName)
-        return self.processMulti(inputFiles, self.numProcessesLoad, self.loadFromFile, self.loadFromFileSequential, True)
+        return self.processMulti(self.inputFiles, self.numProcessesLoad, self.loadFromFile, self.loadFromFileSequential, True)
 
     def loadFromFile(self, index, fileAbsPath):
         # Get connection

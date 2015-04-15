@@ -1,9 +1,9 @@
 #!/bin/bash
-export LASNLESC_HOME=
-export LIBLAS_HOME=
-export LASZIP_HOME=
-export BOOST_HOME=
-export BOOST_ROOT=
+export LASNLESC_HOME=/home/oscar/sw/lasnlesc
+export LIBLAS_HOME=/home/oscar/sw/liblas/build
+export LASZIP_HOME=/home/oscar/sw/laszip-2.1.0/build
+export BOOST_HOME=/usr/local
+export BOOST_ROOT=/usr/local
 
 export CMAKE_MODULE_PATH=$LIBLAS_HOME:${CMAKE_MODULE_PATH}
 export LD_RUN_PATH=$BOOST_HOME/lib:$LASZIP_HOME/lib:$LIBLAS_HOME/lib:$LASNLESC_HOME/lib:$LD_RUN_PATH

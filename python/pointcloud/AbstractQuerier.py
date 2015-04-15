@@ -3,7 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import os, multiprocessing
+import os, multiprocessing, traceback
 from pointcloud.QueriesParameters import QueriesParameters
 from pointcloud import utils
 
@@ -135,6 +135,7 @@ class AbstractQuerier:
             resultsQueue.put((queryId, iterationId, eTime, result))
         except Exception,e:
             print e
+            print traceback.format_exc()
             resultsQueue.put((queryId, iterationId, '-', '-'))
     
     #
