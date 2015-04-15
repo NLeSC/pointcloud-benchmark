@@ -213,7 +213,7 @@ as
 DECLARE
     ptcld      sdo_pc;
     ptn_params varchar2(80) := 'blk_capacity=""" + blockSize + """';
-    extent     sdo_geometry := sdo_geometry(2003,""" + srid + """,NULL,sdo_elem_info_array(1,1003,3),sdo_ordinate_array(""" + str(minX) + """,""" + str(minY) + """,""" + str(maxX) + """,""" + str(maxY) + """));
+    extent     sdo_geometry := sdo_geometry(2003,""" + str(srid) + """,NULL,sdo_elem_info_array(1,1003,3),sdo_ordinate_array(""" + str(minX) + """,""" + str(minY) + """,""" + str(maxX) + """,""" + str(maxY) + """));
     other_attrs XMLType     := xmltype('
                                 <opc:sdoPcObjectMetadata
                                     xmlns:opc="http://xmlns.oracle.com/spatial/vis3d/2011/sdovis3d.xsd"
@@ -232,7 +232,7 @@ END;
     def createBlockIndex(self, cursor, srid, minX, minY, maxX, maxY, blockTable, indexTableSpace, workTableSpace, numProcesses):
         oracleops.mogrifyExecute(cursor,"""insert into USER_SDO_GEOM_METADATA values ('""" + blockTable + """','BLK_EXTENT',
 sdo_dim_array(sdo_dim_element('X',""" + minX + """,""" + maxX + """,""" + self.tolerance + """),
-              sdo_dim_element('Y',""" + minY + """,""" + maxY + """,""" + self.tolerance + """)),""" + srid + """)""")
+              sdo_dim_element('Y',""" + minY + """,""" + maxY + """,""" + self.tolerance + """)),""" + str(srid) + """)""")
 
         oracleops.mogrifyExecute(cursor,"""create index """ + blockTable + """_SIDX on """ + blockTable + """ (blk_extent) indextype is mdsys.spatial_index
 parameters ('tablespace=""" + indexTableSpace + """ work_tablespace=""" + workTableSpace + """ layer_gtype=polygon sdo_indx_dims=2 sdo_rtr_pctfree=0')""" + self.getParallelString(numProcesses))

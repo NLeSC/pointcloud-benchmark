@@ -55,7 +55,7 @@ class Querier(AbstractQuerier, CommonLASTools):
         # Drops possible query table 
         postgresops.dropTable(cursor, utils.QUERY_TABLE, check = True)
         # Create query table
-        cursor.execute("CREATE TABLE " +  utils.QUERY_TABLE + " (id integer, geom public.geometry(Geometry," + self.srid + "));")
+        cursor.execute("CREATE TABLE " +  utils.QUERY_TABLE + " (id integer, geom public.geometry(Geometry," + str(self.srid) + "));")
         connection.commit()
         
         cursor.close()    
@@ -82,12 +82,12 @@ class Querier(AbstractQuerier, CommonLASTools):
          
         if iterationId == 0:
             # We insert the polygon in the DB (to be used by lasclip ot by the DB index query) 
-            cursor.execute("INSERT INTO " + utils.QUERY_TABLE + " VALUES (%s,ST_GeomFromEWKT(%s))", [queryIndex, 'SRID='+self.srid+';'+self.qp.wkt])
+            cursor.execute("INSERT INTO " + utils.QUERY_TABLE + " VALUES (%s,ST_GeomFromEWKT(%s))", [queryIndex, 'SRID='+str(self.srid)+';'+self.qp.wkt])
             connection.commit()
             
             if self.qp.queryType == 'generic':
                 # We generate a ShapeFile for lasclip in case of not rectangle or circle
-                query = "select ST_SetSRID(geom, " + self.srid + ") from " + utils.QUERY_TABLE + " where id = " + str(queryIndex) + ";"
+                query = "select ST_SetSRID(geom, " + str(self.srid) + ") from " + utils.QUERY_TABLE + " where id = " + str(queryIndex) + ";"
                 connString = ' '.join(('-h',self.dbHost,'-p',self.dbPort,'-u',self.userName,'-P',self.password,self.dbName))
                 precommand = 'pgsql2shp -f ' + shapeFile + ' ' + connString + ' "' + query + '"'
                 logging.info(precommand)

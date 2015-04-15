@@ -32,9 +32,8 @@ class Querier(AbstractQuerier):
         connection = self.getConnection()
         cursor = connection.cursor()
         
-        oracleops.dropTable(cursor, self.resultTable, True) 
-            
         self.prepareQuery(cursor, queryId, queriesParameters, iterationId == 0)
+        oracleops.dropTable(cursor, self.resultTable, True) 
         
         if self.qp.queryMethod != 'stream' and self.numProcessesQuery > 1 and self.parallelType != 'nati' and self.qp.queryType in ('rectangle','circle','generic') :
              return self.pythonParallelization()

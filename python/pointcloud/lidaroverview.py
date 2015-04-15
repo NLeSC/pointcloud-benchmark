@@ -64,7 +64,7 @@ def run(inputFolder, numcores, dbname, dbuser, dbpass, dbhost, dbport, createdb,
         offsetx double precision,     
         offsety double precision,
         offsetz double precision,
-        geom public.geometry(Geometry,""" + srid + """)
+        geom public.geometry(Geometry,""" + str(srid) + """)
     )"""
     logging.info(cursor.mogrify(q))
     cursor.execute(q)
