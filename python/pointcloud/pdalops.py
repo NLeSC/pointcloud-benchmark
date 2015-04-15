@@ -3,7 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import logging
+import logging,os
 from pointcloud import utils, lasops
 
 #
@@ -30,18 +30,18 @@ def OracleWriter(inputFileAbsPath, connectionString, dimensionsNames, blockTable
    <Option name="disable_cloud_trigger">true</Option>
    <Option name="srid">""" + str(dbsrid) + """</Option>
    <Option name="create_index">false</Option>
-   <Option name="capacity">""" + blockSize + """</Option>
+   <Option name="capacity">""" + str(blockSize) + """</Option>
    <Option name="stream_output_precision">8</Option>
    <Option name="pack_ignored_fields">true</Option>
    <Option name="output_dims">""" + ",".join(dimensionsNames) + """</Option>
-   <Option name="offset_x">""" + offsetX + """</Option>
-   <Option name="offset_y">""" + offsetY + """</Option>
-   <Option name="offset_z">""" + offsetZ + """</Option>
-   <Option name="scale_x">""" + scaleX + """</Option>
-   <Option name="scale_y">""" + scaleY + """</Option>
-   <Option name="scale_z">""" + scaleZ + """</Option>
+   <Option name="offset_x">""" + str(offsetX) + """</Option>
+   <Option name="offset_y">""" + str(offsetY) + """</Option>
+   <Option name="offset_z">""" + str(offsetZ) + """</Option>
+   <Option name="scale_x">""" + str(scaleX) + """</Option>
+   <Option name="scale_y">""" + str(scaleY) + """</Option>
+   <Option name="scale_z">""" + str(scaleZ) + """</Option>
    <Filter type="filters.chipper">
-     <Option name="capacity">""" + blockSize + """</Option>
+     <Option name="capacity">""" + str(blockSize) + """</Option>
      <Reader type="readers.las">
        <Option name="filename">""" + inputFileAbsPath + """</Option>
        <Option name="spatialreference">EPSG:""" + str(srid) + """</Option>
@@ -73,10 +73,10 @@ FROM """ + blockTable + """ l, """ + baseTable + """ b
 WHERE
     l.obj_id = b.id
     AND
-    SDO_FILTER(l.blk_extent,SDO_GEOMETRY('""" + wkt + """', """ + srid + """)) = 'TRUE'
+    SDO_FILTER(l.blk_extent,SDO_GEOMETRY('""" + wkt + """', """ + str(srid) + """)) = 'TRUE'
           </Option>
           <Option name="connection">""" + connectionString + """</Option>
-          <Option name="spatialreference">EPSG:""" + srid + """</Option>
+          <Option name="spatialreference">EPSG:""" + str(srid) + """</Option>
         </Reader>
     </Filter>
   </Writer>
@@ -106,10 +106,10 @@ def OracleReaderStdOut(connectionString, blockTable, baseTable, srid, wkt):
     WHERE
         l.obj_id = b.id
         AND
-        SDO_FILTER(l.blk_extent,SDO_GEOMETRY('""" + wkt + """', """ + srid + """)) = 'TRUE'
+        SDO_FILTER(l.blk_extent,SDO_GEOMETRY('""" + wkt + """', """ + str(srid) + """)) = 'TRUE'
           </Option>
               <Option name="connection">""" + connectionString + """</Option>
-              <Option name="spatialreference">EPSG:""" + srid + """</Option>
+              <Option name="spatialreference">EPSG:""" + str(srid) + """</Option>
         </Reader>
     </Filter>
   </Writer>
@@ -119,6 +119,7 @@ def OracleReaderStdOut(connectionString, blockTable, baseTable, srid, wkt):
 def PostgreSQLWriter(inputFileAbsPath, connectionString, pcid, dimensionsNames, blockTable, dbsrid, blockSize, compression):
     """ Create a XML file to load the data, in the given file, into the DB """
     (srid, _, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(inputFileAbsPath)  
+
     xmlContent = """<?xml version="1.0" encoding="utf-8"?>
 <Pipeline version="1.0">
 <Writer type="writers.pgpointcloud">
@@ -128,17 +129,17 @@ def PostgreSQLWriter(inputFileAbsPath, connectionString, pcid, dimensionsNames, 
     <Option name="srid">""" + str(dbsrid) + """</Option>
     <Option name="pcid">""" + str(pcid) + """</Option>
     <Option name="overwrite">false</Option>
-    <Option name="capacity">""" + blockSize + """</Option>
+    <Option name="capacity">""" + str(blockSize) + """</Option>
     <Option name="compression">""" + compression + """</Option>
     <Option name="output_dims">""" + ",".join(dimensionsNames) + """</Option>
-    <Option name="offset_x">""" + offsetX + """</Option>
-    <Option name="offset_y">""" + offsetY + """</Option>
-    <Option name="offset_z">""" + offsetZ + """</Option>
-    <Option name="scale_x">""" + scaleX + """</Option>
-    <Option name="scale_y">""" + scaleY + """</Option>
-    <Option name="scale_z">""" + scaleZ + """</Option>
+    <Option name="offset_x">""" + str(offsetX) + """</Option>
+    <Option name="offset_y">""" + str(offsetY) + """</Option>
+    <Option name="offset_z">""" + str(offsetZ) + """</Option>
+    <Option name="scale_x">""" + str(scaleX) + """</Option>
+    <Option name="scale_y">""" + str(scaleY) + """</Option>
+    <Option name="scale_z">""" + str(scaleZ) + """</Option>
     <Filter type="filters.chipper">
-        <Option name="capacity">""" + blockSize + """</Option>
+        <Option name="capacity">""" + str(blockSize) + """</Option>
         <Reader type="readers.las">
             <Option name="filename">""" + inputFileAbsPath + """</Option>
             <Option name="spatialreference">EPSG:""" + str(srid) + """</Option>
@@ -163,9 +164,9 @@ def PostgresSQLReaderLAS(outputFileAbsPath, connectionString, blockTable, srid, 
           <Option name="connection">""" + connectionString + """</Option>
           <Option name="table">""" + blockTable + """</Option>
           <Option name="column">pa</Option>
-          <Option name="spatialreference">EPSG:""" + srid + """</Option>
+          <Option name="spatialreference">EPSG:""" + str(srid) + """</Option>
           <Option name="where">
-            PC_Intersects(pa, ST_GeomFromEWKT('SRID=""" + srid + """;""" + wkt + """'))
+            PC_Intersects(pa, ST_GeomFromEWKT('SRID=""" + str(srid) + """;""" + wkt + """'))
           </Option>
         </Reader>
     </Filter>
@@ -189,9 +190,9 @@ def PostgresSQLReaderStdOut(connectionString, blockTable, srid, wkt):
           <Option name="connection">""" + connectionString + """</Option>
           <Option name="table">""" + blockTable + """</Option>
           <Option name="column">pa</Option>
-          <Option name="spatialreference">EPSG:""" + srid + """</Option>
+          <Option name="spatialreference">EPSG:""" + str(srid) + """</Option>
           <Option name="where">
-            PC_Intersects(pa, ST_GeomFromEWKT('SRID=""" + srid + """;""" + wkt + """'))
+            PC_Intersects(pa, ST_GeomFromEWKT('SRID=""" + str(srid) + """;""" + wkt + """'))
           </Option>
         </Reader>
     </Filter>
@@ -213,4 +214,4 @@ def executePDAL(xmlFile):
     logging.debug(c)
     os.system(c)
     # remove the XML file
-    os.system('rm ' + xmlFile)
+    #os.system('rm ' + xmlFile)

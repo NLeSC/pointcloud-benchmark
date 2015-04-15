@@ -3,8 +3,8 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import pyscopg2
-from pointcloud import postgresops
+import psycopg2
+from pointcloud import postgresops, utils
 
 class CommonPostgres():
     def setVariables(self, configuration):
@@ -51,9 +51,9 @@ class CommonPostgres():
             self.index = configuration.get('Load','Index').lower()
             
         # Variables for queries
-        self.queryFile = config.get('Query','File')
-        self.numUsers = config.getint('Query','NumberUsers')
-        self.numIterations = config.getint('Query','NumberIterations')
+        self.queryFile = configuration.get('Query','File')
+        self.numUsers = configuration.getint('Query','NumberUsers')
+        self.numIterations = configuration.getint('Query','NumberIterations')
         self.queryTable = utils.QUERY_TABLE
         self.numProcessesQuery = configuration.getint('Query','NumberProcesses')
         self.parallelType = configuration.get('Query','ParallelType').lower()
@@ -82,11 +82,11 @@ class CommonPostgres():
                     'k': ('morton2D','BIGINT'), # Morton code 2D
                     }
 
-    def getConnectionString(self, superUser = False):
+    def getConnectionString(self, superUser = False, commandLine = False):
         if not superUser:
-            return postgresops.getConnectString(self.dbName, self.userName, self.password, self.dbHost, self.dbPort, cline) 
+            return postgresops.getConnectString(self.dbName, self.userName, self.password, self.dbHost, self.dbPort, commandLine) 
         else:
-            return postgresops.getConnectString(self.userName, self.userName, self.password, self.dbHost, self.dbPort, cline)
+            return postgresops.getConnectString(self.userName, self.userName, self.password, self.dbHost, self.dbPort, commandLine)
     
     def getConnection(self, superUser = False):
         return psycopg2.connect(self.getConnectionString(superUser))   

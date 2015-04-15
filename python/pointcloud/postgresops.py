@@ -10,7 +10,7 @@ from pointcloud import utils
 # This module contains methods that use PostgreSQL
 #
 
-def mogrifyExecute(self, cursor, query, queryArgs = None):
+def mogrifyExecute(cursor, query, queryArgs = None):
     """ Execute a query with logging"""
     if queryArgs != None:
         logging.info(cursor.mogrify(query, queryArgs))

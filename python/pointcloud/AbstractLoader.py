@@ -33,7 +33,7 @@ class AbstractLoader:
             ioMonitor = True
             ioDevices = ioMonitorParam.split(',')
         
-        inputFolder = config.getboolean('Load','Folder')
+        inputFolder = config.get('Load','Folder')
         
         resultsFileAbsPath = os.path.abspath('loading_results')
         usageAbsPath = os.path.abspath('loading.usage')

@@ -41,14 +41,26 @@ def getPCFileDetails(absPath):
     for line in utils.shellExecute(command).split('\n'):
         if line.count('min x y z:'):
             [minX, minY, minZ] = line.split(':')[-1].strip().split(' ')
+            minX = float(minX)
+            minY = float(minY)
+            minZ = float(minZ)
         elif line.count('max x y z:'):
             [maxX, maxY, maxZ] = line.split(':')[-1].strip().split(' ')
+            maxX = float(maxX)
+            maxY = float(maxY)
+            maxZ = float(maxZ)
         elif line.count('number of point records:'):
-            count = line.split(':')[-1].strip()
+            count = int(line.split(':')[-1].strip())
         elif line.count('scale factor x y z:'):
             [scaleX, scaleY, scaleZ] = line.split(':')[-1].strip().split(' ')
+            scaleX = float(scaleX)
+            scaleY = float(scaleY)
+            scaleZ = float(scaleZ)
         elif line.count('offset x y z:'):
             [offsetX, offsetY, offsetZ] = line.split(':')[-1].strip().split(' ')
+            offsetX = float(offsetX)
+            offsetY = float(offsetY)
+            offsetZ = float(offsetZ)
     return (srid, count, minX, minY, minZ, maxX, maxY, maxZ, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ)
 
 def getPCFolderDetails(absPath):
@@ -56,7 +68,7 @@ def getPCFolderDetails(absPath):
     It is assumed that all file shave same SRID and scale as first one"""
     tcount = 0
     (tminx, tminy, tminz, tmaxx, tmaxy, tmaxz) =  (None, None, None, None, None, None)
-    (tscalex, tscaley, tscalez) = (None, None)
+    (tscalex, tscaley, tscalez) = (None, None, None)
     tsrid = None
     
     if os.path.isdir(absPath):
@@ -65,10 +77,10 @@ def getPCFolderDetails(absPath):
         inputFiles = [absPath,]
     
     for i in range(len(inputFiles)):
-        (count, minx, miny, minz, maxx, maxy, maxz, scalex, scaley, scalez, _, _, _) = getPCFileDetails(inputFiles[i])
+        (srid, count, minx, miny, minz, maxx, maxy, maxz, scalex, scaley, scalez, _, _, _) = getPCFileDetails(inputFiles[i])
         if i == 0:
             (tscalex, tscaley, tscalez) = (scalex, scaley, scalez)
-            tsrid = getSRID(inputFiles[i])
+            tsrid = srid
             
         tcount += count
         if count:
@@ -85,4 +97,4 @@ def getPCFolderDetails(absPath):
             if tmaxz == None or maxz > tmaxz:
                 tmaxz = maxz
 
-    return (inputFiles, srid, tcount, tminx, tminy, tminz, tmaxx, tmaxy, tmaxz, tscalex, tscaley, tscalez)
+    return (inputFiles, tsrid, tcount, tminx, tminy, tminz, tmaxx, tmaxy, tmaxz, tscalex, tscaley, tscalez)

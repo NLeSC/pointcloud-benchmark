@@ -188,7 +188,7 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
         
             # Check whether there is already a format with current scale-offset values 
             cursor.execute("SELECT pcid,schema FROM pointcloud_formats WHERE scaleX = %s AND scaleY = %s AND scaleZ = %s AND offsetX = %s AND offsetY = %s AND offsetZ = %s", 
-                            [srid, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ])
+                            [scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ])
             rows = cursor.fetchall()
             
             if len(rows):
