@@ -19,7 +19,7 @@ class Querier(AbstractQuerier, CommonMonetDB):
         cursor = connection.cursor()
         logging.info('Getting SRID and extent from ' + self.dbName)
         monetdbops.mogrifyExecute(cursor, "SELECT srid, minx, miny, maxx, maxy, scalex, scaley from " + self.metaTable)
-        (self.srid, self.minX, self.minY, self.maxX, self.maxY, self.scaleX, self.scaleY) = cursor.fetchone()[0]
+        (self.srid, self.minX, self.minY, self.maxX, self.maxY, self.scaleX, self.scaleY) = cursor.fetchone()
         
         # Drops possible query table 
         monetdbops.dropTable(cursor, utils.QUERY_TABLE, check = True)

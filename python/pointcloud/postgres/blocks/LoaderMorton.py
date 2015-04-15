@@ -26,7 +26,7 @@ class LoaderMorton(AbstractLoader):
         self.createQuadCellId(cursor)
         
         logging.info('Getting files, extent and SRID from input folder ' + self.inputFolder)
-        (self.inputFiles, self.srid, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = lasops.getPCFolderDetails(self.inputFolder)
+        (self.inputFiles, _, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = lasops.getPCFolderDetails(self.inputFolder)
         
         # Create meta table to save the extent of the PC
         self.metaTable = self.blockTable + '_meta'

@@ -18,6 +18,7 @@ class CommonMonetDB():
         self.dbDataDir = configuration.get('DB','DataDirectory')
 
         self.inputFolder = configuration.get('Load','Folder')
+        self.srid = configuration.get('Load','SRID')
         self.createDB = configuration.getboolean('Load','CreateDB')
         self.columns = configuration.get('Load','Columns')
         self.index = configuration.get('Load','Index')

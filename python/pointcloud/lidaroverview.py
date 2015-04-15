@@ -6,7 +6,7 @@
 import os, optparse, psycopg2, multiprocessing, logging
 from pointcloud import utils, postgresops, lasops
 
-def runChild(childId, childrenQueue, connectionString, dbtable, lasinfotool):
+def runChild(childId, childrenQueue, connectionString, dbtable, lasinfotool, srid):
     kill_received = False
     connection = psycopg2.connect(connectionString)
     cursor = connection.cursor()
@@ -22,7 +22,8 @@ def runChild(childId, childrenQueue, connectionString, dbtable, lasinfotool):
             kill_received = True
         else:            
             [identifier, inputFile,] = job
-            (count, minX, minY, minZ, maxX, maxY, maxZ, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(inputFile)
+            (srid, count, minX, minY, minZ, maxX, maxY, maxZ, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(inputFile)
+            
             insertStatement = """INSERT INTO """ + dbtable + """(id,filepath,num,scalex,scaley,scalez,offsetx,offsety,offsetz,geom) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, ST_MakeEnvelope(%s, %s, %s, %s, %s));"""
             insertArgs = [identifier, inputFile, int(count), float(scaleX), float(scaleY), float(scaleZ), float(offsetX), float(offsetY), float(offsetZ), float(minX), float(minY), float(maxX), float(maxY), 28992]
             logging.info(cursor.mogrify(insertStatement, insertArgs))

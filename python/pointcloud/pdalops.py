@@ -10,8 +10,8 @@ from pointcloud import utils, lasops
 # This module contains methods that use PDAL or are useful for PDAL
 #
 
-def OracleWriter(inputFileAbsPath, connectionString, dimensionsNames, blockTable, baseTable, dbsrid, blockSize):
-    (srid, _, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(inputFileAbsPath)  
+def OracleWriter(inputFileAbsPath, connectionString, dimensionsNames, blockTable, baseTable, srid, blockSize):
+    (_, _, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(inputFileAbsPath)  
     """ Create a XML file to load the data, in the given file, into the DB """
     xmlContent = """
 <?xml version="1.0" encoding="utf-8"?>
@@ -28,7 +28,7 @@ def OracleWriter(inputFileAbsPath, connectionString, dimensionsNames, blockTable
    <Option name="solid">false</Option>
    <Option name="overwrite">false</Option>
    <Option name="disable_cloud_trigger">true</Option>
-   <Option name="srid">""" + str(dbsrid) + """</Option>
+   <Option name="srid">""" + str(srid) + """</Option>
    <Option name="create_index">false</Option>
    <Option name="capacity">""" + str(blockSize) + """</Option>
    <Option name="stream_output_precision">8</Option>
@@ -116,9 +116,9 @@ def OracleReaderStdOut(connectionString, blockTable, baseTable, srid, wkt):
 </Pipeline>
 """
 
-def PostgreSQLWriter(inputFileAbsPath, connectionString, pcid, dimensionsNames, blockTable, dbsrid, blockSize, compression):
+def PostgreSQLWriter(inputFileAbsPath, connectionString, pcid, dimensionsNames, blockTable, srid, blockSize, compression):
     """ Create a XML file to load the data, in the given file, into the DB """
-    (srid, _, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(inputFileAbsPath)  
+    (_, _, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(inputFileAbsPath)  
 
     xmlContent = """<?xml version="1.0" encoding="utf-8"?>
 <Pipeline version="1.0">
@@ -126,7 +126,7 @@ def PostgreSQLWriter(inputFileAbsPath, connectionString, pcid, dimensionsNames, 
     <Option name="connection">""" + connectionString + """</Option>
     <Option name="table">""" + blockTable + """</Option>
     <Option name="column">pa</Option>
-    <Option name="srid">""" + str(dbsrid) + """</Option>
+    <Option name="srid">""" + str(srid) + """</Option>
     <Option name="pcid">""" + str(pcid) + """</Option>
     <Option name="overwrite">false</Option>
     <Option name="capacity">""" + str(blockSize) + """</Option>

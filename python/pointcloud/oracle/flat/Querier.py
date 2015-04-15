@@ -14,7 +14,7 @@ class Querier(AbstractQuerier):
         cursor = connection.cursor()
         # Get SRID of the stored PC
         oracleops.mogrifyExecute(cursor, "SELECT srid, minx, miny, maxx, maxy, scalex, scaley from " + self.metaTable)
-        (self.srid, minX, minY, maxX, maxY, scaleX, scaleY) = cursor.fetchone()[0]
+        (self.srid, minX, minY, maxX, maxY, scaleX, scaleY) = cursor.fetchone()
                 
     def query(self, queryId, iterationId, queriesParameters):
         (eTime, result) = (-1, None)

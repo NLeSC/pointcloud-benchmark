@@ -17,7 +17,7 @@ class QuerierPDAL(AbstractQuerier):
         cursor = connection.cursor()
         # Get SRID of the stored PC
         oracleops.mogrifyExecute(cursor, "SELECT srid FROM user_sdo_geom_metadata WHERE table_name = '" + self.blockTable + "'")
-        (self.srid,) = cursor.fetchone()[0]
+        self.srid = cursor.fetchone()[0]
         
         # Create table to store the query geometries
         #oracleops.dropTable(cursor, self.queryTable, check = True)

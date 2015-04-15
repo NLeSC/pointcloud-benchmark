@@ -22,6 +22,7 @@ class CommonPostgres():
         
         # Input data to use
         self.inputFolder = configuration.get('Load','Folder')
+        self.srid = configuration.get('Load','SRID')
         self.columns = configuration.get('Load','Columns')
         self.cDB = configuration.getboolean('Load','CreateDB')
         

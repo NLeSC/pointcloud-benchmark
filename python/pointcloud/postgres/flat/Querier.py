@@ -42,7 +42,7 @@ class Querier(AbstractQuerier):
         else:
             sqlFileName = str(queryId) + '.sql'
             postgresops.createSQLFile(cursor, sqlFileName, query, None)
-            result = postgresops.executeSQLFileCount(self.getConnectionString(False), sqlFileName)
+            result = postgresops.executeSQLFileCount(self.getConnectionString(False, True), sqlFileName)
             eTime = time.time() - t0
         connection.close()
         return (eTime, result)

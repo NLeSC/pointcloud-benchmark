@@ -17,14 +17,12 @@ class LoaderExt(AbstractLoader):
             
         # Get the point cloud folder description
         logging.info('Getting files, extent, scale and SRID from input folder ' + self.inputFolder)
-        (self.inputFiles, self.srid, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = lasops.getPCFolderDetails(self.inputFolder)
+        (self.inputFiles, _, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = lasops.getPCFolderDetails(self.inputFolder)
         
         # Creates connection
         connection = self.getConnection()
         cursor = connection.cursor()
         
-        # Get the point cloud folder description
-        (self.inputFiles, self.srid, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = lasops.getPCFolderDetails(self.inputFolder)
         # Get the parent folder and the wildcard text with file selection
         if os.path.isfile(self.inputFolder):
             parentFolder = os.path.abspath(os.path.join(self.inputFolder,'..'))

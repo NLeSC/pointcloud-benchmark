@@ -49,7 +49,7 @@ class Querier(AbstractQuerier, CommonLASTools):
             inputListFile.write(pcFile + '\n')
         inputListFile.close()
         # Gets the SRID of the PC files (we assume all have the same SRID as the first file)
-        self.srid = lasops.getSRID(pcFiles[0])
+        #self.srid = lasops.getSRID(pcFiles[0])
         
         logging.info('Creating auxiliary table ' + utils.QUERY_TABLE)
         # Drops possible query table 

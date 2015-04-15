@@ -21,7 +21,7 @@ class Loader(AbstractLoader,CommonLASTools):
         os.system('mkdir -p ' + self.dataFolder)
         
         logging.info('Getting files and SRID from input folder ' + self.inputFolder)
-        (self.inputFiles, self.srid, _, _, _, _, _, _, _, _, _, _) = lasops.getPCFolderDetails(self.inputFolder)
+        (self.inputFiles, _, _, _, _, _, _, _, _, _, _, _) = lasops.getPCFolderDetails(self.inputFolder)
         
     def process(self):
         logging.info('Starting data preparation (' + str(self.numProcessesLoad) + ' processes) from ' + self.inputFolder + ' to ' + self.dataFolder)

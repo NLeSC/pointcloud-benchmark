@@ -29,14 +29,15 @@ def getNumPoints(absPath):
     """ Get the number of points of a LAS/LAZ (using LAStools, hence it is fast)"""
     return getPCFileDetails(absPath)[0]
         
-def getPCFileDetails(absPath):
+def getPCFileDetails(absPath, srid = None):
     """ Get the details (count numPoints and extent) of a LAS/LAZ file (using LAStools, hence it is fast)"""
     count = None
     (minX, minY, minZ, maxX, maxY, maxZ) = (None, None, None, None, None, None)
     (scaleX, scaleY, scaleZ) = (None, None, None)
     (offsetX, offsetY, offsetZ) = (None, None, None)
     
-    srid = getSRID(absPath)
+    if srid == None:
+        srid = getSRID(absPath)
     command = 'lasinfo ' + absPath + ' -nc -nv -nco'
     for line in utils.shellExecute(command).split('\n'):
         if line.count('min x y z:'):
@@ -63,7 +64,7 @@ def getPCFileDetails(absPath):
             offsetZ = float(offsetZ)
     return (srid, count, minX, minY, minZ, maxX, maxY, maxZ, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ)
 
-def getPCFolderDetails(absPath):
+def getPCFolderDetails(absPath, srid = None):
     """ Get the details (count numPoints and extent) of a folder with LAS/LAZ files (using LAStools, hence it is fast)
     It is assumed that all file shave same SRID and scale as first one"""
     tcount = 0
@@ -77,7 +78,7 @@ def getPCFolderDetails(absPath):
         inputFiles = [absPath,]
     
     for i in range(len(inputFiles)):
-        (srid, count, minx, miny, minz, maxx, maxy, maxz, scalex, scaley, scalez, _, _, _) = getPCFileDetails(inputFiles[i])
+        (srid, count, minx, miny, minz, maxx, maxy, maxz, scalex, scaley, scalez, _, _, _) = getPCFileDetails(inputFiles[i], srid)
         if i == 0:
             (tscalex, tscaley, tscalez) = (scalex, scaley, scalez)
             tsrid = srid

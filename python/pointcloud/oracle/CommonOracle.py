@@ -24,6 +24,7 @@ class CommonOracle():
         
         # Input data to use
         self.inputFolder = configuration.get('Load','Folder')
+        self.srid = configuration.get('Load','SRID')
         self.columns = configuration.get('Load','Columns')
         self.cUser = configuration.getboolean('Load','CreateUser')
         # Table spaces to use

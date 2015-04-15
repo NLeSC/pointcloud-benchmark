@@ -142,7 +142,7 @@ gdal_merge.py --version
 # LASZIP
 source export_custom.sh 
 install git cmake gcc-c++ make
-wget http://download.A.org/laszip/laszip-2.1.0.tar.gz
+wget http://download.osgeo.org/laszip/laszip-2.1.0.tar.gz
 tar xvzf laszip-2.1.0.tar.gz 
 cd laszip-2.1.0
 mkdir build
@@ -187,7 +187,7 @@ python -c 'import liblas; print liblas.__file__'
 cd /opt/sw
 wget http://www.cs.unc.edu/~isenburg/lastools/download/lastools.zip
 unzip lastools.zip
-cd lastools
+cd LAStools/
 make -j$threads
 # Binaries will be found in the 'bin' directory. 
 # Recommended not to run 'make install' because most of lastools' executables have the same names as the liblas utilities. 

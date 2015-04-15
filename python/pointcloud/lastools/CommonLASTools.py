@@ -17,6 +17,7 @@ class CommonLASTools():
         self.dbPort = configuration.get('DB','Port')
         
         self.inputFolder = configuration.get('Load','Folder')
+        self.srid = configuration.get('Load','SRID')
         self.dataFolder = configuration.get('Load','DataFolder')
         self.sort = configuration.getboolean('Load','Sort')
         self.dataExtension = configuration.get('Load','DataExtension')

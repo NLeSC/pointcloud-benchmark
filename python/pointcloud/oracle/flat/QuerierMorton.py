@@ -17,7 +17,7 @@ class QuerierMorton(AbstractQuerier):
         cursor = connection.cursor()
         # Get SRID of the stored PC
         oracleops.mogrifyExecute(cursor, "SELECT srid, minx, miny, maxx, maxy, scalex, scaley from " + self.metaTable)
-        (self.srid, minX, minY, maxX, maxY, scaleX, scaleY) = cursor.fetchone()[0]
+        (self.srid, minX, minY, maxX, maxY, scaleX, scaleY) = cursor.fetchone()
             
         # Create the quadtree
         qtDomain = (0, 0, int((maxX-minX)/scaleX), int((maxY-minY)/scaleY))
