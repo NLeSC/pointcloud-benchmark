@@ -1,0 +1,29 @@
+# This is to install lasnlesc in CentOS 7
+
+cd /opt/sw
+ln -s path/to/pointcloud-bencmark/lasnlesc lasnlesc
+cd lasnlesc
+# set paths in config/lasNLeSC_config.sh
+# export LASNLESC_HOME=
+# export LIBLAS_HOME=
+# export LASZIP_HOME=
+# export BOOST_HOME=
+# export BOOST_ROOT=
+
+. config/lasNLeSC_config.sh
+
+mkdir makefiles
+
+cd makefiles
+
+cmake -DCMAKE_FIND_ROOT_PATH=$LIBLAS_HOME -DCMAKE_INSTALL_PREFIX=$LASNLESC_HOME -DCMAKE_BUILD_TYPE=Release -G "Unix Makefiles" ../
+
+make
+
+make install
+
+# Add to paths
+# export PATH=$PATH:/opt/sw/lasnlesc/bin
+
+
+

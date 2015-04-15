@@ -6,8 +6,8 @@ geos, libtiff, proj, boost, geotiff, GDAL, laszip, libLAS, and the open-source p
 
 Then, depending on which PCDMSs you want to use you may also need to install
 several DB software:
- - MonetDB-based PCDMSs: requires MonetDB (http://dev.monetdb.org/hg/MonetDB)
- - PostgreSQL-based PCDMSs: PostgreSQL, PostGIS, pointcloud extension by P.Ramsey, PDAL
+ - MonetDB-based PCDMSs: requires MonetDB (http://dev.monetdb.org/hg/MonetDB) and lasnlesc
+ - PostgreSQL-based PCDMSs: PostgreSQL, PostGIS, pointcloud extension by P.Ramsey, PDAL and lasnlesc (only for flat table or Morton-based approaches)
  - Oracle-based PCDMSs: Oracle 12c and PDAL
  - LAStools-based PCDMSs: PostgreSQL and PostGIS (used for improved performance) and closed-part of LAStools
 
