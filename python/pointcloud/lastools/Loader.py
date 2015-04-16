@@ -52,7 +52,7 @@ class Loader(AbstractLoader,CommonLASTools):
     def close(self):
         if self.dbIndex:
             logging.info('Creating index DB')
-            lidaroverview.run(self.dataFolder, self.numProcessesLoad, self.dbName, self.userName, self.password, self.dbHost, self.dbPort, self.createDB, self.lasIndexTableName, 'lastools', self.srid)
+            lidaroverview.run(self.dataFolder, self.numProcessesLoad, self.dbName, self.userName, self.password, self.dbHost, self.dbPort, self.createDB, self.lasIndexTableName, self.srid)
         
     def size(self):
         try:

@@ -6,7 +6,7 @@
 import os, optparse, psycopg2, multiprocessing, logging
 from pointcloud import utils, postgresops, lasops
 
-def runChild(childId, childrenQueue, connectionString, dbtable, lasinfotool, srid):
+def runChild(childId, childrenQueue, connectionString, dbtable, srid):
     kill_received = False
     connection = psycopg2.connect(connectionString)
     cursor = connection.cursor()
@@ -22,17 +22,17 @@ def runChild(childId, childrenQueue, connectionString, dbtable, lasinfotool, sri
             kill_received = True
         else:            
             [identifier, inputFile,] = job
-            (srid, count, minX, minY, minZ, maxX, maxY, maxZ, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(inputFile)
+            (_, count, minX, minY, minZ, maxX, maxY, maxZ, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(inputFile)
             
             insertStatement = """INSERT INTO """ + dbtable + """(id,filepath,num,scalex,scaley,scalez,offsetx,offsety,offsetz,geom) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, ST_MakeEnvelope(%s, %s, %s, %s, %s));"""
-            insertArgs = [identifier, inputFile, int(count), float(scaleX), float(scaleY), float(scaleZ), float(offsetX), float(offsetY), float(offsetZ), float(minX), float(minY), float(maxX), float(maxY), 28992]
+            insertArgs = [identifier, inputFile, int(count), float(scaleX), float(scaleY), float(scaleZ), float(offsetX), float(offsetY), float(offsetZ), float(minX), float(minY), float(maxX), float(maxY), int(srid)]
             logging.info(cursor.mogrify(insertStatement, insertArgs))
             cursor.execute(insertStatement, insertArgs)
             connection.commit()
     cursor.close()
     connection.close()
 
-def run(inputFolder, numcores, dbname, dbuser, dbpass, dbhost, dbport, createdb, dbtable, lasinfotool, srid):
+def run(inputFolder, numcores, dbname, dbuser, dbpass, dbhost, dbport, createdb, dbtable, srid):
     opts = 0
     childrenQueue = multiprocessing.Queue()
     ifiles = utils.getFiles(inputFolder)
@@ -79,7 +79,7 @@ def run(inputFolder, numcores, dbname, dbuser, dbpass, dbhost, dbport, createdb,
     # We start numcores children processes
     for i in range(int(numcores)):
         children.append(multiprocessing.Process(target=runChild, 
-            args=(i, childrenQueue, psycopgConString, dbtable, lasinfotool)))
+            args=(i, childrenQueue, psycopgConString, dbtable, srid)))
         children[-1].start()
 
     # wait for all children to finish their execution
@@ -102,13 +102,14 @@ def run(inputFolder, numcores, dbname, dbuser, dbpass, dbhost, dbport, createdb,
     cursor.close()        
 
 def main(opts):
-    run(opts.input, opts.cores, opts.dbname, opts.dbuser, opts.dbpass, opts.dbhost, opts.dbport, opts.create, opts.dbtable, opts.lasinfo, opts.srid)
+    run(opts.input, opts.cores, opts.dbname, opts.dbuser, opts.dbpass, opts.dbhost, opts.dbport, opts.create, opts.dbtable, opts.srid)
         
 if __name__ == "__main__":
     usage = 'Usage: %prog [options]'
     description = "Creates a table with geometries describing the areas of which the LAS files contain points."
     op = optparse.OptionParser(usage=usage, description=description)
     op.add_option('-i','--input',default='',help='Input folder where to find the LAS files',type='string')
+    op.add_option('-s','--srid',default='',help='SRID',type='string')
     op.add_option('-x','--create',default=False,help='Creates the database',action='store_true')
     op.add_option('-n','--dbname',default='',help='Postgres DB name where to store the geometries',type='string')
     op.add_option('-u','--dbuser',default='',help='DB user',type='string')
@@ -117,7 +118,5 @@ if __name__ == "__main__":
     op.add_option('-r','--dbport',default='',help='DB port',type='string')
     op.add_option('-t','--dbtable',default='',help='DB table',type='string')
     op.add_option('-c','--cores',default='',help='Number of used processes',type='string')
-    op.add_option('-l','--lasinfo',default='liblas',help='Library used for lasinfo: lastools or liblas',type='string')
-    op.add_option('-s','--srid',default='',help='SRID',type='string')
     (opts, args) = op.parse_args()
     main(opts)

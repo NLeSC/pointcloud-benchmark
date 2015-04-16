@@ -3,8 +3,8 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import logging
-from pointcloud import utils
+import logging, cx_Oracle
+from pointcloud import utils, oracleops
 
 class CommonOracle():
     def setVariables(self, configuration):
@@ -77,9 +77,9 @@ class CommonOracle():
         #
         # QUERY VARIABLES
         #
-        self.queryFile = config.get('Query','File')
-        self.numUsers = config.getint('Query','NumberUsers')
-        self.numIterations = config.getint('Query','NumberIterations')
+        self.queryFile = configuration.get('Query','File')
+        self.numUsers = configuration.getint('Query','NumberUsers')
+        self.numIterations = configuration.getint('Query','NumberIterations')
         self.numProcessesQuery = configuration.getint('Query','NumberProcesses')
         if loadingMode != 'FLAT':
             self.parallelType = configuration.get('Query','ParallelType').lower()

@@ -3,7 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import os, time, logging, glob
+import os, time, logging, glob, traceback
 from pointcloud.AbstractQuerier import AbstractQuerier
 from pointcloud.lastools.CommonLASTools import CommonLASTools
 from pointcloud import postgresops, lasops, utils
@@ -27,7 +27,7 @@ class Querier(AbstractQuerier, CommonLASTools):
         # Creates the DB if not existing
         if not self.exists:
             logging.info('Creating auxiliary DB ' + self.dbName)
-            connString = self.getConnectString(False, True)
+            connString = self.getConnectionString(False, True)
             os.system('createdb ' + connString)
         #  We create the PostGIS extension
         connection = self.getConnection()
@@ -67,7 +67,7 @@ class Querier(AbstractQuerier, CommonLASTools):
         
         self.qp = queriesParameters.getQueryParameters('psql', queryId, self.colsData)
         logging.debug(self.qp.queryKey)
-        
+
         zquery = ''    
         if (self.qp.minz != None) or (self.qp.maxz != None):
             zconds = []
@@ -77,13 +77,15 @@ class Querier(AbstractQuerier, CommonLASTools):
                 zconds.append(' -drop_z_above ' + str(self.qp.maxz) + ' ')
             zquery = ' '.join(zconds)
         
-        connString = None        
         shapeFile = 'query' + str(queryIndex) + '.shp'
          
         if iterationId == 0:
             # We insert the polygon in the DB (to be used by lasclip ot by the DB index query) 
+            connection = self.getConnection()
+            cursor = connection.cursor()
             cursor.execute("INSERT INTO " + utils.QUERY_TABLE + " VALUES (%s,ST_GeomFromEWKT(%s))", [queryIndex, 'SRID='+str(self.srid)+';'+self.qp.wkt])
-            connection.commit()
+            connection.commit() 
+            connection.close()
             
             if self.qp.queryType == 'generic':
                 # We generate a ShapeFile for lasclip in case of not rectangle or circle
@@ -94,14 +96,13 @@ class Querier(AbstractQuerier, CommonLASTools):
                 os.system(precommand)
 
         if self.qp.queryType not in ('rectangle', 'circle', 'generic'):
-            connection.close()
             return (eTime, result)
             
         t0 = time.time()
 
         if self.dbIndex:
             inputList = 'input' +  str(queryIndex) + '.list'
-            connString = self.getConnectString(False, True)
+            connString = self.getConnectionString(False, True)
             query = 'SELECT filepath FROM ' + self.lasIndexTableName + ',' + utils.QUERY_TABLE + ' where ST_Intersects( ' + utils.QUERY_TABLE + '.geom, ' + self.lasIndexTableName + '.geom ) and ' + utils.QUERY_TABLE + '.id = ' + str(queryIndex)
             prec = 'psql ' + connString + ' -t -A -c "' + query + '" > ' + inputList
             logging.info(prec)
@@ -118,7 +119,7 @@ class Querier(AbstractQuerier, CommonLASTools):
             if not self.isSingle :
                 command += ' -merged'                    
         
-        if self.qp.queryMethod != 'disk': 
+        if self.qp.queryMethod == 'disk': 
             outputFile = 'output' +  str(queryIndex) + '.' + self.outputExtension
             command += ' -o ' + outputFile
             logging.debug(command)
@@ -129,7 +130,7 @@ class Querier(AbstractQuerier, CommonLASTools):
                 result  = int(utils.shellExecute(npointscommand).split()[-1])
             except:
                 result = None
-        elif self.qp.queryMethod != 'stream':
+        elif self.qp.queryMethod == 'stream':
             
             command += ' -stdout -otxt -oparse xyz | wc -l'
             logging.debug(command)
@@ -162,14 +163,13 @@ class Querier(AbstractQuerier, CommonLASTools):
                             if self.qp.statistics[i] == 'avg':
                                 results.append(line.split()[-1])
                             else:
-                                results.append(line).split()[colIs[self.qp.columns[i]]]
+                                results.append(line.split()[colIs[self.qp.columns[i]]])
                 result = ','.join(results)
-            except:
+            except Exception, err:
+                print traceback.format_exc()
                 result = None
             eTime = time.time() - t0
-    connection.close()
-    
-    return (eTime, result)
+        return (eTime, result)
 
     def close(self):
         return
