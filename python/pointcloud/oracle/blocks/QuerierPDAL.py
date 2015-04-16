@@ -31,12 +31,12 @@ class QuerierPDAL(AbstractQuerier):
         if queryMethod == 'stat' or self.qp.queryType == 'nn' or self.qp.minz != None or self.qp.maxz != None:
             # PDAL can not generate stats or run NN queries or Z queries 
             return (eTime, result) 
-        
+        xmlFile = 'pdal' +  str(queryIndex) + '.xml'
         if self.qp.queryMethod != 'stream':
             outputFileAbsPath = 'output' +  str(queryIndex) + '.las'
-            xmlFile = pdalops.OracleReaderLAS(outputFileAbsPath, self.getConnectionString(), self.blockTable, self.baseTable, self.srid, self.qp.wkt)
+            pdalops.OracleReaderLAS(xmlFile, outputFileAbsPath, self.getConnectionString(), self.blockTable, self.baseTable, self.srid, self.qp.wkt)
         else:
-            xmlFile = pdalops.OracleReaderStdOut(self.getConnectionString(), self.blockTable, self.baseTable, self.srid, self.qp.wkt)
+            pdalops.OracleReaderStdOut(xmlFile, self.getConnectionString(), self.blockTable, self.baseTable, self.srid, self.qp.wkt)
             
         t0 = time.time()
         if self.qp.queryMethod != 'stream': # disk or stat
@@ -47,6 +47,4 @@ class QuerierPDAL(AbstractQuerier):
         else:
             result = pdalops.executePDALCount(xmlFile)
             eTime = time.time() - t0
-        
-        os.system('rm ' + xmlFile)
         return (eTime, result)

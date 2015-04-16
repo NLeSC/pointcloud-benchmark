@@ -18,12 +18,13 @@ class Loader(AbstractLoader):
         else:
             connection = self.getConnection()
             cursor = connection.cursor()
-        # Create the blocks table 
+        
+        logging.info('Getting files and extent from input folder ' + self.inputFolder)
+        (self.inputFiles, _, _, self.minX, self.minY, self.minZ, _, _, _, self.scaleX, self.scaleY, self.scaleZ) = lasops.getPCFolderDetails(self.inputFolder)
+        
         self.createBlocksTable(cursor, self.blockTable, self.tableSpace)
-        
-        logging.info('Getting files, extent and SRID from input folder ' + self.inputFolder)
-        (self.inputFiles, _, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = lasops.getPCFolderDetails(self.inputFolder)
-        
+        connection.close()
+ 
     def process(self):
         logging.info('Starting data loading with PDAL (parallel by python) from ' + self.inputFolder + ' to ' + self.dbName)
         return self.processMulti(self.inputFiles, self.numProcessesLoad, self.loadFromFile)
@@ -35,8 +36,10 @@ class Loader(AbstractLoader):
         # Add point cloud format to poinctcloud_formats table
         (dimensionsNames, pcid, compression) = self.addPCFormat(cursor, self.schemaFile, fileAbsPath, self.srid)
         connection.close()
+
         # Get PDAL config and run PDAL
-        xmlFile = pdalops.PostgreSQLWriter(fileAbsPath, self.getConnectionString(), pcid, dimensionsNames, self.blockTable, self.srid, self.blockSize, compression)
+        xmlFile = os.path.basename(fileAbsPath) + '.xml'
+        pdalops.PostgreSQLWriter(xmlFile, fileAbsPath, self.getConnectionString(), pcid, dimensionsNames, self.blockTable, self.srid, self.blockSize, compression)
         pdalops.executePDAL(xmlFile)
 
     def close(self):

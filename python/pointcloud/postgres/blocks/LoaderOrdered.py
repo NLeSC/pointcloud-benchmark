@@ -26,8 +26,10 @@ class LoaderOrdered(Loader):
         # Add point cloud format to poinctcloud_formats table
         (dimensionsNames, pcid, compression) = self.addPCFormat(cursor, self.schemaFile, fileAbsPath, self.srid)
         connection.close()
+
         # Get PDAL config and run PDAL
-        xmlFile = pdalops.PostgreSQLWriter(fileAbsPath, self.getConnectionString(), pcid, dimensionsNames, fileBlockTable, self.srid, self.blockSize, compression)
+        xmlFile = os.path.basename(fileAbsPath) + '.xml'
+        pdalops.PostgreSQLWriter(xmlFile, fileAbsPath, self.getConnectionString(), pcid, dimensionsNames, fileBlockTable, self.srid, self.blockSize, compression)
         pdalops.executePDAL(xmlFile)
         
     def loadFromFileSequential(self, fileAbsPath, index, numFiles):

@@ -33,7 +33,8 @@ class Loader(AbstractLoader):
     def loadFromFile(self, index, fileAbsPath):
         # Get information of the contents of the LAS file
         logging.info(fileAbsPath)
-        xmlFile = pdalops.OracleWriter(fileAbsPath, self.getConnectionString(), self.columns, self.blockTable, self.baseTable, self.srid, self.blockSize)
+        xmlFile = os.path.basename(fileAbsPath) + '.xml'
+        pdalops.OracleWriter(xmlFile, fileAbsPath, self.getConnectionString(), self.columns, self.blockTable, self.baseTable, self.srid, self.blockSize)
         pdalops.executePDAL(xmlFile)
         
     def close(self):

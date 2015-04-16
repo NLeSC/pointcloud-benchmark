@@ -29,15 +29,16 @@ class QuerierPDAL(AbstractQuerier):
         (eTime, result) = (-1, None)    
         self.prepareQuery(None, queryId, queriesParameters, False)
         
-        if queryMethod == 'stat' or self.qp.queryType == 'nn' or self.qp.minz != None or self.qp.maxz != None:
+        if self.qp.queryMethod == 'stat' or self.qp.queryType == 'nn' or self.qp.minz != None or self.qp.maxz != None:
             # PDAL can not generate stats or run NN queries or Z queries 
             return (eTime, result) 
-        
+
+        xmlFile = 'pdal' +  str(self.queryIndex) + '.xml'
         if self.qp.queryMethod != 'stream':
-            outputFileAbsPath = 'output' +  str(queryIndex) + '.las'
-            xmlFile = pdalops.PostgreSQLReaderLAS(outputFileAbsPath, self.getConnectionString(), self.blockTable, self.srid, self.qp.wkt)
+            outputFileAbsPath = 'output' +  str(self.queryIndex) + '.las'
+            pdalops.PostgreSQLReaderLAS(xmlFile, outputFileAbsPath, self.getConnectionString(), self.blockTable, self.srid, self.qp.wkt)
         else:
-            xmlFile = pdalops.PostgreSQLReaderStdOut(self.getConnectionString(), self.blockTable, self.srid, self.qp.wkt)
+            pdalops.PostgreSQLReaderStdOut(xmlFile, self.getConnectionString(), self.blockTable, self.srid, self.qp.wkt)
             
         t0 = time.time()
         if self.qp.queryMethod != 'stream': # disk or stat
@@ -48,6 +49,4 @@ class QuerierPDAL(AbstractQuerier):
         else:
             result = pdalops.executePDALCount(xmlFile)
             eTime = time.time() - t0
-        
-        os.system('rm ' + xmlFile)
         return (eTime, result)

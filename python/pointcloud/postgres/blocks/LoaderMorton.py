@@ -20,17 +20,18 @@ class LoaderMorton(AbstractLoader):
         else:
             connection = self.getConnection()
             cursor = connection.cursor()
-        # Create the blocks table 
-        self.createBlocksTable(cursor, self.blockTable, self.tableSpace, True)
         # Create SQL method to get the quad cell id
         self.createQuadCellId(cursor)
         
-        logging.info('Getting files, extent and SRID from input folder ' + self.inputFolder)
-        (self.inputFiles, _, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = lasops.getPCFolderDetails(self.inputFolder)
+        logging.info('Getting files and extent from input folder ' + self.inputFolder)
+        (self.inputFiles, _, _, self.minX, self.minY, self.minZ, self.maxX, self.maxY, _, self.scaleX, self.scaleY, self.scaleZ) = lasops.getPCFolderDetails(self.inputFolder)
+        self.createBlocksTable(cursor, self.blockTable, self.tableSpace, True)
         
         # Create meta table to save the extent of the PC
         self.metaTable = self.blockTable + '_meta'
         self.createMetaTable(cursor, self.metaTable)
+
+        connection.close()
 
     def process(self):
         logging.info('Starting data loading with las2pg (parallel by python) from ' + self.inputFolder + ' to ' + self.dbName)

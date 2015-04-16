@@ -56,7 +56,7 @@ class AbstractLoader(ALoader, CommonPostgres):
         cursor.execute('ALTER TABLE pointcloud_formats ADD COLUMN offsetx double precision')
         cursor.execute('ALTER TABLE pointcloud_formats ADD COLUMN offsety double precision')
         cursor.execute('ALTER TABLE pointcloud_formats ADD COLUMN offsetz double precision')
-        cursor.execute('ALTER TABLE pointcloud_formats ADD CONSTRAINT scale_offset_key UNIQUE (scalex,scaley,scalez,offsetx,offsety,offsetz)')
+        cursor.execute('ALTER TABLE pointcloud_formats ADD CONSTRAINT scale_offset_key UNIQUE (srid,scalex,scaley,scalez,offsetx,offsety,offsetz)')
         cursor.connection.commit()
         
     def createBlocksTable(self, cursor, blockTable, tableSpace, quadcell = False):
@@ -178,7 +178,7 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
         
     def addPCFormat(self, cursor, schemaFile, fileAbsPath, srid):
         (_, _, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(fileAbsPath, srid)
-        
+
         updatedFormat = False
         schema = None
         
@@ -187,8 +187,8 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
         while not updatedFormat:
         
             # Check whether there is already a format with current scale-offset values 
-            cursor.execute("SELECT pcid,schema FROM pointcloud_formats WHERE scaleX = %s AND scaleY = %s AND scaleZ = %s AND offsetX = %s AND offsetY = %s AND offsetZ = %s", 
-                            [scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ])
+            cursor.execute("SELECT pcid,schema FROM pointcloud_formats WHERE srid = %s AND scaleX = %s AND scaleY = %s AND scaleZ = %s AND offsetX = %s AND offsetY = %s AND offsetZ = %s", 
+                            [srid, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ])
             rows = cursor.fetchall()
             
             if len(rows):

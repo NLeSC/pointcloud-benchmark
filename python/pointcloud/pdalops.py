@@ -10,7 +10,7 @@ from pointcloud import utils, lasops
 # This module contains methods that use PDAL or are useful for PDAL
 #
 
-def OracleWriter(inputFileAbsPath, connectionString, dimensionsNames, blockTable, baseTable, srid, blockSize):
+def OracleWriter(xmlFile, inputFileAbsPath, connectionString, dimensionsNames, blockTable, baseTable, srid, blockSize):
     (_, _, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(inputFileAbsPath)  
     """ Create a XML file to load the data, in the given file, into the DB """
     xmlContent = """
@@ -50,11 +50,9 @@ def OracleWriter(inputFileAbsPath, connectionString, dimensionsNames, blockTable
  </Writer>
 </Pipeline>      
 """
-    outputFileName = os.path.basename(inputFileAbsPath) + '.xml'
-    utils.writeToFile(outputFileName, xmlContent)
-    return outputFileName
+    utils.writeToFile(xmlFile, xmlContent)
 
-def OracleReaderLAS(outputFileAbsPath, connectionString, blockTable, baseTable, srid, wkt):
+def OracleReaderLAS(xmlFile, outputFileAbsPath, connectionString, blockTable, baseTable, srid, wkt):
     xmlContent = """
 <?xml version="1.0" encoding="utf-8"?>
 <Pipeline version="1.0">
@@ -82,11 +80,9 @@ WHERE
   </Writer>
 </Pipeline>
 """
-    outputFileName = os.path.basename(outputFileAbsPath) + '.xml'
-    utils.writeToFile(outputFileName, xmlContent)
-    return outputFileName
+    utils.writeToFile(xmlFile, xmlContent)
 
-def OracleReaderStdOut(connectionString, blockTable, baseTable, srid, wkt):
+def OracleReaderStdOut(xmlFile, connectionString, blockTable, baseTable, srid, wkt):
     xmlContent = """
 <?xml version="1.0" encoding="utf-8"?>
 <Pipeline version="1.0">
@@ -115,8 +111,9 @@ def OracleReaderStdOut(connectionString, blockTable, baseTable, srid, wkt):
   </Writer>
 </Pipeline>
 """
+    utils.writeToFile(xmlFile, xmlContent)
 
-def PostgreSQLWriter(inputFileAbsPath, connectionString, pcid, dimensionsNames, blockTable, srid, blockSize, compression):
+def PostgreSQLWriter(xmlFile, inputFileAbsPath, connectionString, pcid, dimensionsNames, blockTable, srid, blockSize, compression):
     """ Create a XML file to load the data, in the given file, into the DB """
     (_, _, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(inputFileAbsPath)  
 
@@ -148,11 +145,9 @@ def PostgreSQLWriter(inputFileAbsPath, connectionString, pcid, dimensionsNames, 
 </Writer>
 </Pipeline>
 """
-    outputFileName = os.path.basename(inputFileAbsPath) + '.xml'
-    utils.writeToFile(outputFileName, xmlContent)
-    return outputFileName
+    utils.writeToFile(xmlFile, xmlContent)
 
-def PostgresSQLReaderLAS(outputFileAbsPath, connectionString, blockTable, srid, wkt):
+def PostgreSQLReaderLAS(xmlFile, outputFileAbsPath, connectionString, blockTable, srid, wkt):
     xmlContent = """
 <?xml version="1.0" encoding="utf-8"?>
 <Pipeline version="1.0">
@@ -173,11 +168,9 @@ def PostgresSQLReaderLAS(outputFileAbsPath, connectionString, blockTable, srid, 
   </Writer>
 </Pipeline>
 """
-    outputFileName = os.path.basename(outputFileAbsPath) + '.xml'
-    utils.writeToFile(outputFileName, xmlContent)
-    return outputFileName
+    utils.writeToFile(xmlFile, xmlContent)
 
-def PostgresSQLReaderStdOut(connectionString, blockTable, srid, wkt):
+def PostgreSQLReaderStdOut(xmlFile, connectionString, blockTable, srid, wkt):
     xmlContent = """
 <?xml version="1.0" encoding="utf-8"?>
 <Pipeline version="1.0">
@@ -199,10 +192,14 @@ def PostgresSQLReaderStdOut(connectionString, blockTable, srid, wkt):
   </Writer>
 </Pipeline>
 """
+    utils.writeToFile(xmlFile, xmlContent)
 
 def executePDALCount(xmlFile):
-    command = 'pdal pipeline ' + xmlFile + ' | wc -l'
-    result = utils.shellExecute(command).replace('\n','')
+    c = 'pdal pipeline ' + xmlFile + ' | wc -l'
+    logging.debug(c)
+    result = utils.shellExecute(c).replace('\n','')
+    # remove the XML file
+    #os.system('rm ' + xmlFile)
     try:
         result  = int(result) - 0
     except:

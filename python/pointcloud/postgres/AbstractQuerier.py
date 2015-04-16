@@ -31,7 +31,7 @@ class AbstractQuerier(AQuerier, CommonPostgres):
         
         if addGeom:
             cursor.execute('insert into ' + self.queryTable + ' values (%s,ST_GeomFromEWKT(%s))', [self.queryIndex,'SRID='+str(self.srid)+';'+self.qp.wkt])
-            cursor.connection.close()
+            cursor.connection.commit()
 
     def getBBoxGeometry(self, cursor, table, qId):
         cursor.execute('select st_xmin(geom), st_xmax(geom), st_ymin(geom), st_ymax(geom) from ' + table + ' where id = %s', [qId,])
