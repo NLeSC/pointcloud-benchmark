@@ -10,9 +10,10 @@ from pointcloud import utils, lasops
 # This module contains methods that use PDAL or are useful for PDAL
 #
 
-def OracleWriter(xmlFile, inputFileAbsPath, connectionString, dimensionsNames, blockTable, baseTable, srid, blockSize):
+def OracleWriter(xmlFile, inputFileAbsPath, connectionString, dimensionsNames, blockTable, baseTable, srid, blockSize, compression, dimensionalOrientation):
     (_, _, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(inputFileAbsPath)  
     """ Create a XML file to load the data, in the given file, into the DB """
+    
     xmlContent = """
 <?xml version="1.0" encoding="utf-8"?>
 <Pipeline version="1.0">
@@ -22,7 +23,8 @@ def OracleWriter(xmlFile, inputFileAbsPath, connectionString, dimensionsNames, b
    <Option name="connection">""" + connectionString + """</Option>
    <Option name="base_table_name">""" + baseTable + """</Option>
    <Option name="block_table_name">""" + blockTable + """</Option>
-   <Option name="store_dimensional_orientation">true</Option>
+   <Option name="compression">""" + str(compression).lower() + """</Option>
+   <Option name="store_dimensional_orientation">""" + str(dimensionalOrientation).lower() + """</Option>
    <Option name="cloud_column_name">pc</Option>
    <Option name="is3d">false</Option>
    <Option name="solid">false</Option>

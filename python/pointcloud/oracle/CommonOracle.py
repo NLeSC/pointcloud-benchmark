@@ -67,6 +67,9 @@ class CommonOracle():
             self.blockSize =  configuration.get('Load','BlockSize')
             self.batchSize =  configuration.getint('Load','BatchSize')
             self.compression = configuration.get('Load','Compression').strip()
+            
+            self.pdalCompression = configuration.getboolean('Load','PDALCompression')
+            self.pdalDimOrientation = configuration.getboolean('Load','PDALDimensionalOrientation')
         else:#if loadingMode == 'FLAT':
             self.columnType = 'NUMBER'
             self.flatTable = configuration.get('Load','FlatTable').upper()
