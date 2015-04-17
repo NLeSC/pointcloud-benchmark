@@ -3,7 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import os, logging
+import os, logging, traceback
 from pointcloud.AbstractLoader import AbstractLoader as ALoader
 from pointcloud.oracle.CommonOracle import CommonOracle
 from pointcloud import oracleops
@@ -302,8 +302,9 @@ END;""")
        
         try: 
             size_total = oracleops.getSizeTable(cursor, [blockTable, baseTable]) 
-            size_indexes = oracleops.getSizeUserSDOIndexes(cursor)
-        except:
+            size_indexes = oracleops.getSizeUserSDOIndexes(cursor, blockTable)
+        except Exception, err:
+            print traceback.format_exc()
             size_total = None
             size_indexes = None
         connection.close()

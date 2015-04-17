@@ -67,7 +67,7 @@ class CommonOracle():
             self.blockSize =  configuration.get('Load','BlockSize')
             self.batchSize =  configuration.getint('Load','BatchSize')
             self.compression = configuration.get('Load','Compression').strip()
-            
+            self.useOffsetScale = configuration.getboolean('Load','PDAL32bitCoordinates')
             self.pdalCompression = configuration.getboolean('Load','PDALCompression')
             self.pdalDimOrientation = configuration.getboolean('Load','PDALDimensionalOrientation')
         else:#if loadingMode == 'FLAT':

@@ -10,9 +10,22 @@ from pointcloud import utils, lasops
 # This module contains methods that use PDAL or are useful for PDAL
 #
 
-def OracleWriter(xmlFile, inputFileAbsPath, connectionString, dimensionsNames, blockTable, baseTable, srid, blockSize, compression, dimensionalOrientation):
-    (_, _, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(inputFileAbsPath)  
+def OracleWriter(xmlFile, inputFileAbsPath, connectionString, dimensionsNames, blockTable, baseTable, srid, blockSize, compression, dimensionalOrientation, useOffsetScale):
     """ Create a XML file to load the data, in the given file, into the DB """
+    
+    offsetScale = ''
+    if useOffsetScale:
+        (_, _, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(inputFileAbsPath)
+        offsetScale = """<Option name="offset_x">""" + str(offsetX) + """</Option>
+   <Option name="offset_y">""" + str(offsetY) + """</Option>
+   <Option name="offset_z">""" + str(offsetZ) + """</Option>
+   <Option name="scale_x">""" + str(scaleX) + """</Option>
+   <Option name="scale_y">""" + str(scaleY) + """</Option>
+   <Option name="scale_z">""" + str(scaleZ) + """</Option>"""
+
+    output_dims = ''
+    if dimensionsNames != None:
+        output_dims = '<Option name="output_dims">' + ','.join(dimensionsNames) + '</Option>'
     
     xmlContent = """
 <?xml version="1.0" encoding="utf-8"?>
@@ -35,13 +48,8 @@ def OracleWriter(xmlFile, inputFileAbsPath, connectionString, dimensionsNames, b
    <Option name="capacity">""" + str(blockSize) + """</Option>
    <Option name="stream_output_precision">8</Option>
    <Option name="pack_ignored_fields">true</Option>
-   <Option name="output_dims">""" + ",".join(dimensionsNames) + """</Option>
-   <Option name="offset_x">""" + str(offsetX) + """</Option>
-   <Option name="offset_y">""" + str(offsetY) + """</Option>
-   <Option name="offset_z">""" + str(offsetZ) + """</Option>
-   <Option name="scale_x">""" + str(scaleX) + """</Option>
-   <Option name="scale_y">""" + str(scaleY) + """</Option>
-   <Option name="scale_z">""" + str(scaleZ) + """</Option>
+   """ + output_dims + """
+   """ + offsetScale + """
    <Filter type="filters.chipper">
      <Option name="capacity">""" + str(blockSize) + """</Option>
      <Reader type="readers.las">

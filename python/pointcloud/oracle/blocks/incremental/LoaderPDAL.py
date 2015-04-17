@@ -4,11 +4,10 @@
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
 import os, logging
-import utils
 from pointcloud.oracle.AbstractLoader import AbstractLoader
-from pointcloud import lasops, pdalops
+from pointcloud import lasops, pdalops, utils
 
-class Loader(AbstractLoader):
+class LoaderPDAL(AbstractLoader):
     def initialize(self):
         # Creates the user that will store the tables
         if self.cUser:
@@ -34,7 +33,12 @@ class Loader(AbstractLoader):
         # Get information of the contents of the LAS file
         logging.info(fileAbsPath)
         xmlFile = os.path.basename(fileAbsPath) + '.xml'
-        pdalops.OracleWriter(xmlFile, fileAbsPath, self.getConnectionString(), self.columns, self.blockTable, self.baseTable, self.srid, self.blockSize, self.pdalCompression, self.pdalDimOrientation)
+        if self.columns == 'all':
+            cols = None
+        else:
+            cols = self.columns
+        useOffsetScale = self.useOffsetScale
+        pdalops.OracleWriter(xmlFile, fileAbsPath, self.getConnectionString(), cols, self.blockTable, self.baseTable, self.srid, self.blockSize, self.pdalCompression, self.pdalDimOrientation, useOffsetScale)
         pdalops.executePDAL(xmlFile)
         
     def close(self):
