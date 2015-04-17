@@ -58,7 +58,7 @@ def mogrify(cursor, query, queryArgs = None):
         else:
             raise Exception('Error: queryArgs must be dict, list or tuple')
 
-def mogrifyExecute(self, cursor, query, queryArgs = None):
+def mogrifyExecute(cursor, query, queryArgs = None):
     """ Execute a query with logging"""
     logging.info(mogrify(cursor, query, queryArgs))
     if queryArgs != None:
@@ -67,7 +67,7 @@ def mogrifyExecute(self, cursor, query, queryArgs = None):
         cursor.execute(query)
     cursor.connection.commit()
         
-def dropTable(self, cursor, tableName, check = False):
+def dropTable(cursor, tableName, check = False):
     """ Drops a table"""
     if check:
         cursor.execute('SELECT table_name FROM all_tables WHERE table_name = :1',[tableName,])

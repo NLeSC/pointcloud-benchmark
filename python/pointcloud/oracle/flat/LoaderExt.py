@@ -27,11 +27,16 @@ class LoaderExt(AbstractLoader):
         if os.path.isfile(self.inputFolder):
             parentFolder = os.path.abspath(os.path.join(self.inputFolder,'..'))
             lasFiles = os.path.basename(self.inputFolder)
+            extension = self.inputFolder.split('.')[-1]
         else:
             parentFolder = self.inputFolder
             if len(self.inputFiles) == 0:
                 raise Exception('ERROR: None PC file in ' + self.inputFolder)
-            lasFiles = '*.' + self.inputFiles.split('.')[-1]
+            extension = self.inputFiles[0].split('.')[-1]
+            lasFiles = '*.' + extension
+
+        if extension.lower() == 'laz':
+            raise Exception('ERROR: pre-processor only accepts LAS files!')
 
         self.extTable = ('EXT_' + self.flatTable).upper()
         self.lasDirVariableName = (self.userName + '_las_dir').upper()

@@ -3,7 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import os
+import os,logging
 from pointcloud.oracle.AbstractLoader import AbstractLoader
 from pointcloud import lasops
 
@@ -23,12 +23,16 @@ class LoaderExt(AbstractLoader):
         if os.path.isfile(self.inputFolder):
             parentFolder = os.path.abspath(os.path.join(self.inputFolder,'..'))
             lasFiles = os.path.basename(self.inputFolder)
+            extension = self.inputFolder.split('.')[-1]
         else:
             parentFolder = self.inputFolder
             if len(self.inputFiles) == 0:
                 raise Exception('ERROR: None PC file in ' + self.inputFolder)
-            lasFiles = '*.' + self.inputFiles.split('.')[-1]
-        
+            extension = self.inputFiles[0].split('.')[-1]
+            lasFiles = '*.' + extension
+        if extension.lower() == 'laz':
+            raise Exception('ERROR: pre-processor only accepts LAS files!')            
+
         # We define the External table name
         self.flatTable = self.blockTable + '_STAGING'
         self.extTable = ('EXT_' + self.flatTable).upper()
@@ -62,7 +66,7 @@ class LoaderExt(AbstractLoader):
             cursor = connection.cursor()
         
             icols = list(self.columns) + ['h',]
-            ocols = icols[:] + ['h',]
+            ocols = icols[:] 
             kcols = ['h',]
         
             # Create the IOT (note that we store it in the index table space!)

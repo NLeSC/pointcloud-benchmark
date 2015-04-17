@@ -51,7 +51,7 @@ class AbstractLoader(ALoader, CommonOracle):
                     raise Exception('Hilbert code has to be the last column!')
                 columnName = hilbertColumnName
             else:
-                columnName = 'VAL_D' + str(i)
+                columnName = 'VAL_D' + str(i+1)
             c = columnName
             if includeType:
                 c += ' ' + self.colsData[column][0]
@@ -102,7 +102,7 @@ as SELECT * FROM mdsys.SDO_PC_BLK_TABLE where 0 = 1""")
                 raise Exception('Wrong column! ' + column)
             if column in 'mhlnvf':
                 raise Exception('Column ' + column + ' not compatible with las2txt+sqlldr')
-            columnName = 'VAL_D' + str(i)
+            columnName = 'VAL_D' + str(i+1)
             cols.append(columnName + ' ' + self.colsData[column][1] + ' external(' + str(self.colsData[column][2]) + ')')
         
         ctfile.write("""load data
@@ -112,13 +112,13 @@ fields terminated by ','
 """ + (',\n'.join(cols)) + """
 )""")
         ctfile.close()
-        las2txtCommand = 'las2txt -i ' + fileAbsPath + ' -o stodut -parse ' + self.columns + ' -sep comma'
+        las2txtCommand = 'las2txt -i ' + fileAbsPath + ' -stdout -parse ' + self.columns + ' -sep comma'
         sqlLoaderCommand = "sqlldr " + self.getConnectionString() + " direct=true control=" + controlFile + " data=\\'-\\' bad=" + badFile + " log=" + logFile
         command = las2txtCommand + " | " + sqlLoaderCommand
         logging.debug(command)
         os.system(command)
         
-    def populateBlocks(self, cursor, minX, minY, maxX, maxY, flatTable, blockTable, baseTable, blockSize, columns, tolerance, workTableSpace):
+    def populateBlocks(self, cursor, srid, minX, minY, maxX, maxY, flatTable, blockTable, baseTable, blockSize, columns, tolerance, workTableSpace):
         """Populate blocks from points in a flat table and delete flat table afterwards"""
         viewFlatTable = 'VIEW_' + flatTable
         
@@ -131,7 +131,7 @@ fields terminated by ','
         oracleops.mogrifyExecute(cursor,"CREATE VIEW " + viewFlatTable + " as SELECT '0' rid, " + (','.join(self.getDBColumns(columns, False))) + " from " + flatTable)
 
         #Initialize point cloud metadata and create point cloud   
-        self.initCreatePC(cursor, minX, minY, maxX, maxY, viewFlatTable, blockTable, baseTable, blockSize, tolerance, workTableSpace) 
+        self.initCreatePC(cursor, srid, minX, minY, maxX, maxY, viewFlatTable, blockTable, baseTable, blockSize, tolerance, workTableSpace) 
         
         #oracleops.mogrifyExecute(cursor,"""ALTER TABLE """ + self.blockTable + """ add constraint """ + self.blockTable + """_PK primary key (obj_id, blk_id) using index tablespace """ + self.indexTableSpace)
         oracleops.mogrifyExecute(cursor,"""DROP VIEW """ + viewFlatTable)
@@ -212,7 +212,7 @@ as
         oracleops.mogrifyExecute(cursor,"""
 DECLARE
     ptcld      sdo_pc;
-    ptn_params varchar2(80) := 'blk_capacity=""" + blockSize + """';
+    ptn_params varchar2(80) := 'blk_capacity=""" + str(blockSize) + """';
     extent     sdo_geometry := sdo_geometry(2003,""" + str(srid) + """,NULL,sdo_elem_info_array(1,1003,3),sdo_ordinate_array(""" + str(minX) + """,""" + str(minY) + """,""" + str(maxX) + """,""" + str(maxY) + """));
     other_attrs XMLType     := xmltype('
                                 <opc:sdoPcObjectMetadata
@@ -221,7 +221,7 @@ DECLARE
                                     blockingMethod="Hilbert R-tree">
                                 </opc:sdoPcObjectMetadata>');
 BEGIN
-    ptcld := sdo_pc_pkg.init ('""" + baseTable + """', 'PC', '""" + blockTable + """', ptn_params, extent, """ + tolerance + """, 3, NULL, NULL, other_attrs);
+    ptcld := sdo_pc_pkg.init ('""" + baseTable + """', 'PC', '""" + blockTable + """', ptn_params, extent, """ + str(tolerance) + """, 3, NULL, NULL, other_attrs);
     insert into """ + baseTable + """ values (ptcld);
     commit;
     sdo_pc_pkg.create_pc (ptcld, '""" + flatTable + """', NULL);
@@ -231,8 +231,8 @@ END;
         
     def createBlockIndex(self, cursor, srid, minX, minY, maxX, maxY, blockTable, indexTableSpace, workTableSpace, numProcesses):
         oracleops.mogrifyExecute(cursor,"""insert into USER_SDO_GEOM_METADATA values ('""" + blockTable + """','BLK_EXTENT',
-sdo_dim_array(sdo_dim_element('X',""" + minX + """,""" + maxX + """,""" + self.tolerance + """),
-              sdo_dim_element('Y',""" + minY + """,""" + maxY + """,""" + self.tolerance + """)),""" + str(srid) + """)""")
+sdo_dim_array(sdo_dim_element('X',""" + str(minX) + """,""" + str(maxX) + """,""" + str(self.tolerance) + """),
+              sdo_dim_element('Y',""" + str(minY) + """,""" + str(maxY) + """,""" + str(self.tolerance) + """)),""" + str(srid) + """)""")
 
         oracleops.mogrifyExecute(cursor,"""create index """ + blockTable + """_SIDX on """ + blockTable + """ (blk_extent) indextype is mdsys.spatial_index
 parameters ('tablespace=""" + indexTableSpace + """ work_tablespace=""" + workTableSpace + """ layer_gtype=polygon sdo_indx_dims=2 sdo_rtr_pctfree=0')""" + self.getParallelString(numProcesses))
