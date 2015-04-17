@@ -3,6 +3,21 @@
 # install_optional_postgres, install_optional_postgis_pointcloud 
 # and install_optional_oracle
 
+# Install laz-perf
+cd /opt/sw
+git clone https://github.com/verma/laz-perf.git
+cd laz-perf/
+mkdir build
+mkdir makefiles
+cd makefiles/
+cmake .. -DCMAKE_INSTALL_PREFIX=/opt/sw/laz-perf/build -DCMAKE_BUILD_TYPE=Release -DLASZIP_INCLUDE_DIR=/opt/sw/laszip-2.1.0/build/include -DLASZIP_LIBRARY=/opt/sw/laszip-2.1.0/build/lib/liblaszip.so
+make 
+make install
+cd /opt/sw/
+# Add to export_custom.sh 
+# export LD_LIBRARY_PATH="/opt/sw/laz-perf/build/lib:$LD_LIBRARY_PATH"
+# export CPATH="/opt/sw/laz-perf/build/include:$CPATH"
+source export_custom.sh
 
 # PDAL
 git clone https://github.com/PDAL/PDAL.git PDAL-trunk
@@ -10,7 +25,9 @@ cd PDAL-trunk
 mkdir build
 mkdir makefiles
 cd makefiles
-cmake .. -DCMAKE_INSTALL_PREFIX=/opt/sw/PDAL-trunk/build -DCMAKE_BUILD_TYPE=Release -DWITH_APPS=ON -DWITH_GEOTIFF=ON -DWITH_LASZIP=ON -DWITH_TESTS=ON -DGDAL_CONFIG=/opt/sw/gdal-trunk/build/bin/gdal-config -DGDAL_INCLUDE_DIR=/opt/sw/gdal-trunk/build/include -DGDAL_LIBRARY=/opt/sw/gdal-trunk/build/lib/libgdal.so -DGEOTIFF_INCLUDE_DIR=/opt/sw/libgeotiff-1.4.1/build/include -DGEOTIFF_LIBRARY=/opt/sw/libgeotiff-1.4.1/build/lib/libgeotiff.so -DLASZIP_INCLUDE_DIR=/opt/sw/laszip-2.1.0/build/include -DLASZIP_LIBRARY=/opt/sw/laszip-2.1.0/build/lib/liblaszip.so -DPG_CONFIG=/opt/sw/postgresql-9.4.1/build/bin/pg_config -DPOSTGRESQL_INCLUDE_DIR=/opt/sw/postgresql-9.4.1/build/include -DPOSTGRESQL_LIBRARIES=/opt/sw/postgresql-9.4.1/build/lib/libpq.so -DBoost_FILESYSTEM_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_filesystem.so -DBoost_FILESYSTEM_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_filesystem.so -DBoost_FILESYSTEM_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_filesystem.so -DBoost_INCLUDE_DIR=/opt/sw/boost_1_55_0/build/include -DBoost_IOSTREAMS_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_iostreams.so -DBoost_IOSTREAMS_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_iostreams.so -DBoost_IOSTREAMS_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_iostreams.so -DBoost_LIBRARY_DIRS=/opt/sw/boost_1_55_0/build/lib -DBoost_PROGRAM_OPTIONS_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so -DBoost_PROGRAM_OPTIONS_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so -DBoost_PROGRAM_OPTIONS_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so -DBoost_SYSTEM_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_system.so -DBoost_SYSTEM_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_system.so -DBoost_SYSTEM_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_system.so -DCMAKE_CXX_FLAGS="-std=c++11"  -DBUILD_PLUGIN_PGPOINTCLOUD=ON -DBUILD_PLUGIN_OCI=ON
+# The FindLazperf.cmake is missing. It has to be put in /opt/sw/liblas/cmake/modules
+# Use file in this directory
+cmake .. -DCMAKE_INSTALL_PREFIX=/opt/sw/PDAL-trunk/build -DCMAKE_BUILD_TYPE=Release -DWITH_APPS=ON -DWITH_GEOTIFF=ON -DWITH_LASZIP=ON -DWITH_TESTS=ON -DGDAL_CONFIG=/opt/sw/gdal-trunk/build/bin/gdal-config -DGDAL_INCLUDE_DIR=/opt/sw/gdal-trunk/build/include -DGDAL_LIBRARY=/opt/sw/gdal-trunk/build/lib/libgdal.so -DGEOTIFF_INCLUDE_DIR=/opt/sw/libgeotiff-1.4.1/build/include -DGEOTIFF_LIBRARY=/opt/sw/libgeotiff-1.4.1/build/lib/libgeotiff.so -DLASZIP_INCLUDE_DIR=/opt/sw/laszip-2.1.0/build/include -DLASZIP_LIBRARY=/opt/sw/laszip-2.1.0/build/lib/liblaszip.so -DPG_CONFIG=/opt/sw/postgresql-9.4.1/build/bin/pg_config -DPOSTGRESQL_INCLUDE_DIR=/opt/sw/postgresql-9.4.1/build/include -DPOSTGRESQL_LIBRARIES=/opt/sw/postgresql-9.4.1/build/lib/libpq.so -DBoost_FILESYSTEM_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_filesystem.so -DBoost_FILESYSTEM_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_filesystem.so -DBoost_FILESYSTEM_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_filesystem.so -DBoost_INCLUDE_DIR=/opt/sw/boost_1_55_0/build/include -DBoost_IOSTREAMS_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_iostreams.so -DBoost_IOSTREAMS_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_iostreams.so -DBoost_IOSTREAMS_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_iostreams.so -DBoost_LIBRARY_DIRS=/opt/sw/boost_1_55_0/build/lib -DBoost_PROGRAM_OPTIONS_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so -DBoost_PROGRAM_OPTIONS_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so -DBoost_PROGRAM_OPTIONS_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_program_options.so -DBoost_SYSTEM_LIBRARY=/opt/sw/boost_1_55_0/build/lib/libboost_system.so -DBoost_SYSTEM_LIBRARY_DEBUG=/opt/sw/boost_1_55_0/build/lib/libboost_system.so -DBoost_SYSTEM_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_system.so -DCMAKE_CXX_FLAGS="-std=c++11"  -DBUILD_PLUGIN_PGPOINTCLOUD=ON -DBUILD_PLUGIN_OCI=ON  -DLAZPERF_INCLUDE_DIR=/opt/sw/laz-perf/build/include/
 make -j32
 make install
 cd /opt/sw/
@@ -18,5 +35,5 @@ vim export.sh
 # Add to apths
 # export LD_LIBRARY_PATH="/opt/sw/PDAL-trunk/build/lib:$LD_LIBRARY_PATH"
 # export PATH="/opt/sw/PDAL-trunk/build/bin:$PATH"
-source export.sh 
+source export_custom.sh 
 pdal
