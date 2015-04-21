@@ -3,6 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
+import logging
 from pointcloud import lasops, oracleops
 from pointcloud.oracle.AbstractLoader import AbstractLoader
 

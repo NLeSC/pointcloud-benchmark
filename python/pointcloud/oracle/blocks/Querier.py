@@ -67,9 +67,11 @@ class Querier(AbstractQuerier):
     table(sdo_util.getvertices(sdo_pc_pkg.to_geometry(
           query_blocks.points,
           query_blocks.num_points,
-          3, null, 1))) pnt
+          3, null))) pnt
     """ + dbops.getWhereStatement(zCondition)
             else:
+                
+                selectedColumns = dbops.getSelectCols(self.qp.columns, self.columnsNamesTypesDict, self.qp.statistics)
                 query = """
 WITH
   candidates AS (
