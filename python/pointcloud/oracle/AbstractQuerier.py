@@ -7,6 +7,7 @@ import logging
 import cx_Oracle
 from pointcloud.AbstractQuerier import AbstractQuerier as AQuerier
 from pointcloud.oracle.CommonOracle import CommonOracle
+from pointcloud import oracleops
 
 class AbstractQuerier(AQuerier, CommonOracle):
     def __init__(self, configuration):
