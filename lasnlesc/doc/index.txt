@@ -1,0 +1,15 @@
+.. _home:
+
+NLeSC LAS to DB tools
+
+libLAS is a C/C++ library for reading and writing the very common `LAS`
+`LiDAR`_ format. The `ASPRS LAS format`_ is a sequential binary format used to
+store data from LiDAR sensors and by LiDAR processing software for data
+interchange and archival. 
+
+lasnlesc converts LAS files, or its compressed format LAZ, into the binary
+formats used by MonetDB and Postgres.
+
+For MonetDB use las2col, while for Postgres use las2pg
+Before running any of the commands do:
+. config/lasNLeSC_config.sh
