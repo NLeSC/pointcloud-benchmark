@@ -148,9 +148,10 @@ END;
 
 def createSQLFile(cursor, absPath, query, queryArgs):
     sqlFile = open(absPath, 'w')
-    sqlFile.write('set linesize 120\n')
-    sqlFile.write('set trimout on\n')
-    sqlFile.write('set pagesize 0\n')
+    sqlFile.write('set linesize 120;\n')
+    sqlFile.write('set trimout on;\n')
+    sqlFile.write('set pagesize 0;\n')
+    sqlFile.write('set feedback off;\n')
     sqlFile.write(mogrify(cursor, query, queryArgs) + ';\n')
     sqlFile.close()
     
@@ -158,7 +159,7 @@ def executeSQLFileCount(connectionString, sqlFileAbsPath):
     command = 'sqlplus -s ' + connectionString + ' < ' + sqlFileAbsPath + ' | wc -l'
     result = utils.shellExecute(command).replace('\n','')
     try:
-        result  = int(result) - 3
+        result  = int(result)
     except:
         result = -1
     return result

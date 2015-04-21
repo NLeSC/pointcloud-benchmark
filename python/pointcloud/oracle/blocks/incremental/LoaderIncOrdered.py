@@ -3,7 +3,9 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
+import logging
 from pointcloud.oracle.blocks.incremental.LoaderInc import LoaderInc
+from pointcloud import oracleops
 
 class LoaderIncOrdered(LoaderInc):
     def getFileBlockTable(self, index):
