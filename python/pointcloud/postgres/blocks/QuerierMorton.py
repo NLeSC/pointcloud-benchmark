@@ -55,8 +55,12 @@ class QuerierMorton(AbstractQuerier):
             logging.info('None morton range in specified extent!')
             return (eTime, result)
 
-        if self.qp.queryMethod != 'stream' and self.numProcessesQuery > 1 and self.qp.queryType in ('rectangle','circle','generic') :
-            return self.pythonParallelization(t0, mimranges, mxmranges)
+        if self.numProcessesQuery > 1:
+            if self.qp.queryMethod != 'stream' and self.qp.queryType in ('rectangle','circle','generic') :
+                 return self.pythonParallelization(t0, mimranges, mxmranges)
+            else:
+                 logging.error('Python parallelization only available for disk queries (CTAS) which are not NN queries!')
+                 return (eTime, result)
         
         (query, queryArgs) = self.getSelect(self.qp, mimranges, mxmranges)        
         

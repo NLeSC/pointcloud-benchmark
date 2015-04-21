@@ -43,7 +43,7 @@ class AbstractLoader(ALoader, CommonOracle):
     def getDBColumns(self, columns, includeType = False, hilbertColumnName = 'd'):
         cols = []
         for i in range(len(columns)):
-            cols.append(self.getDBColumn(columns, i, includeType, hilbertColumnName))
+            cols.append(' '.join(self.getDBColumn(columns, i, includeType, hilbertColumnName)))
         return cols
     
     def createFlatTable(self, cursor, tableName, columns):

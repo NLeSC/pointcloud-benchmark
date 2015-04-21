@@ -3,7 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import time, math
+import time, math, logging
 from itertools import groupby, count
 from pointcloud import dbops, utils, oracleops
 from pointcloud.oracle.AbstractQuerier import AbstractQuerier
@@ -24,12 +24,14 @@ class Querier(AbstractQuerier):
     
     def getColumnNamesDict(self, usePnt = True):
         columnsNamesDict = {}
-        if usePnt:
-            for col in self.columns:
-                columnsNamesDict[col] = ('pnt.' + col,)
-        else:
-            for i in range(len(self.columns)):
-                columnsNamesDict[self.columns[i]] = (self.getDBColumn(self.columns, i),)
+        for i in range(len(self.columns)):
+            column = self.columns[i]
+            (cName, ) = self.getDBColumn(self.columns, i)
+            cType = 'NUMBER'
+            if usePnt:
+                columnsNamesDict[column] = ('pnt.' + column,cType)
+            else:
+                columnsNamesDict[column] = (cName,cType)
         return columnsNamesDict
         
     def query(self, queryId, iterationId, queriesParameters):
@@ -40,8 +42,12 @@ class Querier(AbstractQuerier):
         self.prepareQuery(cursor, queryId, queriesParameters, iterationId == 0)
         oracleops.dropTable(cursor, self.resultTable, True) 
         
-        if self.qp.queryMethod != 'stream' and self.numProcessesQuery > 1 and self.parallelType != 'nati' and self.qp.queryType in ('rectangle','circle','generic') :
-             return self.pythonParallelization()
+        if self.numProcessesQuery > 1 and self.parallelType != 'nati': 
+            if self.qp.queryMethod != 'stream' and self.qp.queryType in ('rectangle','circle','generic') :
+                 return self.pythonParallelization()
+            else:
+                 logging.error('Python parallelization only available for disk queries (CTAS) which are not NN queries!')
+                 return (eTime, result)
 
         t0 = time.time()
         query = self.getSelect()
@@ -91,16 +97,18 @@ WITH
       blocks.pcblk_min_res <= max_res and
       blocks.pcblk_max_res >= min_res and
       SDO_ANYINTERACT(blocks.blk_extent, subqueries.ind_dim_qry) = 'TRUE')
-SELECT """ + self.getParallelHint() +  """ """ + selectedColumns + """ 
+SELECT """ + self.getParallelHint() + """ """ + selectedColumns + """ 
 FROM
   table(
     sdo_pc_pkg.clip_pc_parallel(
       cursor(select * from candidates),
       (select pc from """ + self.baseTable + """)))
-"""
+"""  + dbops.getWhereStatement(zCondition)
 
         else: # NN query
             numBlocksNeigh = int(math.pow(2 + math.ceil(math.sqrt(math.ceil(float(self.qp.num)/float(self.blockSize)))), 2))
+            if self.numProcessesQuery > 1:
+                logging.warning('Ignoring parallel querying for NN query: It caused internal error!')
             query = """
 SELECT """ + selectedColumns + """ 
 FROM (SELECT a.points, a.num_points 
@@ -118,22 +126,24 @@ ORDER BY (POWER((pnt.x - """ + str(self.qp.cx) + """),2) + POWER((pnt.y - """ + 
     def pythonParallelization(self):
         connection = self.getConnection()
         cursor = connection.cursor()
+        colsDict = self.getColumnNamesDict(False)
+
         if self.parallelType == 'cand':
             idsQuery = "SELECT " + self.getParallelHint() + " BLK_ID FROM " + self.blockTable + ", " + self.queryTable + " WHERE SDO_FILTER(BLK_EXTENT,GEOM) = 'TRUE' AND id = " + str(self.queryIndex)
-            (eTime, result) = dbops.genericQueryParallelCand(cursor,oracleops.mogrifyExecute, self.qp.columns, self.colsData, 
+            (eTime, result) = dbops.genericQueryParallelCand(cursor,oracleops.mogrifyExecute, self.qp.columns, colsDict, 
                                                              self.qp.statistics, self.resultTable, idsQuery, None, 
                                                              self.runGenericQueryParallelCandChild, self.numProcessesQuery)
             #returnDict[queryId] = self.genericQueryParallelCand()
         elif self.parallelType in ('grid','griddis'):
             gridTable = ('query_grid_' + str(self.queryIndex)).upper()
             oracleops.dropTable(cursor, gridTable, True)
-            (eTime, result) =  dbops.genericQueryParallelGrid(cursor, oracleops.mogrifyExecute, self.qp.columns, self.colsData, 
+            (eTime, result) =  dbops.genericQueryParallelGrid(cursor, oracleops.mogrifyExecute, self.qp.columns, colsDict, 
                                                              self.qp.statistics, self.resultTable, gridTable, self.createGridTableMethod,
                                                              self.runGenericQueryParallelGridChild, self.numProcessesQuery, 
                                                              (self.parallelType == 'griddis'))
         connection.close()
         return (eTime, result)
-         
+    
     def runGenericQueryParallelCandChild(self, chunkIds):
         connection = self.getConnection()
         cursor = connection.cursor()
@@ -149,7 +159,7 @@ ORDER BY (POWER((pnt.x - """ + str(self.qp.cx) + """),2) + POWER((pnt.y - """ + 
                 
         oracleops.mogrifyExecute(cursor, """INSERT INTO """ + self.resultTable + """ 
     SELECT """ + dbops.getSelectCols(self.qp.columns, {'x':'x','y':'y','z':'z'}, None) + """ FROM table ( sdo_PointInPolygon (
-        cursor (SELECT """ + dbops.getSelectCols(self.columns, self.getColumnNamesDict(), None, True) + """ FROM 
+        cursor (SELECT """ + dbops.getSelectCols(self.columns, self.getColumnNamesDict(True), None, True) + """ FROM 
           (select points,num_points from """ + self.blockTable + """ WHERE """ + ' OR '.join(elements) + """) pcblob, 
           TABLE (sdo_util.getvertices(sdo_pc_pkg.to_geometry(pcblob.points,pcblob.num_points,3,NULL))) pnt """ + dbops.getWhereStatement(zCondition) + """),
         (select geom from """ + self.queryTable + """ where id = """ + str(self.queryIndex) + """), """ + str(self.tolerance) + """, NULL))""")
@@ -161,7 +171,7 @@ ORDER BY (POWER((pnt.x - """ + str(self.qp.cx) + """),2) + POWER((pnt.y - """ + 
         zCondition = dbops.addZCondition(self.qp, 'pnt.z', None)
         query = """
 INSERT INTO """ + self.resultTable + """ 
-    SELECT """ + dbops.getSelectCols(self.qp.columns, self.getColumnNamesDict(), None, True) + """ FROM 
+    SELECT """ + dbops.getSelectCols(self.qp.columns, self.getColumnNamesDict(True), None, True) + """ FROM 
         table (sdo_pc_pkg.clip_pc((SELECT pc FROM """ + self.baseTable + """),
                            (SELECT geom FROM """ + gridTable + """ WHERE id = """ + str(index) + """),
                            NULL,NULL,NULL,NULL)) pcblob, 

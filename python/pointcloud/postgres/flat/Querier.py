@@ -30,8 +30,12 @@ class Querier(AbstractQuerier):
         self.prepareQuery(cursor, queryId, queriesParameters, iterationId == 0)
         postgresops.dropTable(cursor, self.resultTable, True) 
         
-        if self.qp.queryMethod != 'stream' and self.numProcessesQuery > 1 and self.qp.queryType in ('rectangle','circle','generic') :
-             return self.pythonParallelization()
+        if self.numProcessesQuery > 1:
+            if self.qp.queryMethod != 'stream' and self.qp.queryType in ('rectangle','circle','generic') :
+                 return self.pythonParallelization()
+            else:
+                 logging.error('Python parallelization only available for disk queries (CTAS) which are not NN queries!')
+                 return (eTime, result)
         
         t0 = time.time()
         (query, queryArgs) = dbops.getSelect(self.qp, self.flatTable, self.addContainsCondition, self.colsData)

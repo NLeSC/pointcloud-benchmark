@@ -301,5 +301,6 @@ def writeToFile(outputFileName, content):
     return outputFileName
 
 def shellExecute(command):
+    logging.debug(command)
     (out,err) = subprocess.Popen(command, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
     return '\n'.join((out,err))    

@@ -139,7 +139,7 @@ class CommonOracle():
             columnName = hilbertColumnName
         else:
             columnName = 'VAL_D' + str(index+1)
-        c = columnName
         if includeType:
-            c += ' ' + self.colsData[column][0]
-        return c
+            return (columnName, self.colsData[column][0])
+        else:
+            return (columnName,)
