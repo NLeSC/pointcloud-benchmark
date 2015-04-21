@@ -251,7 +251,7 @@ def getSelectMorton(iMortonRanges, xMortonRanges, queryParameters, flatTable, ad
         query += "SELECT " + hints + cols + " FROM " + flatTable + getWhereStatement([mortonCondition,zCondition]) 
     return (query, queryArgs)
     
-def genericQueryParallelGrid(cursor, executeMethod, columns, columnsNameTypeDict, statistics, resultTable, gridTable, createGridTableMethod, childMethod, numProcessesQuery, distinct):
+def genericQueryParallelGrid(cursor, queryMethod, executeMethod, columns, columnsNameTypeDict, statistics, resultTable, gridTable, createGridTableMethod, childMethod, numProcessesQuery, distinct, createSQLFileMethod, executeSQLFileCountMethod, streamConnectionString):
     if distinct and (('x' not in columns) or ('x' not in columns) or ('z' not in columns)):
         raise Exception('GRID distinct requires to have access to columns x, y and z!')    
 
@@ -273,9 +273,17 @@ def genericQueryParallelGrid(cursor, executeMethod, columns, columnsNameTypeDict
     if distinct:
         distinctTable(cursor, resultTable, executeMethod)
         
-    return getResult(cursor, t0, resultTable, columnsNameTypeDict, False, columns, statistics)
+    if queryMethod == 'stream':
+        sqlFileName = str(resultTable) + '.sql'
+        query = 'SELECT * FROM ' + resultTable
+        createSQLFileMethod(cursor, sqlFileName, query, None)
+        result = executeSQLFileCountMethod(streamConnectionString, sqlFileName)
+        eTime = time.time() - t0
+        return (eTime, result)
+    else:
+        return getResult(cursor, t0, resultTable, columnsNameTypeDict, False, columns, statistics)
 
-def genericQueryParallelCand(cursor, executeMethod, columns, columnsNameTypeDict, statistics, resultTable, idsQuery, idsQueryArgs, childMethod, numProcessesQuery):
+def genericQueryParallelCand(cursor, queryMethod, executeMethod, columns, columnsNameTypeDict, statistics, resultTable, idsQuery, idsQueryArgs, childMethod, numProcessesQuery, createSQLFileMethod, executeSQLFileCountMethod, streamConnectionString):
     t0 = time.time()
     
     createResultsTable(cursor, executeMethod, resultTable, columns, columnsNameTypeDict, None)
@@ -292,7 +300,15 @@ def genericQueryParallelCand(cursor, executeMethod, columns, columnsNameTypeDict
     for i in range(numProcessesQuery):
         children[i].join()
         
-    return getResult(cursor, t0, resultTable, columnsNameTypeDict, False, columns, statistics)
+    if queryMethod == 'stream':
+        sqlFileName = str(resultTable) + '.sql'
+        query = 'SELECT * FROM ' + resultTable
+        createSQLFileMethod(cursor, sqlFileName, query, None)
+        result = executeSQLFileCountMethod(streamConnectionString, sqlFileName)
+        eTime = time.time() - t0
+        return (eTime, result)
+    else:
+        return getResult(cursor, t0, resultTable, columnsNameTypeDict, False, columns, statistics)
 
 def parallelMorton(iMortonRanges, xMortonRanges, childMethod, numProcessesQuery):
     if iMortonRanges != None:

@@ -31,10 +31,10 @@ class Querier(AbstractQuerier):
         postgresops.dropTable(cursor, self.resultTable, True) 
         
         if self.numProcessesQuery > 1:
-            if self.qp.queryMethod != 'stream' and self.qp.queryType in ('rectangle','circle','generic') :
+            if self.qp.queryType in ('rectangle','circle','generic') :
                  return self.pythonParallelization()
             else:
-                 logging.error('Python parallelization only available for disk queries (CTAS) which are not NN queries!')
+                 logging.error('Python parallelization only available for queries which are not NN!')
                  return (eTime, result)
         
         t0 = time.time()
@@ -64,10 +64,10 @@ class Querier(AbstractQuerier):
         cursor = connection.cursor()
         gridTable = ('query_grid_' + str(self.queryIndex)).upper()
         postgresops.dropTable(cursor, gridTable, True)
-        (eTime, result) =  dbops.genericQueryParallelGrid(cursor, postgresops.mogrifyExecute, self.qp.columns, self.colsData, 
+        (eTime, result) =  dbops.genericQueryParallelGrid(cursor, self.qp.queryMethod, postgresops.mogrifyExecute, self.qp.columns, self.colsData, 
              self.qp.statistics, self.resultTable, gridTable, self.createGridTableMethod,
              self.runGenericQueryParallelGridChild, self.numProcessesQuery, 
-             (self.parallelType == 'griddis'))
+             (self.parallelType == 'griddis'), postgresops.createSQLFile, postgresops.executeSQLFileCount, self.getConnectionString(False, True))
         connection.close()
         return (eTime, result)
     

@@ -23,10 +23,14 @@ class Querier(AbstractQuerier):
     
         self.prepareQuery(cursor, queryId, queriesParameters, iterationId == 0)
         oracleops.dropTable(cursor, self.resultTable, True) 
-        
-        if self.qp.queryMethod != 'stream' and self.numProcessesQuery > 1 and self.parallelType != 'nati' and self.qp.queryType in ('rectangle','circle','generic') :
-             return self.pythonParallelization()
-        
+
+        if self.numProcessesQuery > 1 and self.parallelType != 'nati': 
+            if self.qp.queryType in ('rectangle','circle','generic') :
+                 return self.pythonParallelization()
+            else:
+                 logging.error('Python parallelization only available for queries which are not NN!')
+                 return (eTime, result)
+                         
         t0 = time.time()
         (query, _) = dbops.getSelect(self.qp, self.flatTable, self.addContainsCondition, self.colsData, self.getParallelHint())
         
@@ -49,10 +53,10 @@ class Querier(AbstractQuerier):
         cursor = connection.cursor()
         gridTable = ('query_grid_' + str(self.queryIndex)).upper()
         oracleops.dropTable(cursor, gridTable, True)
-        (eTime, result) =  dbops.genericQueryParallelGrid(cursor, oracleops.mogrifyExecute, self.qp.columns, self.colsData, 
+        (eTime, result) =  dbops.genericQueryParallelGrid(cursor, self.qp.queryMethod, oracleops.mogrifyExecute, self.qp.columns, self.colsData, 
              self.qp.statistics, self.resultTable, gridTable, self.createGridTableMethod,
              self.runGenericQueryParallelGridChild, self.numProcessesQuery, 
-             (self.parallelType == 'griddis'))
+             (self.parallelType == 'griddis'), oracleops.createSQLFile, oracleops.executeSQLFileCount, self.getConnectionString(False))
         connection.close()
         return (eTime, result)
 
