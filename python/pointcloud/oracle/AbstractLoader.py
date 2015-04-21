@@ -43,19 +43,7 @@ class AbstractLoader(ALoader, CommonOracle):
     def getDBColumns(self, columns, includeType = False, hilbertColumnName = 'd'):
         cols = []
         for i in range(len(columns)):
-            column = columns[i]
-            if column not in self.colsData:
-                raise Exception('Wrong column!' + column)
-            if column == 'h':
-                if i != (len(columns)-1):
-                    raise Exception('Hilbert code has to be the last column!')
-                columnName = hilbertColumnName
-            else:
-                columnName = 'VAL_D' + str(i+1)
-            c = columnName
-            if includeType:
-                c += ' ' + self.colsData[column][0]
-            cols.append(c)
+            cols.append(self.getDBColumn(columns, i, includeType, hilbertColumnName))
         return cols
     
     def createFlatTable(self, cursor, tableName, columns):

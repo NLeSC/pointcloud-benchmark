@@ -128,3 +128,18 @@ class CommonOracle():
     
     def getConnection(self, superUser = False):
         return cx_Oracle.connect(self.getConnectionString(superUser))
+
+    def getDBColumn(self, columns, index, includeType = False, hilbertColumnName = 'd'):
+        column = columns[index]
+        if column not in self.colsData:
+            raise Exception('Wrong column!' + column)
+        if column == 'h':
+            if index != (len(columns)-1):
+                raise Exception('Hilbert code has to be the last column!')
+            columnName = hilbertColumnName
+        else:
+            columnName = 'VAL_D' + str(index+1)
+        c = columnName
+        if includeType:
+            c += ' ' + self.colsData[column][0]
+        return c

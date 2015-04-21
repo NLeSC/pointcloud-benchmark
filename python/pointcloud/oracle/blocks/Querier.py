@@ -17,16 +17,21 @@ class Querier(AbstractQuerier):
         oracleops.mogrifyExecute(cursor, "SELECT srid FROM user_sdo_geom_metadata WHERE table_name = '" + self.blockTable + "'")
         self.srid = cursor.fetchone()[0]
         
-        # We create an auxiliary dictionary with the column names from the point object
-        self.columnsNamesTypesDict = {}
-        for col in self.columns:
-            self.columnsNamesTypesDict[col] = ('pnt.' + col,)
-        
         # Create table to store the query geometries
         oracleops.dropTable(cursor, self.queryTable, check = True)
         oracleops.mogrifyExecute(cursor, "CREATE TABLE " + self.queryTable + " ( id number primary key, geom sdo_geometry) TABLESPACE " + self.tableSpace + " pctfree 0 nologging")
         connection.close()
-          
+    
+    def getColumnNamesDict(self, usePnt = True):
+        columnsNamesDict = {}
+        if usePnt:
+            for col in self.columns:
+                columnsNamesDict[col] = ('pnt.' + col,)
+        else:
+            for i in range(len(self.columns)):
+                columnsNamesDict[self.columns[i]] = (self.getDBColumn(self.columns, i),)
+        return columnsNamesDict
+        
     def query(self, queryId, iterationId, queriesParameters):
         (eTime, result) = (-1, None)
         connection = self.getConnection()
@@ -53,8 +58,11 @@ class Querier(AbstractQuerier):
         return (eTime, result)
     
     def getSelect(self):
-        selectedColumns = dbops.getSelectCols(self.qp.columns, self.columnsNamesTypesDict, self.qp.statistics)
-        zCondition = dbops.addZCondition(self.qp, self.columnsNamesTypesDict['z'][0], None)
+        isClipPcParallel = (self.qp.queryType in ('rectangle','circle','generic')) and (self.numProcessesQuery > 1)
+        columnNamesDict = self.getColumnNamesDict(not isClipPcParallel)
+        selectedColumns = dbops.getSelectCols(self.qp.columns, columnNamesDict, self.qp.statistics)
+        zCondition = dbops.addZCondition(self.qp, columnNamesDict['z'][0], None)
+        
         if self.qp.queryType in ('rectangle','circle','generic'):
             if self.numProcessesQuery == 1:
                 query = """
@@ -70,8 +78,6 @@ class Querier(AbstractQuerier):
           3, null))) pnt
     """ + dbops.getWhereStatement(zCondition)
             else:
-                
-                selectedColumns = dbops.getSelectCols(self.qp.columns, self.columnsNamesTypesDict, self.qp.statistics)
                 query = """
 WITH
   candidates AS (
@@ -143,7 +149,7 @@ ORDER BY (POWER((pnt.x - """ + str(self.qp.cx) + """),2) + POWER((pnt.y - """ + 
                 
         oracleops.mogrifyExecute(cursor, """INSERT INTO """ + self.resultTable + """ 
     SELECT """ + dbops.getSelectCols(self.qp.columns, {'x':'x','y':'y','z':'z'}, None) + """ FROM table ( sdo_PointInPolygon (
-        cursor (SELECT """ + dbops.getSelectCols(self.columns, self.columnsNamesTypesDict, None, True) + """ FROM 
+        cursor (SELECT """ + dbops.getSelectCols(self.columns, self.getColumnNamesDict(), None, True) + """ FROM 
           (select points,num_points from """ + self.blockTable + """ WHERE """ + ' OR '.join(elements) + """) pcblob, 
           TABLE (sdo_util.getvertices(sdo_pc_pkg.to_geometry(pcblob.points,pcblob.num_points,3,NULL))) pnt """ + dbops.getWhereStatement(zCondition) + """),
         (select geom from """ + self.queryTable + """ where id = """ + str(self.queryIndex) + """), """ + str(self.tolerance) + """, NULL))""")
@@ -155,7 +161,7 @@ ORDER BY (POWER((pnt.x - """ + str(self.qp.cx) + """),2) + POWER((pnt.y - """ + 
         zCondition = dbops.addZCondition(self.qp, 'pnt.z', None)
         query = """
 INSERT INTO """ + self.resultTable + """ 
-    SELECT """ + dbops.getSelectCols(self.qp.columns, self.columnsNamesTypesDict, None, True) + """ FROM 
+    SELECT """ + dbops.getSelectCols(self.qp.columns, self.getColumnNamesDict(), None, True) + """ FROM 
         table (sdo_pc_pkg.clip_pc((SELECT pc FROM """ + self.baseTable + """),
                            (SELECT geom FROM """ + gridTable + """ WHERE id = """ + str(index) + """),
                            NULL,NULL,NULL,NULL)) pcblob, 
