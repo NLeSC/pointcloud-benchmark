@@ -135,6 +135,10 @@ ORDER BY (POWER((pnt.x - """ + str(self.qp.cx) + """),2) + POWER((pnt.y - """ + 
                                                              self.runGenericQueryParallelCandChild, self.numProcessesQuery, oracleops.createSQLFile, oracleops.executeSQLFileCount, self.getConnectionString(False))
             #returnDict[queryId] = self.genericQueryParallelCand()
         elif self.parallelType in ('grid','griddis'):
+            q = 'SELECT count(*) FROM ' + self.blockTable + ', ' + self.queryTable + ' WHERE id = ' + str(self.queryIndex) + " AND SDO_ANYINTERACT(blk_extent, geom) = 'TRUE')"
+            oracleops.mogrifyExecute(cursor, query)
+            print 'TOTAL ', cursor.fetchone()
+            
             gridTable = ('query_grid_' + str(self.queryIndex)).upper()
             oracleops.dropTable(cursor, gridTable, True)
             (eTime, result) =  dbops.genericQueryParallelGrid(cursor, self.qp.queryMethod, oracleops.mogrifyExecute, self.qp.columns, colsDict, 
@@ -170,6 +174,11 @@ ORDER BY (POWER((pnt.x - """ + str(self.qp.cx) + """),2) + POWER((pnt.y - """ + 
         connection = self.getConnection()
         cursor = connection.cursor()
         zCondition = dbops.addZCondition(self.qp, 'pnt.z', None)
+        
+        q = 'SELECT count(*) FROM ' + self.blockTable + ', ' + gridTable + ' WHERE id = ' + str(index) + " AND SDO_ANYINTERACT(blk_extent, geom) = 'TRUE')"
+        oracleops.mogrifyExecute(cursor, query)
+        print 'CHILD ', index , cursor.fetchone()
+        
         query = """
 INSERT INTO """ + self.resultTable + """ 
     SELECT """ + dbops.getSelectCols(self.qp.columns, self.getColumnNamesDict(True), None, True) + """ FROM 
