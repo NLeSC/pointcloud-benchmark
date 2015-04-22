@@ -4,7 +4,7 @@
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
 import logging
-from pointcloud import oracleops
+from pointcloud import oracleops, lasops
 from pointcloud.oracle.AbstractLoader import AbstractLoader
 
 class Loader(AbstractLoader):
@@ -36,7 +36,7 @@ class Loader(AbstractLoader):
         connection = self.getConnection()
         cursor = connection.cursor()
         metaArgs = (self.flatTable, self.srid, self.minX, self.minY, self.maxX, self.maxY, self.scaleX, self.scaleY)
-        oracleops.mogrifyExecute(cursor, "INSERT INTO " + self.metaTable + " VALUES (%s,%s,%s,%s,%s,%s,%s,%s)" , metaArgs)
+        oracleops.mogrifyExecute(cursor, "INSERT INTO " + self.metaTable + " VALUES (:1,:2,:3,:4,:5,:6,:7,:8)" , metaArgs)
         if self.flatTableIOT:
             tempFlatTable = self.flatTable + '_TEMP'
             oracleops.mogrifyExecute(cursor, "ALTER TABLE " + self.flatTable + " RENAME TO " + tempFlatTable )

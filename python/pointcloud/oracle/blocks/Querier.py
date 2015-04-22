@@ -22,18 +22,6 @@ class Querier(AbstractQuerier):
         oracleops.mogrifyExecute(cursor, "CREATE TABLE " + self.queryTable + " ( id number primary key, geom sdo_geometry) TABLESPACE " + self.tableSpace + " pctfree 0 nologging")
         connection.close()
     
-    def getColumnNamesDict(self, usePnt = True):
-        columnsNamesDict = {}
-        for i in range(len(self.columns)):
-            column = self.columns[i]
-            (cName, ) = self.getDBColumn(self.columns, i)
-            cType = 'NUMBER'
-            if usePnt:
-                columnsNamesDict[column] = ('pnt.' + column,cType)
-            else:
-                columnsNamesDict[column] = (cName,cType)
-        return columnsNamesDict
-        
     def query(self, queryId, iterationId, queriesParameters):
         (eTime, result) = (-1, None)
         connection = self.getConnection()

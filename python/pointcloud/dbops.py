@@ -172,12 +172,11 @@ def getSelect(queryParameters, flatTable, addContainsConditionMethod, columnsNam
     
     if hints == None:
         hints = ''
-    
     if queryParameters.queryType == 'rectangle':
         query = "SELECT " + hints + cols + " FROM " + flatTable + getWhereStatement([bBoxCondition,zCondition])
     elif queryParameters.queryType == 'circle':
         specificCondition = addCircleCondition(queryParameters, xname, yname, queryArgs)
-        query = "SELECT "  + cols + " FROM (select " + hints + "* FROM " + flatTable  + getWhereStatement(bBoxCondition,zCondition) + ") b " + getWhereStatement(specificCondition)
+        query = "SELECT "  + cols + " FROM (select " + hints + "* FROM " + flatTable  + getWhereStatement([bBoxCondition,zCondition]) + ") b " + getWhereStatement(specificCondition)
     elif queryParameters.queryType == 'generic':
         (queryTable, specificCondition) = addContainsConditionMethod(queryParameters, queryArgs, xname, yname)
         if queryParameters.db != 'ora':

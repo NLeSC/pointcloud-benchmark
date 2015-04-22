@@ -3,9 +3,9 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import os
+import os, logging
 from pointcloud.oracle.AbstractLoader import AbstractLoader
-from pointcloud import utils, oracleops
+from pointcloud import utils, oracleops, lasops
 
 class LoaderExt(AbstractLoader):
     def initialize(self):

@@ -84,8 +84,7 @@ class CommonOracle():
         self.numUsers = configuration.getint('Query','NumberUsers')
         self.numIterations = configuration.getint('Query','NumberIterations')
         self.numProcessesQuery = configuration.getint('Query','NumberProcesses')
-        if loadingMode != 'FLAT':
-            self.parallelType = configuration.get('Query','ParallelType').lower()
+        self.parallelType = configuration.get('Query','ParallelType').lower()
         self.queryTable = utils.QUERY_TABLE.upper()
         
         # colsData is dimName: (dbType, controlFileType, controlFileNumDigits)
@@ -143,3 +142,15 @@ class CommonOracle():
             return (columnName, self.colsData[column][0])
         else:
             return (columnName,)
+
+    def getColumnNamesDict(self, usePnt = True):
+        columnsNamesDict = {}
+        for i in range(len(self.columns)):
+            column = self.columns[i]
+            (cName, ) = self.getDBColumn(self.columns, i)
+            cType = 'NUMBER'
+            if usePnt:
+                columnsNamesDict[column] = ('pnt.' + column,cType)
+            else:
+                columnsNamesDict[column] = (cName,cType)
+        return columnsNamesDict

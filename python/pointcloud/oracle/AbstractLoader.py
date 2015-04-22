@@ -249,7 +249,7 @@ parameters ('tablespace=""" + indexTableSpace + """ work_tablespace=""" + workTa
     def createFlatMeta(self, cursor, tableName):
         #  Create the meta-data table
         oracleops.dropTable(cursor, tableName, True)
-        oracleops.mogrifyExecute(cursor, "CREATE TABLE " + tableName + " (tablename text, srid integer, minx DOUBLE PRECISION, miny DOUBLE PRECISION, maxx DOUBLE PRECISION, maxy DOUBLE PRECISION, scalex DOUBLE PRECISION, scaley DOUBLE PRECISION)")
+        oracleops.mogrifyExecute(cursor, "CREATE TABLE " + tableName + " (tablename varchar(50), srid number, minx number, miny number, maxx number, maxy number, scalex number, scaley number)")
                 
     def createIndex(self, cursor, tableName, columns, indexTableSpace, numProcesses):
         oracleops.mogrifyExecute(cursor,"""
