@@ -1,10 +1,8 @@
 import argparse, traceback, time, os, math
-#from pointcloud import lasops
-
 import shapely
-from shapely.wkt import loads
 from shapely.geometry import box
 from de9im.patterns import intersects, contains
+from pointcloud import lasops
 
 ONLY_SHOW = False
 
@@ -13,9 +11,8 @@ def argument_parser():
     parser = argparse.ArgumentParser(
     description="Create a folder structure with the data spatially sorted in XY tiles")
     parser.add_argument('-i','--input',default='',help='Input data folder (with LAS/LAZ files)',type=str, required=True)
-    parser.add_argument('-s','--srid',default='',help='SRID of the input data',type=int, required=True)
     parser.add_argument('-o','--output',default='',help='Output data folder for the different tiles',type=str, required=True)
-    parser.add_argument('-n','--number',default='',help='Number of tiles',type=int, required=True)
+    parser.add_argument('-n','--number',default='',help='Number of tiles (must be squared number)',type=int, required=True)
     return parser
 
 def _relation(geom1, geom2):

@@ -13,7 +13,7 @@ several DB software:
 
 Finally, since this is a Python benchmark platform some Python modules need to 
 be installed in addition to the python bindings of previous dependencies 
-(libLAS, GDAL): libxml2, libxslt, lxml, psutil, numpy, pycopg2, matplotlib
+(libLAS, GDAL): libxml2, libxslt, lxml, psutil, numpy, pycopg2, matplotlib, shapely and de9im
 
 The installation of all the previous software is not trivial and can be tricky 
 depending on the used OS. We have compiled guidelines for their installation
