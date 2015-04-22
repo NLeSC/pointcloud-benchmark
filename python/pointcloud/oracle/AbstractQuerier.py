@@ -63,17 +63,16 @@ class AbstractQuerier(AQuerier, CommonOracle):
         tileSizeX = rangeX / float(ncols)
         tileSizeY = rangeY / float(nrows)
         
-        scaleX = 0.01
-        scaleY = 0.01
-        
+        #scaleX = 0.01
+        #scaleY = 0.01
+       
+        scaleX = float(self.tolerance)
+        scaleY = float(self.tolerance)
+ 
         tilesTableName = "TEMP_" + gridTable
         tileCounter = 0
-        
-        cursor.execute("""
-    CREATE TABLE """ + tilesTableName + """ (
-        id integer,
-        geom public.geometry(Geometry,""" + str(self.srid) + """)
-    )""")
+        oracleops.dropTable(cursor, tilesTableName, True) 
+        cursor.execute("CREATE TABLE " + tilesTableName + " (ID NUMBER PRIMARY KEY, GEOM SDO_GEOMETRY )")
         
         for xIndex in range(ncols):
             for yIndex in range(nrows):
@@ -82,19 +81,20 @@ class AbstractQuerier(AQuerier, CommonOracle):
                 minTileY = minY + (yIndex * tileSizeY)
                 maxTileY = minY + ((yIndex+1) * tileSizeY)
                 # To avoid overlapping tiles
-                if xIndex < axisTiles-1:
+                if xIndex < ncols-1:
                     maxTileX -= scaleX
-                if yIndex < axisTiles-1:
+                if yIndex < nrows-1:
                     maxTileY -= scaleY
-                    
+
                 #print '\t'.join((str(xIndex), str(yIndex), '%.2f' % minTileX, '%.2f' % minTileY, '%.2f' % maxTileX, '%.2f' % maxTileY))
-                insertStatement = "INSERT INTO " + tilesTableName + """(id,geom) VALUES (%s, ST_MakeEnvelope(%s, %s, %s, %s, %s));"""
-                insertArgs = [tileCounter, minTileX, minTileY, maxTileX, maxTileY, self.srid]
+                insertStatement = "INSERT INTO " + tilesTableName + """ (id,geom) VALUES (:1, SDO_GEOMETRY(2003, :2, NULL, SDO_ELEM_INFO_ARRAY(1,1003,3), SDO_ORDINATE_ARRAY(:3,:4, :5,:6)))"""
+                insertArgs = [tileCounter, self.srid, minTileX, minTileY, maxTileX, maxTileY]
                 cursor.execute(insertStatement, insertArgs)
                 
                 tileCounter += 1
         
         query = """
+CREATE TABLE """ + gridTable + """ AS 
 SELECT T.id, SDO_GEOM.SDO_INTERSECTION(A.geom, T.geom, """ + str(self.tolerance) + """) as geom 
 FROM  """ + self.queryTable + """ A, """ + tilesTableName + """ T
 WHERE A.id  = """ + str(self.queryIndex)
