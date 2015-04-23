@@ -29,6 +29,12 @@ class LoaderBinary(ALoader, CommonMonetDB):
             os.system('monetdb create ' + self.dbName)
             os.system('monetdb release ' + self.dbName)
         
+            connection = self.getConnection()
+            cursor = connection.cursor()
+            
+            monetdbops.mogrifyExecute(cursor, """CREATE FUNCTION GetX(morton BIGINT, scaleX DOUBLE, globalOffset BIGINT) RETURNS DOUBLE external name geom."GetX";""")
+            monetdbops.mogrifyExecute(cursor, """CREATE FUNCTION GetY(morton BIGINT, scaleY DOUBLE, globalOffset BIGINT) RETURNS DOUBLE external name geom."GetY";""")
+        
         logging.info('Getting files, extent and SRID from input folder ' + self.inputFolder)
         (self.inputFiles, _, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = lasops.getPCFolderDetails(self.inputFolder)
         

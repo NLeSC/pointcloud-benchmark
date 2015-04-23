@@ -4,11 +4,10 @@ cd /opt/sw
 ln -s path/to/pointcloud-bencmark/lasnlesc lasnlesc
 cd lasnlesc
 # set paths in config/lasNLeSC_config.sh
-# export LASNLESC_HOME=
-# export LIBLAS_HOME=
-# export LASZIP_HOME=
-# export BOOST_HOME=
-# export BOOST_ROOT=
+export LIBLAS_HOME=
+export LASZIP_HOME=
+export BOOST_HOME=
+export GDAL_HOME=
 
 . config/lasNLeSC_config.sh
 
