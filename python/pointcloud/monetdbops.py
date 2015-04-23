@@ -25,10 +25,11 @@ def mogrifyExecute(cursor, query, queryArgs = None):
     """ Execute a query with logging"""
     logging.info(mogrify(cursor, query, queryArgs))
     if queryArgs != None:
-        return cursor.execute(query, queryArgs)
+        r = cursor.execute(query, queryArgs)
     else:
-        return cursor.execute(query)
+        r = cursor.execute(query)
     cursor.connection.commit()
+    return r
     
 def dropTable(cursor, tableName, check = False):
     """ Drops a table"""

@@ -6,7 +6,7 @@
 import logging
 from pointcloud.AbstractQuerier import AbstractQuerier as AQuerier
 from pointcloud.monetdb.CommonMonetDB import CommonMonetDB
-from pointcloud import monetdbops
+from pointcloud import monetdbops, utils
 
 class AbstractQuerier(AQuerier, CommonMonetDB):
     """Abstract class for the queriers to be implemented for each different 

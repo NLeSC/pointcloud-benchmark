@@ -3,10 +3,10 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import time
+import time, logging
 from pointcloud.monetdb.AbstractQuerier import AbstractQuerier
 from pointcloud.monetdb.CommonMonetDB import CommonMonetDB
-from pointcloud import dbops, monetdbops
+from pointcloud import dbops, monetdbops, utils
 
 class Querier(AbstractQuerier, CommonMonetDB):
     """MonetDB querier"""
