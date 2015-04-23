@@ -72,16 +72,33 @@ def run(inputFolder, outputFolder, numberTiles):
             tMaxX = minX + ((xIndex+1) * tSizeX)
             tMinY = minY + (yIndex * tSizeY)
             tMaxY = minY + ((yIndex+1) * tSizeY)
-            # To avoid overlapping tiles
-            if xIndex < axisTiles-1:
-                tMaxX -= scaleX
-            if yIndex < axisTiles-1:
-                tMaxY -= scaleY
             
-            tName = ('tile_%d_%d') % (int(tMinX / scaleX), int(tMinY / scaleY))
-            tiles.append(tName, tMinX, tMinY, tMaxX, tMaxY, box(tMinX, tMinY, tMaxX, tMaxY))
+            tMinXGeos = tMinX
+            tMaxXGeos = tMaxX
+            tMinYGeos = tMinY
+            tMaxYGeos = tMaxY
+            # To avoid overlapping tiles
+#            if xIndex < axisTiles-1:
+#                tMaxXGeos -= scaleX
+#            if yIndex < axisTiles-1:
+#                tMaxYGeos -= scaleY
+
+            tMinXLT = tMinX
+            tMaxXLT = tMaxX
+            tMinYLT = tMinY
+            tMaxYLT = tMaxY
+
+#            tMaxXLT += scaleX
+#            tMaxYLT += scaleY
+#            if xIndex == 0:
+#                tMinXLT -= scaleX
+#            if yIndex == 0:
+#                tMinYLT -= scaleY
+             
+            tName = ('tile_%d_%d') % (int(tMinX), int(tMinY))
+            tiles.append((tName, tMinXLT, tMinYLT, tMaxXLT, tMaxYLT, box(tMinXGeos, tMinYGeos, tMaxXGeos, tMaxYGeos)))
             executeCommand('mkdir -p ' + outputFolder + '/' + tName)
-    
+
     # Process the input files
     # For each file we check which tiles it overlaps:
     #   - If it is completely inside a tile we copy the file to the output folder of the tile
@@ -90,15 +107,15 @@ def run(inputFolder, outputFolder, numberTiles):
         inputFile = inputFiles[i]
         (_, _, minX, minY, _, maxX, maxY, _, _, _, _, _, _, _) = lasops.getPCFileDetails(inputFile)
         geom = box(minX, minY, maxX, maxY)
+        print (i+1), numInputFiles, os.path.basename(inputFile), minX, minY, maxX, maxY
         for (tName, tMinX, tMinY, tMaxX, tMaxY, tBox) in tiles:
             relation = _relation(tBox, geom)
             if relation == 1:
-                command = 'cp ' + inputFile + ' ' + outputFolder + '/' + tName
+                executeCommand('cp ' + inputFile + ' ' + outputFolder + '/' + tName)
                 break # If it is completely inside one tile, we do not need to check the rest
             elif relation == 2:
-                command = 'lasmerge -i ' + inputFile + ' -inside ' + str(tMinX) + ' ' + str(tMinY) + ' ' + str(tMaxX) + ' ' + str(tMaxY) + ' -o ' + outputFolder + '/' + tName + '/cut_' + os.path.basename(inputFile) 
-            executeCommand(command)
-            print (i+1),'/',numInputFiles 
+                executeCommand('lasmerge -i ' + inputFile + ' -inside ' + str(tMinX) + ' ' + str(tMinY) + ' ' + str(tMaxX) + ' ' + str(tMaxY) + ' -o ' + outputFolder + '/' + tName + '/cut_' + os.path.basename(inputFile))
+#                executeCommand('las2las -i ' + inputFile + ' -keep_xy ' + str(tMinX) + ' ' + str(tMinY) + ' ' + str(tMaxX) + ' ' + str(tMaxY) + ' -o ' + outputFolder + '/' + tName + '/cut_' + os.path.basename(inputFile))
             
     # Check that the number of points after tiling is the same as initial
     numPointsTiles = 0
