@@ -117,7 +117,7 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
         """ + (',\n'.join(cols)) + """)""" + self.getTableSpaceString(tableSpace))
     
     def createMetaTable(self, cursor, metaTable):
-        postgresops.mogifyExecute(cursor, "CREATE TABLE " + metaTable + " (tablename text, srid integer, minx DOUBLE PRECISION, miny DOUBLE PRECISION, maxx DOUBLE PRECISION, maxy DOUBLE PRECISION, scalex DOUBLE PRECISION, scaley DOUBLE PRECISION)")
+        postgresops.mogrifyExecute(cursor, "CREATE TABLE " + metaTable + " (tablename text, srid integer, minx DOUBLE PRECISION, miny DOUBLE PRECISION, maxx DOUBLE PRECISION, maxy DOUBLE PRECISION, scalex DOUBLE PRECISION, scaley DOUBLE PRECISION)")
         
     def indexFlatTable(self, cursor, flatTable, indexTableSpace, index, cluster = False):
         if index in ('xy', 'xyz'):

@@ -5,7 +5,7 @@
 ################################################################################
 import os, logging
 from pointcloud.postgres.AbstractLoader import AbstractLoader
-from pointcloud import utils
+from pointcloud import utils, lasops, postgresops
 
 BLOCKQUADTREELEVEL = 21
 
@@ -50,9 +50,9 @@ class LoaderMorton(AbstractLoader):
         # Add PC format to pointcloud_formats
         (dimensionsNames, pcid, compression) = self.addPCFormat(cursor, self.schemaFile, fileAbsPath, self.srid)
         columns = []
-        for dimName in self.dimensionsNames:
+        for dimName in dimensionsNames:
             for col in self.colsData:
-                if self.colsData[col][-1] == dimName:
+                if col == dimName:
                     columns.append(col)
         # Add the morton2D code to the requeste columns
         colsWithk = columns[:]
