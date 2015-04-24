@@ -23,7 +23,8 @@ class Querier(AbstractQuerier):
         
         self.columnsNameDict = {}
         for c in self.DM_PDAL:
-            self.columnsNameDict[c] = "PC_Get(qpoint, '" + self.DM_PDAL[c].lower() + "')"
+            if self.DM_PDAL[c] != None:
+                self.columnsNameDict[c] = ("PC_Get(qpoint, '" + self.DM_PDAL[c].lower() + "')",)
                 
     def query(self, queryId, iterationId, queriesParameters):
         (eTime, result) = (-1, None)

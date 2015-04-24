@@ -211,7 +211,7 @@ def executePDALCount(xmlFile):
     # remove the XML file
     #os.system('rm ' + xmlFile)
     try:
-        result  = int(result) - 0
+        result  = int(result) - 1
     except:
         result = -1
     return result

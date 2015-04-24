@@ -3,7 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import time
+import time, logging
 from pointcloud import dbops, postgresops
 from pointcloud.postgres.AbstractQuerier import AbstractQuerier
 from pointcloud.QueryParameters import QueryParameters
@@ -14,7 +14,6 @@ class Querier(AbstractQuerier):
         connection = self.getConnection()
         cursor = connection.cursor()
         
-        self.metaTable = self.blockTable + '_meta'
         postgresops.mogrifyExecute(cursor, "SELECT srid from " + self.metaTable)
         self.srid = cursor.fetchone()[0]
 
@@ -45,7 +44,7 @@ class Querier(AbstractQuerier):
             (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.DM_FLAT, True, self.qp.columns, self.qp.statistics)
         else:
             sqlFileName = str(queryId) + '.sql'
-            postgresops.createSQLFile(cursor, sqlFileName, query, None)
+            postgresops.createSQLFile(cursor, sqlFileName, query, queryArgs)
             result = postgresops.executeSQLFileCount(self.getConnectionString(False, True), sqlFileName)
             eTime = time.time() - t0
         connection.close()
@@ -82,8 +81,8 @@ class Querier(AbstractQuerier):
         
         self.queryIndex = sIndex+1
         self.queryTable = gridTable
-           
-        cqp = QueryParameters('psql',None,qType,self.qp.columns,None,minx,maxx,miny,maxy,None,None,None,self.qp.minz,self.qp.maxz,None,None,None,None)
+        
+        cqp = QueryParameters('psql',None,'disk',qType, None, self.qp.columns,None,minx,maxx,miny,maxy,None,None,None,self.qp.minz,self.qp.maxz,None,None,None,None)
         (query, queryArgs) = dbops.getSelect(cqp, self.flatTable, self.addContainsCondition, self.DM_FLAT)
         postgresops.mogrifyExecute(cursor, "INSERT INTO "  + self.resultTable + " " + query, queryArgs)
         connection.close()

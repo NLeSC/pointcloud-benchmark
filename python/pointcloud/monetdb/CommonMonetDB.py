@@ -5,6 +5,7 @@
 ################################################################################
 import os
 import monetdb.sql
+from pointcloud import utils
 
 class CommonMonetDB():
     def setVariables(self, configuration):       

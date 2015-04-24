@@ -17,7 +17,6 @@ class QuerierMorton(AbstractQuerier):
         connection = self.getConnection()
         cursor = connection.cursor()
         
-        self.metaTable = self.blockTable + '_meta'
         postgresops.mogrifyExecute(cursor, "SELECT srid, minx, miny, maxx, maxy, scalex, scaley from " + self.metaTable)
         (self.srid, self.minX, self.minY, self.maxX, self.maxY, self.scaleX, self.scaleY) = cursor.fetchone()
         
@@ -58,7 +57,7 @@ class QuerierMorton(AbstractQuerier):
                  logging.error('Python parallelization only available for disk queries (CTAS) which are not NN queries!')
                  return (eTime, result)
         
-        (query, queryArgs) = dbops.getSelectMorton(mimranges, mxmranges, self.qp, self.flatTable, self.addContainsCondition, self.DM_FLAT, self.getHintStatement(self.hints))
+        (query, queryArgs) = dbops.getSelectMorton(mimranges, mxmranges, self.qp, self.flatTable, self.addContainsCondition, self.DM_FLAT)
         
         if self.qp.queryMethod != 'stream': # disk or stat
             postgresops.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS " + query + "", queryArgs)

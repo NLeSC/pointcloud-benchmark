@@ -124,7 +124,7 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
             indexName = flatTable + "_" + index + "_btree_idx"
             postgresops.mogrifyExecute(cursor, "create index " + indexName + " on " + flatTable + " (" + (','.join(index)) + ") WITH (FILLFACTOR=" + str(FILLFACTOR) + ")" + self.getIndexTableSpaceString(indexTableSpace))
         elif index == 'k':
-            mortonIndexName = flatTable + "_morton_btree_idx"
+            indexName = flatTable + "_morton_btree_idx"
             postgresops.mogrifyExecute(cursor, "create index " + indexName + " on " + flatTable + " (morton2D) WITH (FILLFACTOR=" + str(FILLFACTOR) + ")" + self.getIndexTableSpaceString(indexTableSpace))
         if cluster:
             postgresops.mogrifyExecute(cursor, "CLUSTER " + flatTable + " USING " + indexName)

@@ -27,7 +27,8 @@ class QuerierMorton(AbstractQuerier):
         
         self.columnsNameDict = {}
         for c in self.DM_PDAL:
-            self.columnsNameDict[c] = "PC_Get(qpoint, '" + self.DM_PDAL[c].lower() + "')"
+            if self.DM_PDAL[c] != None:
+                self.columnsNameDict[c] = ("PC_Get(qpoint, '" + self.DM_PDAL[c].lower() + "')",)
         
         qtDomain = (0, 0, int((self.maxX-self.minX)/self.scaleX), int((self.maxY-self.minY)/self.scaleY))
         self.quadtree = QuadTree(qtDomain, 'auto')    
@@ -55,6 +56,10 @@ class QuerierMorton(AbstractQuerier):
             logging.info('None morton range in specified extent!')
             return (eTime, result)
 
+        if self.qp.queryType == 'nn':
+            logging.error('NN queries not available!')
+            return (eTime, result)
+
         if self.numProcessesQuery > 1:
             if self.qp.queryMethod != 'stream' and self.qp.queryType in ('rectangle','circle','generic') :
                  return self.pythonParallelization(t0, mimranges, mxmranges)
@@ -63,7 +68,7 @@ class QuerierMorton(AbstractQuerier):
                  return (eTime, result)
         
         (query, queryArgs) = self.getSelect(self.qp, mimranges, mxmranges)        
-        
+         
         if self.qp.queryMethod != 'stream': # disk or stat
             postgresops.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS (" + query + ")", queryArgs)
             (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.DM_FLAT, (not self.mortonDistinctIn), self.qp.columns, self.qp.statistics)

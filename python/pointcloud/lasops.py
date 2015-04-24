@@ -27,7 +27,7 @@ def getSRID(absPath):
 
 def getNumPoints(absPath):
     """ Get the number of points of a LAS/LAZ (using LAStools, hence it is fast)"""
-    return getPCFileDetails(absPath)[0]
+    return getPCFileDetails(absPath)[1]
         
 def getPCFileDetails(absPath, srid = None):
     """ Get the details (count numPoints and extent) of a LAS/LAZ file (using LAStools, hence it is fast)"""

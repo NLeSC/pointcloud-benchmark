@@ -74,10 +74,11 @@ class Loader(AbstractLoader,CommonLASTools):
     def getNumPoints(self) :
         try:
             if self.dbIndex:
-                connString = self.getConnectString(False, True)
+                connString = self.getConnectionString(False, True)
                 return int(os.popen('psql ' + connString + ' -c "select sum(num) from ' + self.lasIndexTableName + '" -t -A').read())
             else:
                 return int(os.popen("lasinfo -i " + self.dataFolder + "/*." +  self.dataExtension + " 2>&1 | grep 'number of point records' | awk '{t+=$5}END{print t}'").read())
-        except: 
+        except Exception, msg: 
+            logging.error(msg)
             return 0
 

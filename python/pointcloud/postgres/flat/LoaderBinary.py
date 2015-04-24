@@ -3,8 +3,9 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import os, logging, postgresops
+import os, logging
 from pointcloud.postgres.AbstractLoader import AbstractLoader
+from pointcloud import postgresops, lasops
 
 class LoaderBinary(AbstractLoader):
     def initialize(self):
