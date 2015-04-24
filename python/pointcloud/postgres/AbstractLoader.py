@@ -108,9 +108,9 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
     def createFlatTable(self, cursor, flatTable, tableSpace, columns):
         cols = []
         for c in columns:
-            if c not in self.colsData:
+            if c not in self.DM_FLAT:
                 raise Exception('Wrong column!' + c)
-            cols.append(self.colsData[c][0] + ' ' + self.colsData[c][1])
+            cols.append(self.DM_FLAT[c][0] + ' ' + self.DM_FLAT[c][1])
         
         # Create the flat table that will contain all the data
         postgresops.mogrifyExecute(cursor, """CREATE TABLE """ + flatTable + """ (
@@ -227,15 +227,28 @@ CREATE OR REPLACE FUNCTION QuadCellId(IN bigint, IN integer, OUT f1 bigint)
         
         # Get the used dimensions if still not acquired (they should be always the same)
         compression = root.find(pc_namespace+'metadata').find('Metadata').text
-        dimensionsNames = []
+        columns = []
         for dimension in root.findall(pc_namespace+'dimension'):
             dName = dimension.find(pc_namespace+'name').text
-            dimensionsNames.append(dName)
-        return (dimensionsNames, pcid, compression)  
+            correctDim = False
+            for d in self.DM_PDAL:
+                if self.DM_PDAL[d] == dName:
+                    correctDim = True
+                    columns.append(d)
+                    break
+            if not correctDim:
+                raise Exception('Error: unexpected dimension name, check dimension mappings for PDAL')
+            
+        return (columns, pcid, compression)  
     
     def loadFromBinaryLoader(self, connectionString, flatTable, fileAbsPath, columns, minX = None, minY = None, scaleX = None, scaleY = None):
-        c1 = 'las2pg -s '+ fileAbsPath +' --stdout --parse ' + columns
-        if 'k' in columns:
+        l2pgCols = []
+        for c in columns:
+            l2pgCols.append(self.DM_LAS2PG[c])
+            
+        c1 = 'las2pg -s '+ fileAbsPath +' --stdout --parse ' + ''.join(l2pgCols)
+        
+        if 'k' in l2pgCols:
             c1 += ' --moffset ' + str(int(float(minX) / float(scaleX))) + ','+ str(int(float(minY) / float(scaleY))) + ' --check ' + str(scaleX) + ',' + str(scaleY)        
         c = c1 + ' | psql '+ connectionString +' -c "copy '+ flatTable +' from stdin with binary"'
         logging.debug(c)

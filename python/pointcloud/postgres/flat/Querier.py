@@ -38,11 +38,11 @@ class Querier(AbstractQuerier):
                  return (eTime, result)
         
         t0 = time.time()
-        (query, queryArgs) = dbops.getSelect(self.qp, self.flatTable, self.addContainsCondition, self.colsData)
+        (query, queryArgs) = dbops.getSelect(self.qp, self.flatTable, self.addContainsCondition, self.DM_FLAT)
         
         if self.qp.queryMethod != 'stream': # disk or stat
             postgresops.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS ( " + query + " )", queryArgs)
-            (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.colsData, True, self.qp.columns, self.qp.statistics)
+            (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.DM_FLAT, True, self.qp.columns, self.qp.statistics)
         else:
             sqlFileName = str(queryId) + '.sql'
             postgresops.createSQLFile(cursor, sqlFileName, query, None)
@@ -64,7 +64,7 @@ class Querier(AbstractQuerier):
         cursor = connection.cursor()
         gridTable = ('query_grid_' + str(self.queryIndex)).upper()
         postgresops.dropTable(cursor, gridTable, True)
-        (eTime, result) =  dbops.genericQueryParallelGrid(cursor, self.qp.queryMethod, postgresops.mogrifyExecute, self.qp.columns, self.colsData, 
+        (eTime, result) =  dbops.genericQueryParallelGrid(cursor, self.qp.queryMethod, postgresops.mogrifyExecute, self.qp.columns, self.DM_FLAT, 
              self.qp.statistics, self.resultTable, gridTable, self.createGridTableMethod,
              self.runGenericQueryParallelGridChild, self.numProcessesQuery, 
              (self.parallelType == 'griddis'), postgresops.createSQLFile, postgresops.executeSQLFileCount, self.getConnectionString(False, True))
@@ -84,6 +84,6 @@ class Querier(AbstractQuerier):
         self.queryTable = gridTable
            
         cqp = QueryParameters('psql',None,qType,self.qp.columns,None,minx,maxx,miny,maxy,None,None,None,self.qp.minz,self.qp.maxz,None,None,None,None)
-        (query, queryArgs) = dbops.getSelect(cqp, self.flatTable, self.addContainsCondition, self.colsData)
+        (query, queryArgs) = dbops.getSelect(cqp, self.flatTable, self.addContainsCondition, self.DM_FLAT)
         postgresops.mogrifyExecute(cursor, "INSERT INTO "  + self.resultTable + " " + query, queryArgs)
         connection.close()

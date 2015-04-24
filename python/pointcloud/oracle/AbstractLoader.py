@@ -83,24 +83,26 @@ as SELECT * FROM mdsys.SDO_PC_BLK_TABLE where 0 = 1""")
         logFile = commonFile + 'log'
         
         ctfile = open(controlFile,'w')
-        cols = []
+        sqlldrCols = []
         for i in range(len(columns)):
             column = columns[i]
-            if column not in self.colsData:
+            if column not in self.DM_LAS2TXT or column not in self.DM_SQLLDR:
                 raise Exception('Wrong column! ' + column)
-            if column in 'mhlnvf':
-                raise Exception('Column ' + column + ' not compatible with las2txt+sqlldr')
-            columnName = 'VAL_D' + str(i+1)
-            cols.append(columnName + ' ' + self.colsData[column][1] + ' external(' + str(self.colsData[column][2]) + ')')
+            sqlldrCols.append(self.getDBColumn(columns, index)[0] + ' ' + self.DM_SQLLDR[column][0] + ' external(' + str(self.DM_SQLLDR[column][1]) + ')')
         
         ctfile.write("""load data
 append into table """ + tableName + """
 fields terminated by ','
 (
-""" + (',\n'.join(cols)) + """
+""" + (',\n'.join(sqlldrCols)) + """
 )""")
+        
+        l2tCols = []
+        for c in columns:
+            l2tCols.append(self.DM_LAS2TXT[c])
+            
         ctfile.close()
-        las2txtCommand = 'las2txt -i ' + fileAbsPath + ' -stdout -parse ' + self.columns + ' -sep comma'
+        las2txtCommand = 'las2txt -i ' + fileAbsPath + ' -stdout -parse ' + ''.join(l2tCols) + ' -sep comma'
         sqlLoaderCommand = "sqlldr " + self.getConnectionString() + " direct=true control=" + controlFile + " data=\\'-\\' bad=" + badFile + " log=" + logFile
         command = las2txtCommand + " | " + sqlLoaderCommand
         logging.debug(command)
@@ -245,6 +247,9 @@ parameters ('tablespace=""" + indexTableSpace + """ work_tablespace=""" + workTa
         command = javaPart + ' ' + str(objId) + ' ' + blockTable + ' ' + blockSeq + ' ' + inputFile + ' ' + str(blockSize) + ' jdbc:oracle:thin:@//' + hostPortName + ' ' + userName + ' ' + userPass + ' ' + str(batchSize) + ' ' + str(numBlocks)
         logging.info(command)
         os.system(command)
+        
+        if fileAbsPath.lower().endswith('laz'):
+            os.system('rm -f ' + tempFile)
         
     def createFlatMeta(self, cursor, tableName):
         #  Create the meta-data table

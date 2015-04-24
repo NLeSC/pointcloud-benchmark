@@ -58,11 +58,11 @@ class QuerierMorton(AbstractQuerier):
                  logging.error('Python parallelization only available for disk queries (CTAS) which are not NN queries!')
                  return (eTime, result)
         
-        (query, queryArgs) = dbops.getSelectMorton(mimranges, mxmranges, self.qp, self.flatTable, self.addContainsCondition, self.colsData, self.getHintStatement(self.hints))
+        (query, queryArgs) = dbops.getSelectMorton(mimranges, mxmranges, self.qp, self.flatTable, self.addContainsCondition, self.DM_FLAT, self.getHintStatement(self.hints))
         
         if self.qp.queryMethod != 'stream': # disk or stat
             postgresops.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS " + query + "", queryArgs)
-            (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.colsData, (not self.mortonDistinctIn), self.qp.columns, self.qp.statistics)
+            (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.DM_FLAT, (not self.mortonDistinctIn), self.qp.columns, self.qp.statistics)
         else:
             sqlFileName = str(queryId) + '.sql'
             postgresops.createSQLFile(cursor, sqlFileName, query, queryArgs)
@@ -82,9 +82,9 @@ class QuerierMorton(AbstractQuerier):
     def pythonParallelization(self, t0, mimranges, mxmranges):
         connection = self.getConnection()
         cursor = connection.cursor()
-        dbops.createResultsTable(cursor, postgresops.mogrifyExecute, self.resultTable, self.qp.columns, self.colsData)
+        dbops.createResultsTable(cursor, postgresops.mogrifyExecute, self.resultTable, self.qp.columns, self.DM_FLAT)
         dbops.parallelMorton(mimranges, mxmranges, self.childInsert, self.numProcessesQuery)
-        (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.colsData, False, self.qp.columns, self.qp.statistics)
+        (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.DM_FLAT, False, self.qp.columns, self.qp.statistics)
         connection.close()
         return (eTime, result)
 
@@ -93,6 +93,6 @@ class QuerierMorton(AbstractQuerier):
         cursor = connection.cursor()
         cqp = copy.copy(self.qp)
         cqp.statistics = None
-        (query, queryArgs) = dbops.getSelectMorton(iMortonRanges, xMortonRanges, cqp, self.flatTable, self.addContainsCondition, self.colsData)
+        (query, queryArgs) = dbops.getSelectMorton(iMortonRanges, xMortonRanges, cqp, self.flatTable, self.addContainsCondition, self.DM_FLAT)
         postgresops.mogrifyExecute(cursor, "INSERT INTO "  + self.resultTable + " " + query, queryArgs)
         connection.close()

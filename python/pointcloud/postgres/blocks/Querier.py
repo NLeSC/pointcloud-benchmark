@@ -21,9 +21,9 @@ class Querier(AbstractQuerier):
         
         connection.close()
         
-        self.columnsNameDict = {'x':["PC_Get(qpoint, 'x')"],
-                                'y':["PC_Get(qpoint, 'y')"],
-                                'z':["PC_Get(qpoint, 'z')"]}
+        self.columnsNameDict = {}
+        for c in self.DM_PDAL:
+            self.columnsNameDict[c] = "PC_Get(qpoint, '" + self.DM_PDAL[c].lower() + "')"
                 
     def query(self, queryId, iterationId, queriesParameters):
         (eTime, result) = (-1, None)
@@ -80,13 +80,13 @@ class Querier(AbstractQuerier):
         if self.parallelType == 'cand':
             idsQuery = "SELECT " + self.blockTable +".id FROM " + self.blockTable +", (SELECT geom FROM " + self.queryTable + " WHERE id = %s) A WHERE pc_intersects(pa,geom)"
             idsQueryArgs =  [self.queryIndex, ]
-            (eTime, result) = dbops.genericQueryParallelCand(cursor, self.qp.queryMethod, postgresops.mogrifyExecute, self.qp.columns, self.colsData, 
+            (eTime, result) = dbops.genericQueryParallelCand(cursor, self.qp.queryMethod, postgresops.mogrifyExecute, self.qp.columns, self.DM_FLAT, 
                                                              self.qp.statistics, self.resultTable, idsQuery, idsQueryArgs, 
                                                              self.runGenericQueryParallelCandChild, self.numProcessesQuery, postgresops.createSQLFile, postgresops.executeSQLFileCount, self.getConnectionString(False, True))
         else:     
             gridTable = 'query_grid_' + str(self.queryIndex)
             postgresops.dropTable(cursor, gridTable, True)
-            (eTime, result) = dbops.genericQueryParallelGrid(cursor, self.qp.queryMethod, postgresops.mogrifyExecute, self.qp.columns, self.colsData, 
+            (eTime, result) = dbops.genericQueryParallelGrid(cursor, self.qp.queryMethod, postgresops.mogrifyExecute, self.qp.columns, self.DM_FLAT, 
                                                              self.qp.statistics, self.resultTable, gridTable, self.createGridTableMethod,
                                                              self.runGenericQueryParallelGridChild, self.numProcessesQuery, 
                                                              (self.parallelType == 'griddis'), postgresops.createSQLFile, postgresops.executeSQLFileCount, self.getConnectionString(False, True))

@@ -33,7 +33,29 @@ class CommonLASTools():
             if extension not in utils.PC_FILE_FORMATS:
                 raise Exception('Accepted extensions/formats for point cloud files are: ' + ','.join(utils.PC_FILE_FORMATS))
         
-        self.colsData = ['x','y','z'] #TODO: add the rest
+        self.DM_LASTOOLS = {
+            'x': 'x',
+            'y': 'y',
+            'z': 'z',
+            'X': 'X',
+            'Y': 'Y',
+            'Z': 'Z',
+            'i': 'i',
+            'r': 'r',
+            'n': 'n',
+            'd': 'd',
+            'e': 'e',
+            'c': 'c',
+            'a': 'a',
+            'u': 'u',
+            'p': 'p',
+            'R': 'R',
+            'G': 'G',
+            'B': 'B',
+            't': 't',
+            'k': 'k'
+        }
+        utils.checkDimensionMapping(self.DM_LASTOOLS)
         
     def getConnectionString(self, superUser = False, commandLine = False):
         if not superUser:

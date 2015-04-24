@@ -48,20 +48,13 @@ class LoaderMorton(AbstractLoader):
         connection = self.getConnection()
         cursor = connection.cursor()
         # Add PC format to pointcloud_formats
-        (dimensionsNames, pcid, compression) = self.addPCFormat(cursor, self.schemaFile, fileAbsPath, self.srid)
-        columns = []
-        for dimName in dimensionsNames:
-            for col in self.colsData:
-                if col == dimName:
-                    columns.append(col)
+        (columns, pcid, compression) = self.addPCFormat(cursor, self.schemaFile, fileAbsPath, self.srid)
         # Add the morton2D code to the requeste columns
-        colsWithk = columns[:]
-        colsWithk.append('k')
+        columns.append('k')
         # Create a temporal flat table and load the points to it
         flatTable = self.blockTable + '_temp_' + str(index)
-        cols = ''.join(colsWithk)
-        self.createFlatTable(cursor, flatTable, self.indexTableSpace, cols) # use index table space for temporal table
-        self.loadFromBinaryLoader(self.getConnectionString(False, True), flatTable, fileAbsPath, cols, self.minX, self.minY, self.scaleX, self.scaleY)
+        self.createFlatTable(cursor, flatTable, self.indexTableSpace, columns) # use index table space for temporal table
+        self.loadFromBinaryLoader(self.getConnectionString(False, True), flatTable, fileAbsPath, columns, self.minX, self.minY, self.scaleX, self.scaleY)
         # Create the blocks by grouping points in QuadTree cells
         query = """INSERT INTO """ + self.blockTable + """ (pa,quadcellid)
 SELECT PC_Patch(pt),quadCellId FROM (SELECT PC_MakePoint(%s, ARRAY[x,y,z]) pt, quadCellId(morton2D,%s) as quadCellId FROM """ + flatTable + """) A GROUP BY quadCellId"""

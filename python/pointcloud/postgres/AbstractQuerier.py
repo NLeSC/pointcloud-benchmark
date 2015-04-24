@@ -26,7 +26,7 @@ class AbstractQuerier(AQuerier, CommonPostgres):
         self.queryIndex = int(queryId)
         self.resultTable = 'query_results_' + str(self.queryIndex)
         
-        self.qp = queriesParameters.getQueryParameters('psql',queryId, self.colsData.keys())
+        self.qp = queriesParameters.getQueryParameters('psql',queryId)
         logging.debug(self.qp.queryKey)
         
         if addGeom:

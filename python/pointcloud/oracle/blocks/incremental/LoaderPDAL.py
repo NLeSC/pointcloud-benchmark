@@ -34,11 +34,14 @@ class LoaderPDAL(AbstractLoader):
         logging.info(fileAbsPath)
         xmlFile = os.path.basename(fileAbsPath) + '.xml'
         if self.columns == 'all':
-            cols = None
+            pdalCols = None
         else:
-            cols = self.columns
+            pdalCols = []
+            for c in self.columns:
+                pdalCols.append(self.DM_PDAL[c])
+                
         useOffsetScale = self.useOffsetScale
-        pdalops.OracleWriter(xmlFile, fileAbsPath, self.getConnectionString(), cols, self.blockTable, self.baseTable, self.srid, self.blockSize, self.pdalCompression, self.pdalDimOrientation, useOffsetScale)
+        pdalops.OracleWriter(xmlFile, fileAbsPath, self.getConnectionString(), pdalCols, self.blockTable, self.baseTable, self.srid, self.blockSize, self.pdalCompression, self.pdalDimOrientation, useOffsetScale)
         pdalops.executePDAL(xmlFile)
         
     def close(self):

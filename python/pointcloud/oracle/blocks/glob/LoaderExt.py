@@ -44,13 +44,14 @@ class LoaderExt(AbstractLoader):
         connection = self.getConnection()
         cursor = connection.cursor()
         
-        icols = list(self.columns)
+        self.colsToUse = list(self.columns)
         # If hilbert method is required we need to request also the hilbert code from the LAS reader
         if self.blockMethod == 'hilbert':
-            icols.append('h')
+            if 'h' not in self.colsToUse:
+                self.colsToUse.append('h')
         
         # Define the external table (which use the preprocessor file in Oracle directory EXE_DIR)
-        self.createExternalTable(cursor, lasFiles, self.extTable, icols, self.lasDirVariableName, self.numProcessesLoad)
+        self.createExternalTable(cursor, lasFiles, self.extTable, self.colsToUse, self.lasDirVariableName, self.numProcessesLoad)
         # Create the blocks table
         self.createBlocksTable(cursor, self.blockTable, self.tableSpace, self.compression, self.baseTable)
         connection.close()
@@ -64,13 +65,9 @@ class LoaderExt(AbstractLoader):
             # In the case of Hilbert we create the IOT with the data (we do not do it for regular rtree since points sorting is part of the rtree blocking procedure)
             connection = self.getConnection()
             cursor = connection.cursor()
-        
-            icols = list(self.columns) + ['h',]
-            ocols = icols[:] 
-            kcols = ['h',]
-        
+
             # Create the IOT (note that we store it in the index table space!)
-            self.createIOTTable(cursor, self.flatTable, self.extTable, self.indexTableSpace, icols, ocols, kcols, self.numProcessesLoad, False, self.hilbertFactor)
+            self.createIOTTable(cursor, self.flatTable, self.extTable, self.indexTableSpace, self.colsToUse, self.colsToUse, ['h',], self.numProcessesLoad, False, self.hilbertFactor)
 
             connection.close()
 

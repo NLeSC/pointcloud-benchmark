@@ -61,9 +61,9 @@ class LoaderBinary(ALoader, CommonMonetDB):
     def getDBColumns(self):
         cols = []
         for c in self.columns:
-            if c not in self.colsData:
+            if c not in self.DM_FLAT:
                 raise Exception('Wrong column!' + c)
-            cols.append(self.colsData[c][0] + ' ' + self.colsData[c][1])
+            cols.append(self.DM_FLAT[c][0] + ' ' + self.DM_FLAT[c][1])
         return cols
     
     def close(self):
@@ -93,14 +93,17 @@ class LoaderBinary(ALoader, CommonMonetDB):
                 # Create imprints index
                 logging.info('Creating imprints for different partitions and columns')
                 for c in self.columns:
-                    colName = self.colsData[c][0]
+                    colName = self.DM_FLAT[c][0]
                     for i in range(self.numPartitions):
                         partitionName = ftName + str(i)
                         monetdbops.mogrifyExecute(cursor, "select " + colName + " from " + partitionName + " where " + colName + " between 0 and 1")
                 #TODO create 2 processes, one for x and one for y
             else:
                 logging.info('Creating imprints')
-                query = "select * from " + self.flatTable + " where x between 0 and 1 and y between 0 and 1"
+                w = ''
+                for c in 'xy':
+                    w += self.DM_FLAT[c][0] + ' between 0 and 1'
+                query = "select * from " + self.flatTable + " where " + " AND ".join(w)
                 monetdbops.mogrifyExecute(cursor, query)
                 
         else:
@@ -108,11 +111,11 @@ class LoaderBinary(ALoader, CommonMonetDB):
                 for i in range(self.numPartitions):
                     partitionName = ftName + str(i)
                     newPartitionName = self.flatTable + str(i)
-                    monetdbops.mogrifyExecute(cursor, 'CREATE TABLE ' + newPartitionName + ' AS SELECT * FROM ' + partitionName + ' ORDER BY ' + dbops.getSelectCols(self.index, self.colsData) + ' WITH DATA')
+                    monetdbops.mogrifyExecute(cursor, 'CREATE TABLE ' + newPartitionName + ' AS SELECT * FROM ' + partitionName + ' ORDER BY ' + dbops.getSelectCols(self.index, self.DM_FLAT) + ' WITH DATA')
                     monetdbops.mogrifyExecute(cursor, "alter table " + newPartitionName + " set read only")
                     monetdbops.mogrifyExecute(cursor, 'DROP TABLE ' + partitionName)
             else:
-                monetdbops.mogrifyExecute(cursor, 'CREATE TABLE ' + self.flatTable + ' AS SELECT * FROM ' + self.tempFlatTable + ' ORDER BY ' + dbops.getSelectCols(self.index, self.colsData) + ' WITH DATA')
+                monetdbops.mogrifyExecute(cursor, 'CREATE TABLE ' + self.flatTable + ' AS SELECT * FROM ' + self.tempFlatTable + ' ORDER BY ' + dbops.getSelectCols(self.index, self.DM_FLAT) + ' WITH DATA')
                 monetdbops.mogrifyExecute(cursor, "alter table " + self.flatTable + " set read only")
                 monetdbops.mogrifyExecute(cursor, 'DROP TABLE ' + self.tempFlatTable)
             
@@ -159,6 +162,11 @@ class LoaderBinary(ALoader, CommonMonetDB):
 
         # Split the list of input files in bunches of maximum MAX_FILES files
         inputFilesLists = numpy.array_split(self.inputFiles, int(math.ceil(float(len(self.inputFiles))/float(MAX_FILES))))
+        
+        l2colCols = []
+        for c in self.columns:
+            l2colCols.append(self.DM_LAS2COL[c])
+            
 
         for i in range(len(inputFilesLists)):
             # Create the file with the list of PC files
@@ -171,7 +179,7 @@ class LoaderBinary(ALoader, CommonMonetDB):
             # Generate the command for the NLeSC Binary converter
             inputArg = '-f ' + listFile
             tempFile =  self.tempDir + '/' + str(i) + '_tempFile'    
-            c = 'las2col ' + inputArg + ' ' + tempFile + ' --parse ' + self.columns
+            c = 'las2col ' + inputArg + ' ' + tempFile + ' --parse ' + ''.join(l2colCols)
             if 'k' in self.columns:
                 c += ' --moffset ' + str(int(self.minX / self.scaleX)) + ','+ str(int(self.minY / self.scaleY)) + ' --check ' + str(self.scaleX) + ',' + str(self.scaleY)
             # Execute the converter

@@ -26,6 +26,8 @@ class QuerierMorton(AbstractQuerier):
         self.mortonDistinctIn = False
         connection.close()
         
+        self.colsDict = self.getColumnNamesDict(False)
+        
     def query(self, queryId, iterationId, queriesParameters):
         (eTime, result) = (-1, None)
         connection = self.getConnection()
@@ -55,11 +57,11 @@ class QuerierMorton(AbstractQuerier):
         
         if self.numProcessesQuery > 1:
             self.hints.append('PARALLEL (' + str(self.numProcessesQuery) + ')')
-        (query, queryArgs) = dbops.getSelectMorton(mimranges, mxmranges, self.qp, self.flatTable, self.addContainsCondition, self.colsData, self.getHintStatement(self.hints))
+        (query, queryArgs) = dbops.getSelectMorton(mimranges, mxmranges, self.qp, self.flatTable, self.addContainsCondition, self.colsDict, self.getHintStatement(self.hints))
         
         if self.qp.queryMethod != 'stream': # disk or stat
             oracleops.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS " + query + "", queryArgs)
-            (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.colsData, (not self.mortonDistinctIn), self.qp.columns, self.qp.statistics)
+            (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.colsDict, (not self.mortonDistinctIn), self.qp.columns, self.qp.statistics)
         else:
             sqlFileName = str(queryId) + '.sql'
             oracleops.createSQLFile(cursor, sqlFileName, query, queryArgs)
@@ -80,9 +82,9 @@ class QuerierMorton(AbstractQuerier):
     def pythonParallelization(self, t0, mimranges, mxmranges):
         connection = self.getConnection()
         cursor = connection.cursor()
-        dbops.createResultsTable(cursor, oracleops.mogrifyExecute, self.resultTable, self.qp.columns, self.colsData)
+        dbops.createResultsTable(cursor, oracleops.mogrifyExecute, self.resultTable, self.qp.columns, self.colsDict)
         dbops.parallelMorton(mimranges, mxmranges, self.childInsert, self.numProcessesQuery)
-        (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.colsData, False, self.qp.columns, self.qp.statistics)
+        (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.colsDict, False, self.qp.columns, self.qp.statistics)
         connection.close()
         return (eTime, result)
 
@@ -91,6 +93,6 @@ class QuerierMorton(AbstractQuerier):
         cursor = connection.cursor()
         cqp = copy.copy(self.qp)
         cqp.statistics = None
-        (query, queryArgs) = dbops.getSelectMorton(iMortonRanges, xMortonRanges, cqp, self.flatTable, self.addContainsCondition, self.colsData, self.getHintStatement(self.hints))
+        (query, queryArgs) = dbops.getSelectMorton(iMortonRanges, xMortonRanges, cqp, self.flatTable, self.addContainsCondition, self.colsDict, self.getHintStatement(self.hints))
         oracleops.mogrifyExecute(cursor, "INSERT INTO "  + self.resultTable + " " + query, queryArgs)
         connection.close()

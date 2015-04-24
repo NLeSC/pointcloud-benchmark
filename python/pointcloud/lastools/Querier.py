@@ -65,7 +65,7 @@ class Querier(AbstractQuerier, CommonLASTools):
         (eTime, result) = (-1, None)
         queryIndex = int(queryId)
         
-        self.qp = queriesParameters.getQueryParameters('psql', queryId, self.colsData)
+        self.qp = queriesParameters.getQueryParameters('psql', queryId)
         logging.debug(self.qp.queryKey)
 
         zquery = ''    
@@ -132,7 +132,11 @@ class Querier(AbstractQuerier, CommonLASTools):
                 result = None
         elif self.qp.queryMethod == 'stream':
             
-            command += ' -stdout -otxt -oparse xyz | wc -l'
+            cols = []
+            for c in self.qp.columns:
+                cols.append(self.DM_LASTOOLS[c])
+            
+            command += ' -stdout -otxt -oparse ' + ''.join(cols) + ' | wc -l'
             logging.debug(command)
             result = utils.shellExecute(command).replace('\n','')
             eTime = time.time() - t0

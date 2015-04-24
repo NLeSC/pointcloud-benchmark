@@ -23,7 +23,7 @@ class AbstractQuerier(AQuerier, CommonOracle):
         self.queryIndex = int(queryId)
         self.resultTable = ('query_results_' + str(self.queryIndex)).upper()
         
-        self.qp = queriesParameters.getQueryParameters('ora',queryId, self.colsData.keys())
+        self.qp = queriesParameters.getQueryParameters('ora',queryId)
         logging.debug(self.qp.queryKey)
         
         if addGeom:

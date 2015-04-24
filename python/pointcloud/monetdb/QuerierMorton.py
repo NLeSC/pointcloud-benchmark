@@ -29,12 +29,10 @@ class QuerierMorton(AbstractQuerier):
         # Differentiate QuadTree nodes that are fully in the query region
         self.mortonDistinctIn = False
         
+        self.queryColsData = self.DM_FLAT.copy()
         if not ('x' in self.columns and 'y' in self.columns):
-            self.queryColsData = self.colsData.copy()
             self.queryColsData['x'][0] = 'GetX(morton2D, ' + str(self.scaleX) + ', ' + str(int(self.minX / self.scaleX)) + ')' 
             self.queryColsData['y'][0] = 'GetY(morton2D, ' + str(self.scaleY) + ', ' + str(int(self.minY / self.scaleY)) + ')'
-        else:
-            self.queryColsData = self.colsData
             
         # Drops possible query table 
         monetdbops.dropTable(cursor, utils.QUERY_TABLE, check = True)
@@ -68,7 +66,7 @@ class QuerierMorton(AbstractQuerier):
         
         if self.qp.queryMethod != 'stream': # disk or stat
             monetdbops.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS " + query + " WITH DATA", queryArgs)
-            (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.colsData, True, self.qp.columns, self.qp.statistics)
+            (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.DM_FLAT, True, self.qp.columns, self.qp.statistics)
         else:
             sqlFileName = str(queryId) + '.sql'
             monetdbops.createSQLFile(sqlFileName, query, queryArgs)

@@ -25,9 +25,9 @@ class QuerierMorton(AbstractQuerier):
         
         connection.close()
         
-        self.columnsNameDict = {'x':["PC_Get(qpoint, 'x')"],
-                                'y':["PC_Get(qpoint, 'y')"],
-                                'z':["PC_Get(qpoint, 'z')"]}
+        self.columnsNameDict = {}
+        for c in self.DM_PDAL:
+            self.columnsNameDict[c] = "PC_Get(qpoint, '" + self.DM_PDAL[c].lower() + "')"
         
         qtDomain = (0, 0, int((self.maxX-self.minX)/self.scaleX), int((self.maxY-self.minY)/self.scaleY))
         self.quadtree = QuadTree(qtDomain, 'auto')    
@@ -66,7 +66,7 @@ class QuerierMorton(AbstractQuerier):
         
         if self.qp.queryMethod != 'stream': # disk or stat
             postgresops.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS (" + query + ")", queryArgs)
-            (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.colsData, (not self.mortonDistinctIn), self.qp.columns, self.qp.statistics)
+            (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.DM_FLAT, (not self.mortonDistinctIn), self.qp.columns, self.qp.statistics)
         else:
             sqlFileName = str(queryId) + '.sql'
             postgresops.createSQLFile(cursor, sqlFileName, query, queryArgs)
@@ -114,9 +114,9 @@ class QuerierMorton(AbstractQuerier):
     def pythonParallelization(self, t0, mimranges, mxmranges):
         connection = self.getConnection()
         cursor = connection.cursor()
-        dbops.createResultsTable(cursor, postgresops.mogrifyExecute, self.resultTable, self.qp.columns, self.colsData)
+        dbops.createResultsTable(cursor, postgresops.mogrifyExecute, self.resultTable, self.qp.columns, self.DM_FLAT)
         dbops.parallelMorton(mimranges, mxmranges, self.childInsert, self.numProcessesQuery)
-        (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.colsData, False, self.qp.columns, self.qp.statistics)
+        (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.DM_FLAT, False, self.qp.columns, self.qp.statistics)
         connection.close()
         return (eTime, result)
     

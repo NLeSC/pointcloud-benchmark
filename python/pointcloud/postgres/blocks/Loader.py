@@ -34,12 +34,16 @@ class Loader(AbstractLoader):
         connection = self.getConnection()
         cursor = connection.cursor()
         # Add point cloud format to poinctcloud_formats table
-        (dimensionsNames, pcid, compression) = self.addPCFormat(cursor, self.schemaFile, fileAbsPath, self.srid)
+        (columns, pcid, compression) = self.addPCFormat(cursor, self.schemaFile, fileAbsPath, self.srid)
         connection.close()
+
+        pdalCols = []
+        for c in cols:
+            pdalCols.append(self.DM_PDAL[c])
 
         # Get PDAL config and run PDAL
         xmlFile = os.path.basename(fileAbsPath) + '.xml'
-        pdalops.PostgreSQLWriter(xmlFile, fileAbsPath, self.getConnectionString(), pcid, dimensionsNames, self.blockTable, self.srid, self.blockSize, compression)
+        pdalops.PostgreSQLWriter(xmlFile, fileAbsPath, self.getConnectionString(), pcid, pdalCols, self.blockTable, self.srid, self.blockSize, compression)
         pdalops.executePDAL(xmlFile)
 
     def close(self):

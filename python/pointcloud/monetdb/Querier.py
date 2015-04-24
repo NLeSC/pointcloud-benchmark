@@ -37,11 +37,11 @@ class Querier(AbstractQuerier, CommonMonetDB):
         monetdbops.dropTable(cursor, self.resultTable, True)    
         
         t0 = time.time()
-        (query, queryArgs) = dbops.getSelect(self.qp, self.flatTable, self.addContainsCondition, self.colsData)
+        (query, queryArgs) = dbops.getSelect(self.qp, self.flatTable, self.addContainsCondition, self.DM_FLAT)
         
         if self.qp.queryMethod != 'stream': # disk or stat
             monetdbops.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS " + query + " WITH DATA", queryArgs)
-            (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.colsData, True, self.qp.columns, self.qp.statistics)
+            (eTime, result) = dbops.getResult(cursor, t0, self.resultTable, self.DM_FLAT, True, self.qp.columns, self.qp.statistics)
         else:
             sqlFileName = str(queryId) + '.sql'
             monetdbops.createSQLFile(sqlFileName, query, queryArgs)

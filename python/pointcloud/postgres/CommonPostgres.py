@@ -59,29 +59,80 @@ class CommonPostgres():
         self.numProcessesQuery = configuration.getint('Query','NumberProcesses')
         self.parallelType = configuration.get('Query','ParallelType').lower()
         
-         # colsData is dimName: (dbName, dbType)
-        self.colsData = {
-                    'x': ('x','DOUBLE PRECISION'),# x coordinate
-                    'y': ('y','DOUBLE PRECISION'),# y coordinate
-                    'z': ('z','DOUBLE PRECISION'),#z coordinate
-                    'X': ('ux','INTEGER'),# x coordinate raw (unscaled)
-                    'Y': ('uy','INTEGER'),# y coordinate raw (unscaled)
-                    'Z': ('uz','INTEGER'),# z coordinate raw (unscaled)
-                    'i': ('intensity','INTEGER'),# intensity
-                    'r': ('returnnum','SMALLINT'),# number of this return
-                    'n': ('numreturnpulse','SMALLINT'),# number of returns for given pulse
-                    'd': ('dirscanflag','BOOLEAN'),# direction of scan flag
-                    'e': ('edgeflightline','BOOLEAN'),# edge of flight line
-                    'c': ('classification','SMALLINT'),# classification
-                    'a': ('scanangle','SMALLINT'),# scan angle
-                    'u': ('userdata','SMALLINT'),# user data (does not currently work)
-                    'p': ('pId','INTEGER'),# point source ID
-                    'R': ('R','INTEGER'),# red channel of RGB color
-                    'G': ('G','INTEGER'),# green channel of RGB color
-                    'B': ('B','INTEGER'), # blue channel of RGB color
-                    't': ('time','DOUBLE PRECISION'), # GPS time
-                    'k': ('morton2D','BIGINT'), # Morton code 2D
-                    }
+        # Dimensions mapping for DB names and types
+        self.DM_FLAT = {
+            'x': ('x','DOUBLE PRECISION'),
+            'y': ('y','DOUBLE PRECISION'),
+            'z': ('z','DOUBLE PRECISION'),
+            'X': ('ux','INTEGER'),
+            'Y': ('uy','INTEGER'),
+            'Z': ('uz','INTEGER'),
+            'i': ('intensity','INTEGER'),
+            'r': ('returnnum','SMALLINT'),
+            'n': ('numreturnpulse','SMALLINT'),
+            'd': ('dirscanflag','BOOLEAN'),
+            'e': ('edgeflightline','BOOLEAN'),
+            'c': ('classification','SMALLINT'),
+            'a': ('scanangle','SMALLINT'),
+            'u': ('userdata','SMALLINT'),
+            'p': ('pId','INTEGER'),
+            'R': ('R','INTEGER'),
+            'G': ('G','INTEGER'),
+            'B': ('B','INTEGER'),
+            't': ('time','DOUBLE PRECISION'),
+            'k': ('morton2D','BIGINT'),
+        }
+        utils.checkDimensionMapping(self.DM_FLAT)
+        
+        # Dimensions mapping for las2pg tool
+        self.DM_LAS2PG = {
+            'x': 'x',
+            'y': 'y',
+            'z': 'z',
+            'X': 'X',
+            'Y': 'Y',
+            'Z': 'Z',
+            'i': 'i',
+            'r': 'r',
+            'n': 'n',
+            'd': 'd',
+            'e': 'e',
+            'c': 'c',
+            'a': 'a',
+            'u': 'u',
+            'p': 'p',
+            'R': 'R',
+            'G': 'G',
+            'B': 'B',
+            't': 't',
+            'k': 'k'
+        }
+        utils.checkDimensionMapping(self.DM_LAS2PG)
+        
+        # Dimensions mapping for PDAL
+        self.DM_PDAL = {
+            'x': 'X',
+            'y': 'Y',
+            'z': 'Z',
+            'X': None,
+            'Y': None,
+            'Z': None,
+            'i': 'Intensity',
+            'r': 'ReturnNumber',
+            'n': 'NumberOfReturns',
+            'd': 'ScanDirectionFlag',
+            'e': 'EdgeOfFlightLine',
+            'c': 'Classification',
+            'a': 'ScanAngleRank',
+            'u': 'UserData',
+            'p': 'PointSourceId',
+            'R': 'Red',
+            'G': 'Green',
+            'B': 'Blue',
+            't': 'Time',
+            'k': None
+        }
+        utils.checkDimensionMapping(self.DM_PDAL)
 
     def getConnectionString(self, superUser = False, commandLine = False):
         if not superUser:
@@ -91,3 +142,5 @@ class CommonPostgres():
     
     def getConnection(self, superUser = False):
         return psycopg2.connect(self.getConnectionString(superUser))   
+
+

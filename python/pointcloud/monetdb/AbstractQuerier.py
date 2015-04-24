@@ -22,7 +22,7 @@ class AbstractQuerier(AQuerier, CommonMonetDB):
     def prepareQuery(self, cursor, queryId, queriesParameters, addGeom = False):
         self.queryIndex = int(queryId)
         self.resultTable = 'query_results_' + str(self.queryIndex)
-        self.qp = queriesParameters.getQueryParameters('mon', queryId, self.colsData.keys())
+        self.qp = queriesParameters.getQueryParameters('mon', queryId)
         logging.debug(self.qp.queryKey)
         
         if addGeom:

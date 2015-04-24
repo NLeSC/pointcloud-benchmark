@@ -87,36 +87,102 @@ class CommonOracle():
         self.parallelType = configuration.get('Query','ParallelType').lower()
         self.queryTable = utils.QUERY_TABLE.upper()
         
-        # colsData is dimName: (dbType, controlFileType, controlFileNumDigits)
-        self.colsData = {
-                    'x': (self.columnType, 'float', 10),# x coordinate
-                    'y': (self.columnType, 'float', 10),# y coordinate
-                    'z': (self.columnType, 'float', 8),#z coordinate
-                    'X': ('NUMBER', 'integer', 10),# x coordinate raw (unscaled)
-                    'Y': ('NUMBER', 'integer', 10),# y coordinate raw (unscaled)
-                    'Z': ('NUMBER', 'integer', 8),# z coordinate raw (unscaled)
-                    'i': ('NUMBER', 'integer', 5),# intensity
-                    'r': ('NUMBER', 'integer', 3),# number of this return
-                    'n': ('NUMBER', 'integer', 3),# number of returns for given pulse
-                    'd': ('NUMBER', 'integer', 3),# direction of scan flag
-                    'e': ('NUMBER', 'integer', 3),# edge of flight line
-                    'c': ('NUMBER', 'integer', 3),# classification
-                    'a': ('NUMBER', 'integer', 3),# scan angle
-                    'u': ('NUMBER', 'integer', 3),# user data (does not currently work)
-                    'p': ('NUMBER', 'integer', 3),# point source ID
-                    'R': ('NUMBER', 'integer', 5),# red channel of RGB color
-                    'G': ('NUMBER', 'integer', 5),# green channel of RGB color
-                    'B': ('NUMBER', 'integer', 5), # blue channel of RGB color
-                    't': ('NUMBER', 'float', 10), # GPS time
-                    'k': ('NUMBER', 'integer', 20), # Morton code 2D
-                    # Others given by external table loader
-                    'm': ('NUMBER', 'integer', 3), # file_marker
-                    'h': ('NUMBER', 'integer', 20), # Hilbert code
-                    'l': ('NUMBER', 'integer', 3), # pyramid_level
-                    'n': ('VARCHAR2(128)', 'string', 128), # file_name
-                    'v': ('NUMBER', 'integer', 2), # las_version
-                    'f': ('NUMBER', 'integer', 3), # point_format
-            }
+        self.DM_FLAT = { # The name of the column in the DB is computed with getDBColumn
+            'x': self.columnType,
+            'y': self.columnType,
+            'z': self.columnType,
+            'X': 'NUMBER',
+            'Y': 'NUMBER',
+            'Z': 'NUMBER',
+            'i': 'NUMBER',
+            'r': 'NUMBER',
+            'n': 'NUMBER',
+            'd': 'NUMBER',
+            'e': 'NUMBER',
+            'c': 'NUMBER',
+            'a': 'NUMBER',
+            'u': 'NUMBER',
+            'p': 'NUMBER',
+            'R': 'NUMBER',
+            'G': 'NUMBER',
+            'B': 'NUMBER',
+            't': 'NUMBER',
+            'k': 'NUMBER',
+            'h': 'NUMBER' # Extra dimension for the Hibert code
+        }
+        utils.checkDimensionMapping(self.DM_FLAT)
+        
+        self.DM_LAS2TXT = {
+            'x': 'x',
+            'y': 'y',
+            'z': 'z',
+            'X': 'X',
+            'Y': 'Y',
+            'Z': 'Z',
+            'i': 'i',
+            'r': 'r',
+            'n': 'n',
+            'd': 'd',
+            'e': 'e',
+            'c': 'c',
+            'a': 'a',
+            'u': 'u',
+            'p': 'p',
+            'R': 'R',
+            'G': 'G',
+            'B': 'B',
+            't': 't',
+            'k': 'k'
+        }
+        utils.checkDimensionMapping(self.DM_LAS2TXT)
+        
+        self.DM_SQLLDR = {
+            'x': ('float', 10),
+            'y': ('float', 10),
+            'z': ('float', 8),
+            'X': ('integer', 10),
+            'Y': ('integer', 10),
+            'Z': ('integer', 8),
+            'i': ('integer', 5),
+            'r': ('integer', 3),
+            'n': ('integer', 3),
+            'd': ('integer', 3),
+            'e': ('integer', 3),
+            'c': ('integer', 3),
+            'a': ('integer', 3),
+            'u': ('integer', 3),
+            'p': ('integer', 3),
+            'R': ('integer', 5),
+            'G': ('integer', 5),
+            'B': ('integer', 5),
+            't': ('float', 10),
+            'k': ('integer', 20)
+        }
+        utils.checkDimensionMapping(self.DM_SQLLDR)
+        
+        self.DM_PDAL = {
+            'x': 'X',
+            'y': 'Y',
+            'z': 'Z',
+            'X': None,
+            'Y': None,
+            'Z': None,
+            'i': 'Intensity',
+            'r': 'ReturnNumber',
+            'n': 'NumberOfReturns',
+            'd': 'ScanDirectionFlag',
+            'e': 'EdgeOfFlightLine',
+            'c': 'Classification',
+            'a': 'ScanAngleRank',
+            'u': 'UserData',
+            'p': 'PointSourceId',
+            'R': 'Red',
+            'G': 'Green',
+            'B': 'Blue',
+            't': 'Time',
+            'k': None
+        }
+        utils.checkDimensionMapping(self.DM_PDAL)
     
     def getConnectionString(self, superUser = False):
         if not superUser:
@@ -130,7 +196,7 @@ class CommonOracle():
 
     def getDBColumn(self, columns, index, includeType = False, hilbertColumnName = 'd'):
         column = columns[index]
-        if column not in self.colsData:
+        if column not in self.DM_FLAT:
             raise Exception('Wrong column!' + column)
         if column == 'h':
             if index != (len(columns)-1):
@@ -139,7 +205,7 @@ class CommonOracle():
         else:
             columnName = 'VAL_D' + str(index+1)
         if includeType:
-            return (columnName, self.colsData[column][0])
+            return (columnName, self.DM_FLAT[column])
         else:
             return (columnName,)
 

@@ -5,7 +5,7 @@
 ################################################################################
 from lxml import etree as ET
 import os, glob
-from pointcloud import wktops
+from pointcloud import wktops, utils
 from pointcloud.QueryParameters import QueryParameters
 
 class QueriesParameters:
@@ -85,7 +85,7 @@ class QueriesParameters:
         """ Get columns"""
         return query.find('columns').text
     
-    def getQueryParameters(self, db, queryId, validColumns):
+    def getQueryParameters(self, db, queryId):
         query = self.getQuery(queryId)
         
         queryKey = self.getKey(query)
@@ -95,7 +95,7 @@ class QueriesParameters:
         
         columns = self.getColumns(query)
         for column in columns:
-            if column not in validColumns:
+            if column not in utils.PC_DIMENSIONS:
                 raise Exception('Error: column ' + column)
         
         (minx,maxx,miny,maxy) = (None,None,None,None)
