@@ -33,18 +33,11 @@ class Querier(AbstractQuerier, CommonMonetDB):
         (eTime, result) = (-1, None)
         connection = self.getConnection()
         cursor = connection.cursor()
-        self.prepareQuery(cursor, queryId, queriesParameters, iterationId == 0)
+        self.prepareQuery(cursor, queryId, queriesParameters, False)
         monetdbops.dropTable(cursor, self.resultTable, True)    
         
         t0 = time.time()
-        if self.qp.queryType == 'generic':
-            cols = dbops.getSelectCols(self.qp.columns, self.DM_FLAT, self.qp.statistics, True)
-            queryArgs = [self.qp.wkt, self.srid,]
-            containsCondition = "contains(GeomFromText(%s,%s)," + self.DM_FLAT['x'][0] + "," + self.DM_FLAT['y'][0] + ")"
-            zCondition = dbops.addZCondition(self.qp, self.DM_FLAT['z'][0], queryArgs)
-            query = "SELECT " + cols + " FROM " + self.flatTable + " " + dbops.getWhereStatement([containsCondition, zCondition])
-        else:
-            (query, queryArgs) = dbops.getSelect(self.qp, self.flatTable, self.addContainsCondition, self.DM_FLAT)
+        (query, queryArgs) = dbops.getSelect(self.qp, self.flatTable, self.addContainsCondition, self.DM_FLAT)
         
         if self.qp.queryMethod != 'stream': # disk or stat
             monetdbops.mogrifyExecute(cursor, "CREATE TABLE "  + self.resultTable + " AS " + query + " WITH DATA", queryArgs)

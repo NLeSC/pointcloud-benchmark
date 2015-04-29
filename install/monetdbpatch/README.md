@@ -4,11 +4,19 @@ Patches
 The monetdb loaders and queriers use some functionalities that are not yet available 
 (as of date April 2015) in the default repository branch.
 
-In this folder you can find two patches (one for the new contains method and 
-another for the morton-related functions)
+In this folder you can find the patch to be applied that will add this functionalities.
 
-To apply them you can either make the changes as indicated in the files or use
+To apply them use
 
-hg import [patch file]
+cd MonetDBsrc/
 
-Then, you can do hg diff to see if the differences are the expected ones
+hg update -r default
+
+hg patch path/to/MortonContainsAnalyze.diff 
+
+If an error is produced, try to manually add the missing lines
+
+In case the hg patch does not return an error it will open a window to type a 
+commit message and do a commit to save your patch.
+You need to abort the commit in case it (the hg patch) succeeds so the local 
+clone is no updated, i.e., your patch remains as a temporary version. 

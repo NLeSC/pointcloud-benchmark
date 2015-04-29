@@ -31,5 +31,5 @@ class AbstractQuerier(AQuerier, CommonMonetDB):
             cursor.connection.commit()
 
     def addContainsCondition(self, queryParameters, queryArgs, xname, yname):
-        queryArgs.extend([self.queryIndex, ])
-        return (utils.QUERY_TABLE, "id = %s AND contains(geom, " + xname +"," + yname + ")")
+        queryArgs.extend([queryParameters.wkt, self.srid,])
+        return (None, "contains(GeomFromText(%s,%s)," + xname + "," + yname + ")")

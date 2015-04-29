@@ -1,0 +1,776 @@
+diff -r ee3e06d6a293 geom/monetdb5/geom.c
+--- a/geom/monetdb5/geom.c	Tue Oct 28 10:00:39 2014 +0100
++++ b/geom/monetdb5/geom.c	Wed Oct 29 14:27:28 2014 +0100
+@@ -107,6 +107,11 @@
+ geom_export str wkbDifference(wkb **out, wkb **a, wkb **b);
+ geom_export str wkbSymDifference(wkb **out, wkb **a, wkb **b);
+ geom_export str wkbBuffer(wkb **out, wkb **geom, const dbl *distance);
++geom_export str mortonGetX(double *out, int64_t *mortonCode, double *scaleX, int64_t *globalOffset);
++geom_export str mortonGetY(double *out, int64_t *mortonCode, double *scaleY, int64_t *globalOffset);
++geom_export int64_t Compact(int64_t m);
++geom_export int32_t DecodeMorton2DX(int64_t mortonCode);
++geom_export int32_t DecodeMorton2DY(int64_t mortonCode);
+ 
+ str
+ geom_prelude(void *ret)
+@@ -1233,3 +1238,41 @@
+ 
+ 	throw(MAL, "geom.Buffer", "GEOSBuffer failed");
+ }
++
++int64_t Compact(int64_t m)
++{
++    m &= 0x5555555555555555;                  // m = -f-e -d-c -b-a -9-8 -7-6 -5-4 -3-2 -1-0 -f-e -d-c -b-a -9-8 -7-6 -5-4 -3-2 -1-0
++    m = (m ^ (m >>  1)) & 0x3333333333333333; // m = --fe --dc --ba --98 --76 --54 --32 --10 --fe --dc --ba --98 --76 --54 --32 --10
++    m = (m ^ (m >>  2)) & 0x0f0f0f0f0f0f0f0f; // m = ---- fedc ---- ba98 ---- 7654 ---- 3210 ---- fedc ---- ba98 ---- 7654 ---- 3210
++    m = (m ^ (m >>  4)) & 0x00ff00ff00ff00ff; // m = ---- ---- fedc ba98 ---- ---- 7654 3210 ---- ---- fedc ba98 ---- ---- 7654 3210
++    m = (m ^ (m >>  8)) & 0x0000ffff0000ffff; // m = ---- ---- ---- ---- fedc ba98 7654 3210 ---- ---- ---- ---- fedc ba98 7654 3210
++    m = (m ^ (m >>  16)) & 0x00000000ffffffff; //m = ---- ---- ---- ---- ---- ---- ---- ---- fedc ba98 7654 3210 fedc ba98 7654 3210
++
++    return (int32_t) m;
++}
++
++int32_t DecodeMorton2DX(int64_t mortonCode)
++{
++    return Compact(mortonCode >> 1);
++}
++
++int32_t DecodeMorton2DY(int64_t mortonCode)
++{
++    return Compact(mortonCode);
++}
++
++str
++mortonGetX(double *out, int64_t *mortonCode, double *scaleX, int64_t *globalOffset)
++{
++    int32_t unscalled_code = DecodeMorton2DX(*mortonCode);
++    *out = (unscalled_code + (*globalOffset)) * (*scaleX);
++    return MAL_SUCCEED;
++}
++
++str
++mortonGetY(double *out, int64_t *mortonCode, double *scaleY, int64_t *globalOffset)
++{
++    int32_t unscalled_code = DecodeMorton2DY(*mortonCode);
++    *out = (unscalled_code + (*globalOffset)) * (*scaleY);
++    return MAL_SUCCEED;
++}
+diff -r ee3e06d6a293 geom/monetdb5/geom.mal
+--- a/geom/monetdb5/geom.mal	Tue Oct 28 10:00:39 2014 +0100
++++ b/geom/monetdb5/geom.mal	Wed Oct 29 14:27:28 2014 +0100
+@@ -314,3 +314,11 @@
+ # wkbMultiPolygon := 6;
+ # wkbGeometryCollection := 7;
+ 
++module geom;
++command GetX(morton:lng, scaleX:dbl, globalOffset:lng) :dbl
++address mortonGetX
++comment "Get X value from a morton code";
++
++command GetY(morton:lng, scaleY:dbl, globalOffset:lng) :dbl
++address mortonGetY
++comment "Get Y value from a morton code";
+diff -r ee3e06d6a293 geom/sql/40_geom.sql
+--- a/geom/sql/40_geom.sql	Tue Oct 28 10:00:39 2014 +0100
++++ b/geom/sql/40_geom.sql	Wed Oct 29 14:27:28 2014 +0100
+@@ -97,3 +97,7 @@
+ CREATE FUNCTION "Union"(a Geometry, b Geometry) RETURNS Geometry external name geom."Union";
+ CREATE FUNCTION Difference(a Geometry, b Geometry) RETURNS Geometry external name geom."Difference";
+ CREATE FUNCTION SymDifference(a Geometry, b Geometry) RETURNS Geometry external name geom."SymDifference";
++
++-- Morton functions
++CREATE FUNCTION GetX(morton BIGINT, scaleX DOUBLE, globalOffset BIGINT) RETURNS DOUBLE external name geom."GetX";
++CREATE FUNCTION GetY(morton BIGINT, scaleY DOUBLE, globalOffset BIGINT) RETURNS DOUBLE external name geom."GetY";
+diff -r 48cfba96feb4 geom/monetdb5/geom.c
+--- a/geom/monetdb5/geom.c	Tue Jan 27 14:23:38 2015 +0100
++++ b/geom/monetdb5/geom.c	Tue Feb 03 16:16:48 2015 +0100
+@@ -81,6 +81,10 @@
+ geom_export str wkbgetcoordY(dbl *out, wkb **geom);
+ geom_export str wkbcreatepoint(wkb **out, const dbl *x, const dbl *y);
+ geom_export str wkbcreatepoint_bat(bat *out, const bat *x, const bat *y);
++geom_export str pnpoly_(int *out, int nvert, dbl *vx, dbl *vy, int *point_x, int *point_y);
++geom_export double isLeft( double P0x, double P0y, double P1x, double P1y, double P2x, double P2y);
++geom_export str pnpolyWithHoles_(int *out, int nvert, dbl *vx, dbl *vy, int nholes, dbl **hx, dbl **hy, int *hn, int *point_x, int *point_y);
++geom_export str wkbContains_bat(int *out, wkb **a, int *point_x, int *point_y);
+ geom_export str mbroverlaps(bit *out, mbr **b1, mbr **b2);
+ geom_export str wkbDimension(int *out, wkb **geom);
+ geom_export str wkbGeometryTypeId(int *out, wkb **geom);
+@@ -494,8 +498,8 @@
+ 
+ 	*w = NULL;
+ 	if (wkbFROMSTR(*wkt, &len, w) &&
+-	    (wkb_isnil(*w) || *tpe == wkbGeometryCollection ||
+-	     (te = *((*w)->data + 1) & 0x0f) == *tpe))
++        (wkb_isnil(*w) || *tpe == wkbGeometryCollection ||
++        (te = *((*w)->data + 1) & 0x0f) == *tpe))
+ 		return MAL_SUCCEED;
+ 	if (*w == NULL)
+ 		*w = (wkb *) GDKmalloc(sizeof(wkb));
+@@ -607,7 +611,7 @@
+ 	if (!mnstr_writeInt(s, len))	/* 64bit: check for overflow */
+ 		return GDK_FAIL;
+ 	if (len > 0 &&			/* 64bit: check for overflow */
+-	    mnstr_write(s, (char *) a->data, len, 1) < 0)
++        mnstr_write(s, (char *) a->data, len, 1) < 0)
+ 		return GDK_FAIL;
+ 	return GDK_SUCCEED;
+ }
+@@ -648,7 +652,7 @@
+ 	if ((*res = (mbr *) GDKmalloc(sizeof(mbr))) == NULL)
+ 		throw(MAL, "geom.mbr", MAL_MALLOC_FAIL);
+ 	if (*minX == flt_nil || *minY == flt_nil ||
+-	    *maxX == flt_nil || *maxY == flt_nil)
++        *maxX == flt_nil || *maxY == flt_nil)
+ 		**res = *mbrNULL();
+ 	else {
+ 		(*res)->xmin = *minX;
+@@ -828,6 +832,282 @@
+ 	return MAL_SUCCEED;
+ }
+ 
++	inline double
++isLeft( double P0x, double P0y, double P1x, double P1y, double P2x, double P2y)
++{
++	return ( (P1x - P0x) * (P2y - P0y)
++			- (P2x -  P0x) * (P1y - P0y) );
++}
++
++str
++pnpoly_(int *out, int nvert, dbl *vx, dbl *vy, int *point_x, int *point_y)
++{
++	BAT *bo = NULL, *bpx = NULL, *bpy;
++	dbl *px = NULL, *py = NULL;
++	BUN i = 0, cnt;
++	int j = 0, nv;
++	bte *cs = NULL;
++
++	/*Get the BATs*/
++	if ((bpx = BATdescriptor(*point_x)) == NULL) {
++		throw(MAL, "geom.point", RUNTIME_OBJECT_MISSING);
++	}
++
++	if ((bpy = BATdescriptor(*point_y)) == NULL) {
++		BBPunfix(bpx->batCacheid);
++		throw(MAL, "geom.point", RUNTIME_OBJECT_MISSING);
++	}
++
++	/*Check BATs alignment*/
++	if ( bpx->htype != TYPE_void ||
++			bpy->htype != TYPE_void ||
++			bpx->hseqbase != bpy->hseqbase ||
++			BATcount(bpx) != BATcount(bpy)) {
++		BBPunfix(bpx->batCacheid);
++		BBPunfix(bpy->batCacheid);
++		throw(MAL, "geom.point", "both point bats must have dense and aligned heads");
++	}
++
++	/*Create output BAT*/
++	if ((bo = BATnew(TYPE_void, ATOMindex("bte"), BATcount(bpx), TRANSIENT)) == NULL) {
++		BBPunfix(bpx->batCacheid);
++		BBPunfix(bpy->batCacheid);
++		throw(MAL, "geom.point", MAL_MALLOC_FAIL);
++	}
++	BATseqbase(bo, bpx->hseqbase);
++
++	/*Iterate over the Point BATs and determine if they are in Polygon represented by vertex BATs*/
++	px = (dbl *) Tloc(bpx, BUNfirst(bpx));
++	py = (dbl *) Tloc(bpy, BUNfirst(bpx));
++
++	nv = nvert -1;
++	cnt = BATcount(bpx);
++	cs = (bte*) Tloc(bo,BUNfirst(bo));
++	for (i = 0; i < cnt; i++) {
++		int wn = 0;
++		for (j = 0; j < nv; j++) {
++			if (vy[j] <= py[i]) {
++				if (vy[j+1] > py[i])
++					if (isLeft( vx[j], vy[j], vx[j+1], vy[j+1], px[i], py[i]) > 0)
++						++wn;
++			}
++			else {
++				if (vy[j+1]  <= py[i])
++					if (isLeft( vx[j], vy[j], vx[j+1], vy[j+1], px[i], py[i]) < 0)
++						--wn;
++			}
++		}
++		*cs++ = wn & 1;
++	}
++
++	BATsetcount(bo,cnt);
++	BATderiveProps(bo,FALSE);
++	BBPunfix(bpx->batCacheid);
++	BBPunfix(bpy->batCacheid);
++	BBPkeepref(*out = bo->batCacheid);
++	return MAL_SUCCEED;
++}
++
++str
++pnpolyWithHoles_(int *out, int nvert, dbl *vx, dbl *vy, int nholes, dbl **hx, dbl **hy, int *hn, int *point_x, int *point_y)
++{
++	BAT *bo = NULL, *bpx = NULL, *bpy;
++	dbl *px = NULL, *py = NULL;
++	BUN i = 0, cnt = 0;
++	int j = 0, h = 0;
++	bte *cs = NULL;
++
++	/*Get the BATs*/
++	if ((bpx = BATdescriptor(*point_x)) == NULL) {
++		throw(MAL, "geom.point", RUNTIME_OBJECT_MISSING);
++	}
++	if ((bpy = BATdescriptor(*point_y)) == NULL) {
++		BBPunfix(bpx->batCacheid);
++		throw(MAL, "geom.point", RUNTIME_OBJECT_MISSING);
++	}
++
++	/*Check BATs alignment*/
++	if ( bpx->htype != TYPE_void ||
++			bpy->htype != TYPE_void ||
++			bpx->hseqbase != bpy->hseqbase ||
++			BATcount(bpx) != BATcount(bpy)) {
++		BBPunfix(bpx->batCacheid);
++		BBPunfix(bpy->batCacheid);
++		throw(MAL, "geom.point", "both point bats must have dense and aligned heads");
++	}
++
++	/*Create output BAT*/
++	if ((bo = BATnew(TYPE_void, ATOMindex("bte"), BATcount(bpx), TRANSIENT)) == NULL) {
++		BBPunfix(bpx->batCacheid);
++		BBPunfix(bpy->batCacheid);
++		throw(MAL, "geom.point", MAL_MALLOC_FAIL);
++	}
++	BATseqbase(bo, bpx->hseqbase);
++
++	/*Iterate over the Point BATs and determine if they are in Polygon represented by vertex BATs*/
++	px = (dbl *) Tloc(bpx, BUNfirst(bpx));
++	py = (dbl *) Tloc(bpy, BUNfirst(bpx));
++	cnt = BATcount(bpx);
++	cs = (bte*) Tloc(bo,BUNfirst(bo));
++	for (i = 0; i < cnt; i++) {
++		int wn = 0;
++
++		/*First check the holes*/
++		for (h = 0; h < nholes; h++) {
++			int nv = hn[h]-1;
++			wn = 0;
++			for (j = 0; j < nv; j++) {
++				if (hy[h][j] <= py[i]) {
++					if (hy[h][j+1] > py[i])
++						if (isLeft( hx[h][j], hy[h][j], hx[h][j+1], hy[h][j+1], px[i], py[i]) > 0)
++							++wn;
++				}
++				else {
++					if (hy[h][j+1]  <= py[i])
++						if (isLeft( hx[h][j], hy[h][j], hx[h][j+1], hy[h][j+1], px[i], py[i]) < 0)
++							--wn;
++				}
++			}
++
++			/*It is in one of the holes*/
++			if (wn) {
++				break;
++			}
++		}
++
++		if (wn)
++			continue;
++
++		/*If not in any of the holes, check inside the Polygon*/
++		for (j = 0; j < nvert-1; j++) {
++			if (vy[j] <= py[i]) {
++				if (vy[j+1] > py[i])
++					if (isLeft( vx[j], vy[j], vx[j+1], vy[j+1], px[i], py[i]) > 0)
++						++wn;
++			}
++			else {
++				if (vy[j+1]  <= py[i])
++					if (isLeft( vx[j], vy[j], vx[j+1], vy[j+1], px[i], py[i]) < 0)
++						--wn;
++			}
++		}
++		*cs++ = wn&1;
++	}
++	BATsetcount(bo,cnt);
++	BATderiveProps(bo,FALSE);
++	BBPunfix(bpx->batCacheid);
++	BBPunfix(bpy->batCacheid);
++	BBPkeepref(*out = bo->batCacheid);
++	return MAL_SUCCEED;
++}
++
++#define POLY_NUM_VERT 120
++#define POLY_NUM_HOLE 10
++
++str
++wkbContains_bat(int *out, wkb **a, int *point_x, int *point_y) {
++	double *vert_x, *vert_y, **holes_x = NULL, **holes_y= NULL;
++	int *holes_n= NULL, j;
++	wkb *geom = NULL;
++	str msg = NULL;
++
++
++	str err = NULL;
++	str geom_str = NULL;
++	char *str2, *token, *subtoken;
++	char *saveptr1 = NULL, *saveptr2 = NULL;
++	int nvert = 0, nholes = 0;
++
++	geom = (wkb*) *a;
++
++	if ((err = wkbAsText(&geom_str, &geom)) != MAL_SUCCEED) {
++		msg = createException(MAL, "geom.Contain_bat", "%s", err);
++		GDKfree(err);
++		return msg;
++	}
++	geom_str = strchr(geom_str, '(');
++	geom_str+=2;
++
++	/*Lets get the polygon*/
++	token = strtok_r(geom_str, ")", &saveptr1);
++	vert_x = GDKmalloc(POLY_NUM_VERT*sizeof(double));
++	vert_y = GDKmalloc(POLY_NUM_VERT*sizeof(double));
++
++	for (str2 = token; ; str2 = NULL) {
++		subtoken = strtok_r(str2, ",", &saveptr2);
++		if (subtoken == NULL)
++			break;
++		sscanf(subtoken, "%lf %lf", &vert_x[nvert], &vert_y[nvert]);
++		nvert++;
++		if ((nvert%POLY_NUM_VERT) == 0) {
++			vert_x = GDKrealloc(vert_x, nvert*2*sizeof(double));
++			vert_y = GDKrealloc(vert_y, nvert*2*sizeof(double));
++		}
++	}
++
++	token = strtok_r(NULL, ")", &saveptr1);
++	if (token) {
++		holes_x = GDKzalloc(POLY_NUM_HOLE*sizeof(double*));
++		holes_y = GDKzalloc(POLY_NUM_HOLE*sizeof(double*));
++		holes_n = GDKzalloc(POLY_NUM_HOLE*sizeof(double*));
++	}
++	/*Lets get all the holes*/
++	while (token) {
++		int nhole = 0;
++		token = strchr(token, '(');
++		if (!token)
++			break;
++		token++;
++
++		if (!holes_x[nholes])
++			holes_x[nholes] = GDKzalloc(POLY_NUM_VERT*sizeof(double));
++		if (!holes_y[nholes])
++			holes_y[nholes] = GDKzalloc(POLY_NUM_VERT*sizeof(double));
++
++		for (str2 = token; ; str2 = NULL) {
++			subtoken = strtok_r(str2, ",", &saveptr2);
++			if (subtoken == NULL)
++				break;
++			sscanf(subtoken, "%lf %lf", &holes_x[nholes][nhole], &holes_y[nholes][nhole]);
++			nhole++;
++			if ((nhole%POLY_NUM_VERT) == 0) {
++				holes_x[nholes] = GDKrealloc(holes_x[nholes], nhole*2*sizeof(double));
++				holes_y[nholes] = GDKrealloc(holes_y[nholes], nhole*2*sizeof(double));
++			}
++		}
++
++		holes_n[nholes] = nhole;
++		nholes++;
++		if ((nholes%POLY_NUM_HOLE) == 0) {
++			holes_x = GDKrealloc(holes_x, nholes*2*sizeof(double*));
++			holes_y = GDKrealloc(holes_y, nholes*2*sizeof(double*));
++			holes_n = GDKrealloc(holes_n, nholes*2*sizeof(int));
++		}
++		token = strtok_r(NULL, ")", &saveptr1);
++	}
++
++	if (nholes)
++		msg = pnpolyWithHoles_(out, (int) nvert, vert_x, vert_y, nholes, holes_x, holes_y, holes_n, point_x, point_y);
++	else {
++		msg = pnpoly_(out, (int) nvert, vert_x, vert_y, point_x, point_y);
++	}
++
++	GDKfree(vert_x);
++	GDKfree(vert_y);
++	if (holes_x && holes_y && holes_n) {
++		for (j = 0; j < nholes; j ++) {
++			GDKfree(holes_x[j]);
++			GDKfree(holes_y[j]);
++		}
++		GDKfree(holes_x);
++		GDKfree(holes_y);
++		GDKfree(holes_n);
++	}
++
++	return msg;
++}
++
++
+ str
+ mbroverlaps(bit *out, mbr **b1, mbr **b2)
+ {
+@@ -1159,7 +1439,7 @@
+ 
+ static str
+ wkbanalysis(wkb **out, wkb **a, wkb **b,
+-	    GEOSGeometry *(*func)(const GEOSGeometry *, const GEOSGeometry *))
++    GEOSGeometry *(*func)(const GEOSGeometry *, const GEOSGeometry *))
+ {
+ 	GEOSGeom ga = wkb2geos(*a);
+ 	GEOSGeom gb = wkb2geos(*b);
+diff -r 48cfba96feb4 geom/monetdb5/geom.mal
+--- a/geom/monetdb5/geom.mal	Tue Jan 27 14:23:38 2015 +0100
++++ b/geom/monetdb5/geom.mal	Tue Feb 03 16:16:48 2015 +0100
+@@ -172,6 +172,10 @@
+ address wkbContains
+ comment "Returns true if the Geometry a 'spatially contains' Geometry b";
+ 
++command Contains(a:wkb, x:dbl, y:dbl) :bit
++address wkbContains
++comment "Returns true if the Geometry a 'spatially contains' Geometry b";
++
+ command Overlaps(a:wkb, b:wkb) :bit
+ address wkbOverlaps
+ comment "Returns true if the Geometry a 'spatially overlaps' Geometry b";
+@@ -189,6 +193,11 @@
+ command point(x:bat[:oid,:dbl],y:bat[:oid,:dbl]) :bat[:oid,:wkb]
+ address wkbcreatepoint_bat
+ comment "Construct a point-BAT from two geometry-BATs";
++
++command Contains(a:wkb, px:bat[:oid,:dbl], py:bat[:oid,:dbl]) :bat[:oid,:bit]
++address wkbContains_bat
++comment "Returns true if the Geometry-BAT a 'spatially contains' Geometry-B b";
++
+ module geom;
+ 
+ # @+ ogc information methods
+diff -r 48cfba96feb4 geom/sql/40_geom.sql
+--- a/geom/sql/40_geom.sql	Tue Jan 27 14:23:38 2015 +0100
++++ b/geom/sql/40_geom.sql	Tue Feb 03 16:16:48 2015 +0100
+@@ -83,6 +83,7 @@
+ CREATE FUNCTION Crosses(a Geometry, b Geometry) RETURNS BOOLEAN external name geom."Crosses";
+ CREATE FUNCTION Within(a Geometry, b Geometry) RETURNS BOOLEAN external name geom."Within";
+ CREATE FUNCTION Contains(a Geometry, b Geometry) RETURNS BOOLEAN external name geom."Contains";
++CREATE FUNCTION Contains(a Geometry, x double, y double) RETURNS BOOLEAN external name geom."Contains";
+ CREATE FUNCTION Overlaps(a Geometry, b Geometry) RETURNS BOOLEAN external name geom."Overlaps";
+ CREATE FUNCTION Relate(a Geometry, b Geometry, pattern STRING) RETURNS BOOLEAN external name geom."Relate";
+ 
+diff -r 48cfba96feb4 sql/backends/monet5/sql.mal
+--- a/sql/backends/monet5/sql.mal	Tue Jan 27 14:23:38 2015 +0100
++++ b/sql/backends/monet5/sql.mal	Tue Feb 03 16:16:48 2015 +0100
+@@ -453,6 +453,16 @@
+ address sql_analyze
+ comment "Update the database statistics table";
+ 
++pattern analyzeMinMax():void
++address sql_analyzeMinMax;
++pattern analyzeMinMax(sch:str):void
++address sql_analyzeMinMax;
++pattern analyzeMinMax(sch:str,tbl:str):void
++address sql_analyzeMinMax;
++pattern analyzeMinMax(sch:str,tbl:str,col:str):void
++address sql_analyzeMinMax
++comment "Update the database statistics table";
++
+ pattern analyze(sample:lng):void
+ address sql_analyze;
+ pattern analyze(sch:str,sample:lng):void
+diff -r 48cfba96feb4 sql/backends/monet5/sql_statistics.c
+--- a/sql/backends/monet5/sql_statistics.c	Tue Jan 27 14:23:38 2015 +0100
++++ b/sql/backends/monet5/sql_statistics.c	Tue Feb 03 16:16:48 2015 +0100
+@@ -178,3 +178,122 @@
+ 	GDKfree(minval);
+ 	return MAL_SUCCEED;
+ }
++
++str
++sql_analyzeMinMax(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
++{
++	mvc *m = NULL;
++	str msg = getSQLContext(cntxt, mb, &m, NULL);
++	sql_trans *tr = m->session->tr;
++	node *nsch, *ntab, *ncol;
++	char *query, *dquery;
++	char *maxval = NULL, *minval = NULL;
++	str sch = 0, tbl = 0, col = 0;
++	int sorted;
++    lng samplesize = 0;
++	int argc = pci->argc;
++	int width = 0;
++
++	if (msg != MAL_SUCCEED || (msg = checkSQLContext(cntxt)) != NULL)
++		return msg;
++
++	if (argc > 1 && getVarType(mb, getArg(pci, argc - 1)) == TYPE_lng) {
++		samplesize = *getArgReference_lng(stk, pci, pci->argc - 1);
++		argc--;
++	}
++	dquery = (char *) GDKzalloc(8192);
++	query = (char *) GDKzalloc(8192);
++	if (!(dquery && query)) {
++		GDKfree(dquery);
++		GDKfree(query);
++		throw(SQL, "analyzeMinMax", MAL_MALLOC_FAIL);
++	}
++
++	switch (argc) {
++	case 4:
++		col = *getArgReference_str(stk, pci, 3);
++	case 3:
++		tbl = *getArgReference_str(stk, pci, 2);
++	case 2:
++		sch = *getArgReference_str(stk, pci, 1);
++	}
++#ifdef DEBUG_SQL_STATISTICS
++	mnstr_printf(cntxt->fdout, "analyzeMinMax %s.%s.%s sample " LLFMT "\n", (sch ? sch : ""), (tbl ? tbl : " "), (col ? col : " "), samplesize);
++#endif
++	for (nsch = tr->schemas.set->h; nsch; nsch = nsch->next) {
++		sql_base *b = nsch->data;
++		sql_schema *s = (sql_schema *) nsch->data;
++		if (!isalpha((int) b->name[0]))
++			continue;
++
++		if (sch && strcmp(sch, b->name))
++			continue;
++		if (s->tables.set)
++			for (ntab = (s)->tables.set->h; ntab; ntab = ntab->next) {
++				sql_base *bt = ntab->data;
++				sql_table *t = (sql_table *) bt;
++
++				if (tbl && strcmp(bt->name, tbl))
++					continue;
++				if (isTable(t) && t->columns.set)
++					for (ncol = (t)->columns.set->h; ncol; ncol = ncol->next) {
++						sql_base *bc = ncol->data;
++						sql_column *c = (sql_column *) ncol->data;
++						BAT *bn = store_funcs.bind_col(tr, c, RDONLY);
++						lng sz = BATcount(bn);
++						int (*tostr)(str*,int*,const void*) = BATatoms[bn->ttype].atomToStr; \
++						int len = 0;
++						void *val=0;
++
++						if (col && strcmp(bc->name, col))
++							continue;
++						snprintf(dquery, 8192, "delete from sys.statistics where \"column_id\" = %d;", c->base.id);
++						sorted = BATtordered(bn);
++
++						// Gather the min/max value for builtin types
++						width = bn->T->width;
++
++						if (tostr) { 
++							val = BATmax(bn,0); len = 0;
++							tostr(&maxval, &len,val); 
++							GDKfree(val);
++							val = BATmin(bn,0); len = 0;
++							tostr(&minval, &len,val); 
++							GDKfree(val);
++						} else {
++							maxval = (char *) GDKzalloc(4);
++							minval = (char *) GDKzalloc(4);
++							snprintf(maxval, 4, "nil");
++							snprintf(minval, 4, "nil");
++						}
++						snprintf(query, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT ", 0, 0,'%s','%s',%s);", c->base.id, c->type.type->sqlname, width, (samplesize ? samplesize : sz), sz, minval, maxval, sorted ? "true" : "false");
++#ifdef DEBUG_SQL_STATISTICS
++						mnstr_printf(cntxt->fdout, "%s\n", dquery);
++						mnstr_printf(cntxt->fdout, "%s\n", query);
++#endif
++						BBPunfix(bn->batCacheid);
++						msg = SQLstatementIntern(cntxt, &dquery, "SQLanalyzeMinMax", TRUE, FALSE, NULL);
++						if (msg) {
++							GDKfree(dquery);
++							GDKfree(query);
++							GDKfree(maxval);
++							GDKfree(minval);
++							return msg;
++						}
++						msg = SQLstatementIntern(cntxt, &query, "SQLanalyzeMinMax", TRUE, FALSE, NULL);
++						if (msg) {
++							GDKfree(dquery);
++							GDKfree(query);
++							GDKfree(maxval);
++							GDKfree(minval);
++							return msg;
++						}
++					}
++			}
++	}
++	GDKfree(dquery);
++	GDKfree(query);
++	GDKfree(maxval);
++	GDKfree(minval);
++	return MAL_SUCCEED;
++}
+diff -r 48cfba96feb4 sql/backends/monet5/sql_statistics.h
+--- a/sql/backends/monet5/sql_statistics.h	Tue Jan 27 14:23:38 2015 +0100
++++ b/sql/backends/monet5/sql_statistics.h	Tue Feb 03 16:16:48 2015 +0100
+@@ -36,5 +36,6 @@
+ #endif
+ 
+ sql5_export str sql_analyze(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
++sql5_export str sql_analyzeMinMax(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+ 
+ #endif /* _SQL_STATISTICS_DEF */
+diff -r 48cfba96feb4 sql/backends/monet5/sql_upgrades.c
+--- a/sql/backends/monet5/sql_upgrades.c	Tue Jan 27 14:23:38 2015 +0100
++++ b/sql/backends/monet5/sql_upgrades.c	Tue Feb 03 16:16:48 2015 +0100
+@@ -462,6 +462,18 @@
+ create procedure analyze(sch string, tbl string, col string)\n\
+ external name sql.analyze;\n\
+ \n\
++create procedure analyzeMinMax()\n\
++external name sql.analyzeMinMax;\n\
++\n\
++create procedure analyzeMinMax(sch string)\n\
++external name sql.analyzeMinMax;\n\
++\n\
++create procedure analyzeMinMax(sch string, tbl string)\n\
++external name sql.analyzeMinMax;\n\
++\n\
++create procedure analyzeMinMax(sch string, tbl string, col string)\n\
++external name sql.analyzeMinMax;\n\
++\n\
+ create procedure analyze(\"sample\" bigint)\n\
+ external name sql.analyze;\n\
+ \n\
+@@ -478,7 +490,7 @@
+ 			"insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('json_filter', 'json_filter_all', 'json_isvalid', 'json_isvalidarray', 'json_isvalidobject', 'json_length', 'json_path', 'json_text', 'querylog_calls', 'querylog_catalog', 'queue', 'sessions') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n",
+ 			F_FUNC);
+ 	pos += snprintf(buf + pos, bufsize - pos,
+-			"insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('analyze', 'pause', 'querylog_disable', 'querylog_empty', 'querylog_enable', 'resume', 'setsession', 'settimeout', 'shutdown', 'stop', 'sysmon_resume') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n",
++			"insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('analyze', 'analyzeMinMax', 'pause', 'querylog_disable', 'querylog_empty', 'querylog_enable', 'resume', 'setsession', 'settimeout', 'shutdown', 'stop', 'sysmon_resume') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n",
+ 			F_PROC);
+ 	pos += snprintf(buf + pos, bufsize - pos, "insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('quantile', 'median') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_AGGR);
+ 
+diff -r 48cfba96feb4 sql/scripts/80_statistics.sql
+--- a/sql/scripts/80_statistics.sql	Tue Jan 27 14:23:38 2015 +0100
++++ b/sql/scripts/80_statistics.sql	Tue Feb 03 16:16:48 2015 +0100
+@@ -45,6 +45,18 @@
+ create procedure analyze(sch string, tbl string, col string)
+ external name sql.analyze;
+ 
++create procedure analyzeMinMax()
++external name sql.analyzeMinMax;
++
++create procedure analyzeMinMax(sch string)
++external name sql.analyzeMinMax;
++
++create procedure analyzeMinMax(sch string, tbl string)
++external name sql.analyzeMinMax;
++
++create procedure analyzeMinMax(sch string, tbl string, col string)
++external name sql.analyzeMinMax;
++
+ -- control the sample size
+ create procedure analyze("sample" bigint)
+ external name sql.analyze;
+diff -r 48cfba96feb4 sql/server/rel_psm.c
+--- a/sql/server/rel_psm.c	Tue Jan 27 14:23:38 2015 +0100
++++ b/sql/server/rel_psm.c	Tue Feb 03 16:16:48 2015 +0100
+@@ -1108,7 +1108,7 @@
+ }
+ 
+ static sql_rel *
+-psm_analyze(mvc *sql, dlist *qname, dlist *columns, symbol *sample )
++psm_analyze(mvc *sql, char *analyzeType, dlist *qname, dlist *columns, symbol *sample )
+ {
+ 	exp_kind ek = {type_value, card_value, FALSE};
+ 	sql_exp *sample_exp = NULL, *call;
+@@ -1155,7 +1155,7 @@
+ 			append(exps, sample_exp);
+ 			append(tl, exp_subtype(sample_exp));
+ 		}
+-		f = sql_bind_func_(sql->sa, mvc_bind_schema(sql, "sys"), "analyze", tl, F_PROC);
++		f = sql_bind_func_(sql->sa, mvc_bind_schema(sql, "sys"), analyzeType, tl, F_PROC);
+ 		if (!f)
+ 			return sql_error(sql, 01, "Analyze procedure missing");
+ 		call = exp_op(sql->sa, exps, f);
+@@ -1165,8 +1165,7 @@
+ 
+ 		if (sample_exp)
+ 			append(tl, exp_subtype(sample_exp));
+-		f = sql_bind_func_(sql->sa, mvc_bind_schema(sql, "sys"), "analyze", tl, F_PROC);
+-
++		f = sql_bind_func_(sql->sa, mvc_bind_schema(sql, "sys"), analyzeType, tl, F_PROC);
+ 		if (!f)
+ 			return sql_error(sql, 01, "Analyze procedure missing");
+ 		for( n = columns->h; n; n = n->next) {
+@@ -1252,7 +1251,13 @@
+ 	case SQL_ANALYZE: {
+ 		dlist *l = s->data.lval;
+ 
+-		ret = psm_analyze(sql, l->h->data.lval /* qualified table name */, l->h->next->data.lval /* opt list of column */, l->h->next->next->data.sym /* opt_sample_size */);
++		ret = psm_analyze(sql, "analyze", l->h->data.lval /* qualified table name */, l->h->next->data.lval /* opt list of column */, l->h->next->next->data.sym /* opt_sample_size */);
++		sql->type = Q_UPDATE;
++	} 	break;
++	case SQL_ANALYZEMINMAX: {
++		dlist *l = s->data.lval;
++
++		ret = psm_analyze(sql, "analyzeMinMax", l->h->data.lval /* qualified table name */, l->h->next->data.lval /* opt list of column */, l->h->next->next->data.sym /* opt_sample_size */);
+ 		sql->type = Q_UPDATE;
+ 	} 	break;
+ 	default:
+diff -r 48cfba96feb4 sql/server/rel_semantic.c
+--- a/sql/server/rel_semantic.c	Tue Jan 27 14:23:38 2015 +0100
++++ b/sql/server/rel_semantic.c	Tue Feb 03 16:16:48 2015 +0100
+@@ -212,6 +212,7 @@
+ 	case SQL_DROP_TRIGGER:
+ 
+ 	case SQL_ANALYZE:
++	case SQL_ANALYZEMINMAX:
+ 		return rel_psm(sql, s);
+ 
+ 	case SQL_INSERT:
+diff -r 48cfba96feb4 sql/server/sql_parser.h
+--- a/sql/server/sql_parser.h	Tue Jan 27 14:23:38 2015 +0100
++++ b/sql/server/sql_parser.h	Tue Feb 03 16:16:48 2015 +0100
+@@ -58,6 +58,7 @@
+ 	SQL_DROP_CONSTRAINT,
+ 	SQL_DROP_DEFAULT,
+ 	SQL_ANALYZE,
++	SQL_ANALYZEMINMAX,
+ 	SQL_DECLARE,
+ 	SQL_SET,
+ 	SQL_CALL,
+diff -r 48cfba96feb4 sql/server/sql_parser.y
+--- a/sql/server/sql_parser.y	Tue Jan 27 14:23:38 2015 +0100
++++ b/sql/server/sql_parser.y	Tue Feb 03 16:16:48 2015 +0100
+@@ -544,7 +544,7 @@
+ %token CHECK CONSTRAINT CREATE
+ %token TYPE PROCEDURE FUNCTION AGGREGATE RETURNS EXTERNAL sqlNAME DECLARE
+ %token CALL LANGUAGE 
+-%token ANALYZE SQL_EXPLAIN SQL_PLAN SQL_DEBUG SQL_TRACE SQL_DOT PREPARE EXECUTE
++%token ANALYZE ANALYZEMINMAX SQL_EXPLAIN SQL_PLAN SQL_DEBUG SQL_TRACE SQL_DOT PREPARE EXECUTE
+ %token DEFAULT DISTINCT DROP
+ %token FOREIGN
+ %token RENAME ENCRYPTED UNENCRYPTED PASSWORD GRANT REVOKE ROLE ADMIN INTO
+@@ -692,6 +692,12 @@
+ 		append_list(l, $3);
+ 		append_symbol(l, $4);
+ 		$$ = _symbol_create_list( SQL_ANALYZE, l); }
++ |  ANALYZEMINMAX qname opt_column_list opt_sample	
++		{ dlist *l = L();
++		append_list(l, $2);
++		append_list(l, $3);
++		append_symbol(l, $4);
++		$$ = _symbol_create_list( SQL_ANALYZEMINMAX, l); }
+  |  call_procedure_statement
+  ;
+ 
+@@ -4917,6 +4923,7 @@
+ |  TEMPORARY	{ $$ = sa_strdup(SA, "temporary"); }
+ |  TEMP		{ $$ = sa_strdup(SA, "temp"); }
+ |  ANALYZE	{ $$ = sa_strdup(SA, "analyze"); }
++|  ANALYZEMINMAX	{ $$ = sa_strdup(SA, "analyzeMinMax"); }
+ ;
+ 
+ name_commalist:
+diff -r 48cfba96feb4 sql/server/sql_scan.c
+--- a/sql/server/sql_scan.c	Tue Jan 27 14:23:38 2015 +0100
++++ b/sql/server/sql_scan.c	Tue Feb 03 16:16:48 2015 +0100
+@@ -289,6 +289,7 @@
+ 	keywords_insert("LANGUAGE", LANGUAGE);
+ 
+ 	keywords_insert("ANALYZE", ANALYZE);
++	keywords_insert("ANALYZEMINMAX", ANALYZEMINMAX);
+ 	keywords_insert("EXPLAIN", SQL_EXPLAIN);
+ 	keywords_insert("PLAN", SQL_PLAN);
+ 	keywords_insert("DEBUG", SQL_DEBUG);

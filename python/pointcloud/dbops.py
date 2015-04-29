@@ -179,11 +179,13 @@ def getSelect(queryParameters, flatTable, addContainsConditionMethod, columnsNam
         query = "SELECT "  + cols + " FROM (select " + hints + "* FROM " + flatTable  + getWhereStatement([bBoxCondition,zCondition]) + ") b " + getWhereStatement(specificCondition)
     elif queryParameters.queryType == 'generic':
         (queryTable, specificCondition) = addContainsConditionMethod(queryParameters, queryArgs, xname, yname)
-        if queryParameters.db != 'ora':
+        if queryParameters.db == 'psql':
             tables = ['ftf']
             if queryTable != None:
                 tables.append(queryTable)
             query = "SELECT " + cols + " FROM ( SELECT * FROM " + flatTable + getWhereStatement([bBoxCondition,zCondition]) + ") " + ",".join(tables) + getWhereStatement(specificCondition)
+        elif queryParameters.db == 'mon':
+            query = "SELECT " + cols + " FROM " + flatTable + " " + getWhereStatement([specificCondition, zCondition])
         else:
             query = "SELECT " + cols + " from table ( sdo_PointInPolygon ( cursor ( select " + hints + "* FROM " + flatTable + getWhereStatement([bBoxCondition,zCondition]) + " ), " + specificCondition + "))"
     elif queryParameters.queryType == 'nn' :
