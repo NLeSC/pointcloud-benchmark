@@ -6,7 +6,7 @@
 from shapely.wkt import loads, dumps
 import time,logging
 from pointcloud.monetdb.AbstractQuerier import AbstractQuerier
-from pointcloud import wktops, dbops, monetdbops
+from pointcloud import wktops, dbops, monetdbops, utils
 from pointcloud.QuadTree import QuadTree
 
 MAXIMUM_RANGES = 10
@@ -31,8 +31,8 @@ class QuerierMorton(AbstractQuerier):
         
         self.queryColsData = self.DM_FLAT.copy()
         if not ('x' in self.columns and 'y' in self.columns):
-            self.queryColsData['x'][0] = 'GetX(morton2D, ' + str(self.scaleX) + ', ' + str(int(self.minX / self.scaleX)) + ')' 
-            self.queryColsData['y'][0] = 'GetY(morton2D, ' + str(self.scaleY) + ', ' + str(int(self.minY / self.scaleY)) + ')'
+            self.queryColsData['x'] = ('GetX(morton2D, ' + str(self.scaleX) + ', ' + str(int(self.minX / self.scaleX)) + ')', 'DOUBLE PRECISION')
+            self.queryColsData['y'] = ('GetY(morton2D, ' + str(self.scaleY) + ', ' + str(int(self.minY / self.scaleY)) + ')', 'DOUBLE PRECISION')
             
         # Drops possible query table 
         monetdbops.dropTable(cursor, utils.QUERY_TABLE, check = True)
@@ -46,7 +46,7 @@ class QuerierMorton(AbstractQuerier):
         (eTime, result) = (-1, None)
         connection = self.getConnection()
         cursor = connection.cursor() 
-        self.prepareQuery(cursor, queryId, queriesParameters, iterationId == 0)
+        self.prepareQuery(cursor, queryId, queriesParameters, False)
         monetdbops.dropTable(cursor, self.resultTable, True)    
            
         wkt = self.qp.wkt
