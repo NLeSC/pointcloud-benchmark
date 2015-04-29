@@ -32,8 +32,8 @@ class LoaderBinary(ALoader, CommonMonetDB):
             connection = self.getConnection()
             cursor = connection.cursor()
             
-            monetdbops.mogrifyExecute(cursor, """CREATE FUNCTION GetX(morton BIGINT, scaleX DOUBLE, globalOffset BIGINT) RETURNS DOUBLE external name geom."GetX";""")
-            monetdbops.mogrifyExecute(cursor, """CREATE FUNCTION GetY(morton BIGINT, scaleY DOUBLE, globalOffset BIGINT) RETURNS DOUBLE external name geom."GetY";""")
+#            monetdbops.mogrifyExecute(cursor, """CREATE FUNCTION GetX(morton BIGINT, scaleX DOUBLE, globalOffset BIGINT) RETURNS DOUBLE external name geom."GetX";""")
+#            monetdbops.mogrifyExecute(cursor, """CREATE FUNCTION GetY(morton BIGINT, scaleY DOUBLE, globalOffset BIGINT) RETURNS DOUBLE external name geom."GetY";""")
         
         logging.info('Getting files, extent and SRID from input folder ' + self.inputFolder)
         (self.inputFiles, _, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = lasops.getPCFolderDetails(self.inputFolder)
@@ -100,9 +100,9 @@ class LoaderBinary(ALoader, CommonMonetDB):
                 #TODO create 2 processes, one for x and one for y
             else:
                 logging.info('Creating imprints')
-                w = ''
+                w = []
                 for c in 'xy':
-                    w += self.DM_FLAT[c][0] + ' between 0 and 1'
+                    w.append(self.DM_FLAT[c][0] + ' between 0 and 1')
                 query = "select * from " + self.flatTable + " where " + " AND ".join(w)
                 monetdbops.mogrifyExecute(cursor, query)
                 

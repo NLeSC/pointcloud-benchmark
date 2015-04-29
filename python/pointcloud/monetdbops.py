@@ -18,7 +18,11 @@ def mogrify(cursor, query, queryArgs = None):
         pquery = query
         for qa in queryArgs:
             qindex = pquery.index('%s')
-            pquery = pquery[:qindex] + str(qa) + pquery[qindex+2:]
+            if type(qa) == str:
+                a = "'" + str(qa) + "'"
+            else:
+                a = str(qa)
+            pquery = pquery[:qindex] + a + pquery[qindex+2:]
         return pquery
 
 def mogrifyExecute(cursor, query, queryArgs = None):
