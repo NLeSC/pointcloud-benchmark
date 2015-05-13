@@ -3,7 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import os
+import os, sys
 from pointcloud import utils
 from osgeo import osr
 import liblas
@@ -73,11 +73,14 @@ def getPCFolderDetails(absPath, srid = None):
     tsrid = None
     
     if os.path.isdir(absPath):
-        inputFiles = utils.getFiles(absPath)
+        inputFiles = utils.getFiles(absPath, recursive=True)
     else:
         inputFiles = [absPath,]
     
-    for i in range(len(inputFiles)):
+    print
+    numFiles = len(inputFiles)
+    for i in range(numFiles):
+        sys.stdout.write('\r')
         (srid, count, minx, miny, minz, maxx, maxy, maxz, scalex, scaley, scalez, _, _, _) = getPCFileDetails(inputFiles[i], srid)
         if i == 0:
             (tscalex, tscaley, tscalez) = (scalex, scaley, scalez)
@@ -97,5 +100,9 @@ def getPCFolderDetails(absPath, srid = None):
                 tmaxy = maxy
             if tmaxz == None or maxz > tmaxz:
                 tmaxz = maxz
-
+        sys.stdout.write("\rCompleted %.02f%%" % (100. * float(i) / float(numFiles)))
+        sys.stdout.flush()
+    sys.stdout.write('\r')
+    sys.stdout.write('\rCompleted 100.00%!')
+    print
     return (inputFiles, tsrid, tcount, tminx, tminy, tminz, tmaxx, tmaxy, tmaxz, tscalex, tscaley, tscalez)
