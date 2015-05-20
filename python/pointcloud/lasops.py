@@ -3,7 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import os, sys
+import os, sys, multiprocessing
 from pointcloud import utils
 from osgeo import osr
 import liblas
@@ -64,7 +64,7 @@ def getPCFileDetails(absPath, srid = None):
             offsetZ = float(offsetZ)
     return (srid, count, minX, minY, minZ, maxX, maxY, maxZ, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ)
 
-def getPCFolderDetails(absPath, srid = None):
+def getPCFolderDetails(absPath, srid = None, numProc = 1):
     """ Get the details (count numPoints and extent) of a folder with LAS/LAZ files (using LAStools, hence it is fast)
     It is assumed that all file shave same SRID and scale as first one"""
     tcount = 0
@@ -77,11 +77,26 @@ def getPCFolderDetails(absPath, srid = None):
     else:
         inputFiles = [absPath,]
     
-    print
-    numFiles = len(inputFiles)
-    for i in range(numFiles):
+    numInputFiles = len(inputFiles)
+        
+    tasksQueue = multiprocessing.Queue() # The queue of tasks
+    detailsQueue = multiprocessing.Queue() # The queue of results/details
+    
+    for i in range(numInputFiles):
+        tasksQueue.put(inputFiles[i])
+    for i in range(numProc): #we add as many None jobs as numProc to tell them to terminate (queue is FIFO)
+        tasksQueue.put(None)
+    
+    workers = []
+    # We start numProc users workers
+    for i in range(numProc):
+        workers.append(multiprocessing.Process(target=runProcGetPCFolderDetailsWorker, 
+            args=(tasksQueue, detailsQueue, srid)))
+        workers[-1].start()
+        
+    for i in range(numInputFiles):
         sys.stdout.write('\r')
-        (srid, count, minx, miny, minz, maxx, maxy, maxz, scalex, scaley, scalez, _, _, _) = getPCFileDetails(inputFiles[i], srid)
+        (srid, count, minx, miny, minz, maxx, maxy, maxz, scalex, scaley, scalez, _, _, _) = detailsQueue.get()
         if i == 0:
             (tscalex, tscaley, tscalez) = (scalex, scaley, scalez)
             tsrid = srid
@@ -100,9 +115,29 @@ def getPCFolderDetails(absPath, srid = None):
                 tmaxy = maxy
             if tmaxz == None or maxz > tmaxz:
                 tmaxz = maxz
-        sys.stdout.write("\rCompleted %.02f%%" % (100. * float(i) / float(numFiles)))
+        sys.stdout.write("\rCompleted %.02f%%" % (100. * float(i) / float(numInputFiles)))
         sys.stdout.flush()
     sys.stdout.write('\r')
     sys.stdout.write('\rCompleted 100.00%!')
+    
+    # wait for all users to finish their execution
+    for i in range(numProc):
+        workers[i].join()
+    
     print
     return (inputFiles, tsrid, tcount, tminx, tminy, tminz, tmaxx, tmaxy, tmaxz, tscalex, tscaley, tscalez)
+
+def runProcGetPCFolderDetailsWorker(tasksQueue, detailsQueue, srid):
+    kill_received = False
+    while not kill_received:
+        job = None
+        try:
+            # This call will patiently wait until new job is available
+            job = tasksQueue.get()
+        except:
+            # if there is an error we will quit the loop
+            kill_received = True
+        if job == None:
+            kill_received = True
+        else:            
+            detailsQueue.put(getPCFileDetails(job, srid))
