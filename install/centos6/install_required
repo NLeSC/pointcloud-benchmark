@@ -29,21 +29,22 @@ cd /opt/sw
 # export PATH="/opt/sw/geos-3.4.2/build/bin:$PATH"
 
 
-# Install proj
-source export_custom.sh
-wget http://download.osgeo.org/proj/proj-4.9.0RC2.tar.gz
-tar xvzf proj-4.9.0RC2.tar.gz 
-cd proj-4.9.0
+# PROJ.4
+wget http://download.osgeo.org/proj/proj-4.8.0.tar.gz
+tar xvfz proj-4.8.0.tar.gz 
+cd proj-4.8.0
 mkdir build
-mkdir makefiles
-cd makefiles
-../configure --prefix=/opt/sw/proj-4.9.0/build
-make
+./configure --prefix=/opt/sw/proj-4.8.0/build
+make -j32
 make install
 cd /opt/sw/
-# Add paths to export_custom.sh 
-# export LD_LIBRARY_PATH="/opt/sw/proj-4.9.0/build/lib:$LD_LIBRARY_PATH"
-# export PATH="/opt/sw/proj-4.9.0/build/bin:$PATH"
+vim export.sh
+# Add to paths 
+# export LD_LIBRARY_PATH="/opt/sw/proj-4.8.0/build/lib:$LD_LIBRARY_PATH"
+# export PATH="/opt/sw/proj-4.8.0/build/bin:$PATH"
+source export_custom.sh 
+proj
+echo "338730 4679730" | cs2cs -v +init=epsg:26919 +to +init=epsg:4269
 
 # Install libtiff
 source export_custom.sh 
@@ -77,11 +78,11 @@ cd /opt/sw/
 
 # Install libgeotiff
 source export_custom.sh 
-wget wget http://download.osgeo.org/geotiff/libgeotiff/libgeotiff-1.4.1.tar.gz
+wget http://download.osgeo.org/geotiff/libgeotiff/libgeotiff-1.4.1.tar.gz
 tar xvzf libgeotiff-1.4.1.tar.gz 
 cd libgeotiff-1.4.1
 mkdir build
-./configure --prefix=/opt/sw/libgeotiff-1.4.1/build --with-proj=/opt/sw/proj-4.9.0/build --with-libtiff=/opt/sw/tiff-4.0.3/build --with-zlib --with-jpeg
+./configure --prefix=/opt/sw/libgeotiff-1.4.1/build --with-proj=/opt/sw/proj-4.8.0/build --with-libtiff=/opt/sw/tiff-4.0.3/build --with-zlib --with-jpeg
 make
 make install
 cd /opt/sw/
@@ -104,7 +105,7 @@ mkdir build
 # Remove with-oci if no Oracle is required
 export CC="gcc -fPIC"
 export CXX="g++ -fPIC"
-./configure --prefix=/opt/sw/gdal-trunk/build/ --with-jpeg=external --with-jpeg12 --without-libtool --without-python --with-static-proj4=/opt/sw/proj-4.9.0/build/ --with-libtiff=/opt/sw/tiff-4.0.3/build/ --with-geotiff=/opt/sw/libgeotiff-1.4.1/build/ --with-geos=/opt/sw/geos-3.4.2/build/bin/geos-config --with-pg=/usr/pgsql-9.4/bin/pg_config  --with-oci=yes
+./configure --prefix=/opt/sw/gdal-trunk/build/ --with-jpeg=external --with-jpeg12 --without-libtool --without-python --with-static-proj4=/opt/sw/proj-4.8.0/build/ --with-libtiff=/opt/sw/tiff-4.0.3/build/ --with-geotiff=/opt/sw/libgeotiff-1.4.1/build/ --with-geos=/opt/sw/geos-3.4.2/build/bin/geos-config --with-pg=/usr/pgsql-9.4/bin/pg_config  --with-oci=yes
 make -j2
 make install
 cd /opt/sw/
@@ -127,7 +128,7 @@ cd /opt/sw/
 # Install laszip
 source export_custom.sh 
 install git cmake gcc-c++ make
-wget http://download.A.org/laszip/laszip-2.1.0.tar.gz
+wget http://download.osgeo.org/laszip/laszip-2.1.0.tar.gz
 tar xvzf laszip-2.1.0.tar.gz 
 cd laszip-2.1.0
 mkdir build
@@ -169,8 +170,8 @@ cmake -G "Unix Makefiles" .. -DCMAKE_INSTALL_PREFIX=/opt/sw/liblas/build \
 -DBOOST_THREAD_LIBRARY_RELEASE=/opt/sw/boost_1_55_0/build/lib/libboost_thread.so \
 -DTIFF_INCLUDE_DIR=/opt/sw/tiff-4.0.3/build/include \
 -DTIFF_LIBRARY=/opt/sw/tiff-4.0.3/build/lib/libtiff.so \
--DPROJ4_LIBRARY=/opt/sw/proj-4.9.0/build/lib/libproj.so \
--DPROJ4_INCLUDE_DIR=/opt/sw/proj-4.9.0/build/include
+-DPROJ4_LIBRARY=/opt/sw/proj-4.8.0/build/lib/libproj.so \
+-DPROJ4_INCLUDE_DIR=/opt/sw/proj-4.8.0/build/include
 make
 make install
 cd /opt/sw/
