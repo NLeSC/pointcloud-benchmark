@@ -24,7 +24,8 @@ class LoaderMorton(AbstractLoader):
         self.createQuadCellId(cursor)
         
         logging.info('Getting files and extent from input folder ' + self.inputFolder)
-        (self.inputFiles, _, _, self.minX, self.minY, self.minZ, self.maxX, self.maxY, _, self.scaleX, self.scaleY, self.scaleZ) = lasops.getPCFolderDetails(self.inputFolder)
+        self.numProcessesLoad = int(os.popen('grep -c ^processor /proc/cpuinfo').read())
+        (self.inputFiles, _, _, self.minX, self.minY, self.minZ, self.maxX, self.maxY, _, self.scaleX, self.scaleY, self.scaleZ) = lasops.getPCFolderDetails(self.inputFolder, numProc = self.numProcessesLoad)
         self.createBlocksTable(cursor, self.blockTable, self.tableSpace, True)
         
         # Create meta table to save the extent of the PC

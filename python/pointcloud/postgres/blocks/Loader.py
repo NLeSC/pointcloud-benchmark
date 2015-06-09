@@ -20,7 +20,7 @@ class Loader(AbstractLoader):
             cursor = connection.cursor()
         
         logging.info('Getting files and extent from input folder ' + self.inputFolder)
-        (self.inputFiles, _, _, self.minX, self.minY, self.minZ, _, _, _, self.scaleX, self.scaleY, self.scaleZ) = lasops.getPCFolderDetails(self.inputFolder)
+        (self.inputFiles, _, _, self.minX, self.minY, self.minZ, _, _, _, self.scaleX, self.scaleY, self.scaleZ) = lasops.getPCFolderDetails(self.inputFolder, numProc = self.numProcessesLoad)
         
         self.createBlocksTable(cursor, self.blockTable, self.tableSpace)
         connection.close()

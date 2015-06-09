@@ -36,7 +36,7 @@ class LoaderBinary(ALoader, CommonMonetDB):
 #            monetdbops.mogrifyExecute(cursor, """CREATE FUNCTION GetY(morton BIGINT, scaleY DOUBLE, globalOffset BIGINT) RETURNS DOUBLE external name geom."GetY";""")
         
         logging.info('Getting files, extent and SRID from input folder ' + self.inputFolder)
-        (self.inputFiles, _, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = lasops.getPCFolderDetails(self.inputFolder)
+        (self.inputFiles, _, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = lasops.getPCFolderDetails(self.inputFolder, numProc = self.numProcessesLoad)
         
         if not self.imprints:
             # If we want to create a final indexed table we need to put the 

@@ -17,7 +17,7 @@ class LoaderExt(AbstractLoader):
             
         # Get the point cloud folder description
         logging.info('Getting files, extent, scale and SRID from input folder ' + self.inputFolder)
-        (self.inputFiles, _, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = lasops.getPCFolderDetails(self.inputFolder)
+        (self.inputFiles, _, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = lasops.getPCFolderDetails(self.inputFolder, numProc = self.numProcessesLoad)
         
         # Creates connection
         connection = self.getConnection()
