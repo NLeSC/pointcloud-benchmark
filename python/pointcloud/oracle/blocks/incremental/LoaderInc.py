@@ -3,7 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import logging
+import logging, time, os
 from pointcloud import lasops, oracleops
 from pointcloud.oracle.AbstractLoader import AbstractLoader
 
@@ -37,7 +37,10 @@ class LoaderInc(AbstractLoader):
         return self.processMulti(self.inputFiles, self.numProcessesLoad, self.loadFromFile)
         
     def loadFromFile(self,  index, fileAbsPath):
+        t0 = time.time()
         self.loadInc(fileAbsPath, 1, self.blockTable, self.blockSeq, self.blockSize, self.batchSize)
+        print 'LOADSTATS', os.path.basename(fileAbsPath), lasops.getPCFileDetails(fileAbsPath)[1], time.time() - t0
+        
 
     def close(self):
         connection = self.getConnection()

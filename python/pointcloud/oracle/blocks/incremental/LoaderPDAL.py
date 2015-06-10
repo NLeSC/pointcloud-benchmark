@@ -3,7 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import os, logging
+import os, logging, time
 from pointcloud.oracle.AbstractLoader import AbstractLoader
 from pointcloud import lasops, pdalops, utils
 
@@ -42,7 +42,9 @@ class LoaderPDAL(AbstractLoader):
                 
         useOffsetScale = self.useOffsetScale
         pdalops.OracleWriter(xmlFile, fileAbsPath, self.getConnectionString(), pdalCols, self.blockTable, self.baseTable, self.srid, self.blockSize, self.pdalCompression, self.pdalDimOrientation, useOffsetScale)
+        t0 = time.time()
         pdalops.executePDAL(xmlFile)
+        print 'LOADSTATS', os.path.basename(fileAbsPath), lasops.getPCFileDetails(fileAbsPath)[1], time.time() - t0
         
     def close(self):
         connection = self.getConnection()

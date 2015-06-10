@@ -3,7 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ############################
-import os, logging
+import os, logging, time
 from pointcloud import lidaroverview, postgresops, lasops
 from pointcloud.AbstractLoader import AbstractLoader
 from pointcloud.lastools.CommonLASTools import CommonLASTools
@@ -30,7 +30,7 @@ class Loader(AbstractLoader,CommonLASTools):
     def processFile(self, index, fileAbsPath):
         # Get the file extension
         extension = fileAbsPath.split('.')[-1]
-        
+
         if extension == self.dataExtension:
             outputAbsPath = self.dataFolder + '/' + os.path.basename(fileAbsPath)
         else:
@@ -45,9 +45,13 @@ class Loader(AbstractLoader,CommonLASTools):
                 commands.append('las2las -i ' + fileAbsPath + ' -o ' + outputAbsPath)
         commands.append('lasindex -i ' + outputAbsPath)
         
+        times = []
         for command in commands:
             logging.info(command)
+            t0 = time.time()
             os.system(command)
+            times.append(time.time() - t0)
+        print 'LOADSTATS', os.path.basename(fileAbsPath), lasops.getPCFileDetails(fileAbsPath)[1], times[0], times[1]
         
     def close(self):
         if self.dbIndex:

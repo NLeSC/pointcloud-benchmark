@@ -3,7 +3,7 @@
 #    Created by Oscar Martinez                                                 #
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
-import os, logging
+import os, logging, time
 from pointcloud import pdalops, postgresops, utils, lasops
 from pointcloud.postgres.AbstractLoader import AbstractLoader
 
@@ -44,7 +44,9 @@ class Loader(AbstractLoader):
         # Get PDAL config and run PDAL
         xmlFile = os.path.basename(fileAbsPath) + '.xml'
         pdalops.PostgreSQLWriter(xmlFile, fileAbsPath, self.getConnectionString(), pcid, pdalCols, self.blockTable, self.srid, self.blockSize, compression)
+        t0 = time.time()
         pdalops.executePDAL(xmlFile)
+        print 'LOADSTATS', os.path.basename(fileAbsPath), lasops.getPCFileDetails(fileAbsPath)[1], time.time() - t0
 
     def close(self):
         connection = self.getConnection()
