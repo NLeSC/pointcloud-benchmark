@@ -6,7 +6,9 @@ include_directories(
 ###############################################################################
 # Collect programs to build
 
+set(LAS2TXT las2txt)
 set(LAS2COL las2col)
+set(LAS2COLDEC las2colDec)
 set(LAS2PG las2pg)
 set(VOX2TXT vox2txt)
 
@@ -17,7 +19,7 @@ if (NOT CMAKE_BUILD_TYPE )
 endif()
 
 set(LASNLESC_UTILITIES
-    ${LAS2COL} ${LAS2PG} ${VOX2TXT})
+    ${LAS2TXT} ${LAS2COL} ${LAS2COLDEC} ${LAS2PG} ${VOX2TXT})
 
 if(MSVC)
     foreach(utility ${LASNLESC_UTILITIES})
@@ -38,12 +40,28 @@ set(APPS_CPP_DEPENDENCIES
 
 link_directories(${Boost_LIBRARY_DIRS})
 
+# Build las2txt
+if(LAS2TXT)
+    find_package (Threads)
+    set(LAS2TXT_SRC lascommon.c ${LAS2TXT}.c)
+    add_executable( ${LAS2TXT}  ${LAS2TXT_SRC} )
+    target_link_libraries(${LAS2TXT} ${LASNLESC_C_LIB_NAME} ${CMAKE_THREAD_LIBS_INIT} )
+endif()
+
 # Build las2col
 if(LAS2COL)
     find_package (Threads)
     set(LAS2COL_SRC lascommon.c ${LAS2COL}.c)
     add_executable( ${LAS2COL}  ${LAS2COL_SRC} )
     target_link_libraries(${LAS2COL} ${LASNLESC_C_LIB_NAME} ${CMAKE_THREAD_LIBS_INIT} )
+endif()
+
+# Build las2colDec
+if(LAS2COLDEC)
+    find_package (Threads)
+    set(LAS2COLDEC_SRC lascommon.c ${LAS2COLDEC}.c)
+    add_executable( ${LAS2COLDEC}  ${LAS2COLDEC_SRC} )
+    target_link_libraries(${LAS2COLDEC} ${LASNLESC_C_LIB_NAME} ${CMAKE_THREAD_LIBS_INIT} )
 endif()
 
 # Build las2pg
