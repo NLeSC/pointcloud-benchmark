@@ -4,7 +4,7 @@
 #    o.rubi@esciencecenter.nl                                                  #
 ################################################################################
 import os, logging, math, numpy
-from pointcloud import dbops, monetdbops, lasops
+from pointcloud import dbops, monetdbops, lasops, morton
 from pointcloud.AbstractLoader import AbstractLoader as ALoader
 from pointcloud.monetdb.CommonMonetDB import CommonMonetDB
 
@@ -19,7 +19,6 @@ class LoaderBinary(ALoader, CommonMonetDB):
     def initialize(self):
         if self.partitioning and not self.imprints:
             raise Exception('Partitioning without imprints is not supported!')        
-        self.numPartitions = 0
 
         if self.createDB:
             logging.info('Creating DB ' + self.dbName)
@@ -31,12 +30,11 @@ class LoaderBinary(ALoader, CommonMonetDB):
         
             connection = self.getConnection()
             cursor = connection.cursor()
-            
-#            monetdbops.mogrifyExecute(cursor, """CREATE FUNCTION GetX(morton BIGINT, scaleX DOUBLE, globalOffset BIGINT) RETURNS DOUBLE external name geom."GetX";""")
-#            monetdbops.mogrifyExecute(cursor, """CREATE FUNCTION GetY(morton BIGINT, scaleY DOUBLE, globalOffset BIGINT) RETURNS DOUBLE external name geom."GetY";""")
         
-        logging.info('Getting files, extent and SRID from input folder ' + self.inputFolder)
-        (self.inputFiles, _, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = lasops.getPCFolderDetails(self.inputFolder, numProc = self.numProcessesLoad)
+        logging.info('Getting files, extent and SRID from input folder ' + self.inputFolder)        
+        (self.inputFiles, inputFilesBoundingCube, _, _, boundingCube, scales) = lasops.getPCFolderDetails(self.inputFolder, numProc = self.numProcessesLoad)
+        (self.minX, self.minY, self.minZ, self.maxX, self.maxY, se.f.maxZ) = boundingCube
+        (self.scaleX, self.scaleY, _) = scales
         
         if not self.imprints:
             # If we want to create a final indexed table we need to put the 
@@ -46,18 +44,46 @@ class LoaderBinary(ALoader, CommonMonetDB):
         else:
             ftName = self.flatTable
         
-        # Create the point cloud table (a merged table if partitioning is enabled)
         connection = self.getConnection()
         cursor = connection.cursor()
-        merge = ''
         if self.partitioning:
-            merge = 'MERGE'
-        monetdbops.mogrifyExecute(cursor, "CREATE " + merge + " TABLE " + ftName + " (" + (', '.join(self.getDBColumns())) + ")")
+            rangeX = self.maxX - self.minX
+            rangeY = self.maxY - self.minY
+            nX = int(math.ceil(math.sqrt(self.numPartitions) * (float(rangeX)/float(rangeY))))
+            nY = int(math.ceil(math.sqrt(self.numPartitions) / (float(rangeX)/float(rangeY))))
+            
+            self.tilesFiles = {}
+            for i in range(len(self.inputFiles)):
+                (fminX, fminY, _, fmaxX, fmaxY, _) = inputFilesBoundingCube[i]
+                pX = fminX + ((fmaxX - fminX) / 2.)
+                pY = fminY + ((fmaxY - fminY) / 2.)
+                m = morton.EncodeMorton2D(*self.getTileIndex(pX, pY, self.minX, self.minY, self.maxX, self.maxY, nX, nY))
+                if m not in self.tilesFiles:
+                    self.tilesFiles[m] = []
+                self.tilesFiles[m].append(self.inputFiles[i])
+            
+            logging.info('Real number of partitions is ' + str(len(self.tilesFiles)))
+            
+            monetdbops.mogrifyExecute(cursor, "CREATE MERGE TABLE " + ftName + " (" + (', '.join(self.getDBColumns())) + ")")
+            for m in sorted(self.tilesFiles):
+                monetdbops.mogrifyExecute(cursor, "CREATE TABLE " + ftName + str(m) + " (" + (', '.join(self.getDBColumns())) + ")")
+        else:
+            monetdbops.mogrifyExecute(cursor, "CREATE TABLE " + ftName + " (" + (', '.join(self.getDBColumns())) + ")")
+                
         #  Create the meta-data table
         monetdbops.mogrifyExecute(cursor, "CREATE TABLE " + self.metaTable + " (tablename text, srid integer, minx DOUBLE PRECISION, miny DOUBLE PRECISION, maxx DOUBLE PRECISION, maxy DOUBLE PRECISION, scalex DOUBLE PRECISION, scaley DOUBLE PRECISION)")
         # Close connection
         connection.close()    
-    
+        
+    def getTileIndex(self, pX, pY, minX, minY, maxX, maxY, axisTilesX, axisTilesY):
+        xpos = int((pX - minX) * axisTilesX / (maxX - minX))
+        ypos = int((pY - minY) * axisTilesY / (maxY - minY))
+        if xpos == axisTilesX: # If it is in the edge of the box (in the maximum side) we need to put in the last tile
+            xpos -= 1
+        if ypos == axisTilesY:
+            ypos -= 1
+        return (xpos, ypos)
+
     def getDBColumns(self):
         cols = []
         for c in self.columns:
@@ -82,8 +108,8 @@ class LoaderBinary(ALoader, CommonMonetDB):
         
         # We set the table to read only
         if self.partitioning:
-            for i in range(self.numPartitions):
-                partitionName = ftName + str(i)
+            for m in sorted(self.tilesFiles):
+                partitionName = ftName + str(m)
                 monetdbops.mogrifyExecute(cursor, "alter table " + partitionName + " set read only")
         else:
             monetdbops.mogrifyExecute(cursor, "alter table " + ftName + " set read only")
@@ -92,25 +118,47 @@ class LoaderBinary(ALoader, CommonMonetDB):
             if self.partitioning:
                 # Create imprints index
                 logging.info('Creating imprints for different partitions and columns')
-                for c in self.columns:
-                    colName = self.DM_FLAT[c][0]
-                    for i in range(self.numPartitions):
-                        partitionName = ftName + str(i)
-                        monetdbops.mogrifyExecute(cursor, "select " + colName + " from " + partitionName + " where " + colName + " between 0 and 1")
-                #TODO create 2 processes, one for x and one for y
+                for m in sorted(self.tilesFiles):
+                    partitionName = ftName + str(m)
+                    for c in self.columns:
+                        colName = self.DM_FLAT[c][0]
+                        if c == 'x':
+                            minDim = self.minX - 10
+                            maxDim = self.minX - 9
+                        elif c == 'y':
+                            minDim = self.minY - 10
+                            maxDim = self.minY - 9
+                        elif c == 'z':
+                            minDim = self.minZ - 10
+                            maxDim = self.minZ - 9
+                        else:
+                            minDim = 0
+                            maxDim = 1
+                        monetdbops.mogrifyExecute(cursor, "select " + colName + " from " + partitionName + " where " + colName + " between %s and %s", [minDim, maxDim])
+                    monetdbops.mogrifyExecute(cursor, "analyze sys." + partitionName + " (" + dbops.getSelectCols(self.columns, self.DM_FLAT) + ") minmax")
             else:
                 logging.info('Creating imprints')
-                w = []
-                for c in 'xy':
-                    w.append(self.DM_FLAT[c][0] + ' between 0 and 1')
-                query = "select * from " + self.flatTable + " where " + " AND ".join(w)
-                monetdbops.mogrifyExecute(cursor, query)
-                
+                for c in self.columns:
+                    colName = self.DM_FLAT[c][0]
+                    if c == 'x':
+                        minDim = self.minX - 10
+                        maxDim = self.minX - 9
+                    elif c == 'y':
+                        minDim = self.minY - 10
+                        maxDim = self.minY - 9
+                    elif c == 'z':
+                        minDim = self.minZ - 10
+                        maxDim = self.minZ - 9
+                    else:
+                        minDim = 0
+                        maxDim = 1
+                    monetdbops.mogrifyExecute(cursor, "select " + colName + " from " + self.flatTable + " where " + colName + " between %s and %s", [minDim, maxDim])
+                monetdbops.mogrifyExecute(cursor, "analyze sys." + self.flatTable + " (" + dbops.getSelectCols(self.columns, self.DM_FLAT) + ") minmax")
         else:
             if self.partitioning:
-                for i in range(self.numPartitions):
-                    partitionName = ftName + str(i)
-                    newPartitionName = self.flatTable + str(i)
+                for m in sorted(self.tilesFiles):
+                    partitionName = ftName + str(m)
+                    newPartitionName = self.flatTable + str(m)
                     monetdbops.mogrifyExecute(cursor, 'CREATE TABLE ' + newPartitionName + ' AS SELECT * FROM ' + partitionName + ' ORDER BY ' + dbops.getSelectCols(self.index, self.DM_FLAT) + ' WITH DATA')
                     monetdbops.mogrifyExecute(cursor, "alter table " + newPartitionName + " set read only")
                     monetdbops.mogrifyExecute(cursor, 'DROP TABLE ' + partitionName)
@@ -120,8 +168,8 @@ class LoaderBinary(ALoader, CommonMonetDB):
                 monetdbops.mogrifyExecute(cursor, 'DROP TABLE ' + self.tempFlatTable)
             
         if self.partitioning:
-            for i in range(self.numPartitions):
-                partitionName = self.flatTable + str(i)
+            for m in sorted(self.tilesFiles):
+                partitionName = self.flatTable + str(m)
                 monetdbops.mogrifyExecute(cursor, "ALTER TABLE " + self.flatTable + " add table " + partitionName)
         
         connection.close()
@@ -160,48 +208,75 @@ class LoaderBinary(ALoader, CommonMonetDB):
         metaArgs = (self.flatTable, self.srid, self.minX, self.minY, self.maxX, self.maxY, self.scaleX, self.scaleY)
         monetdbops.mogrifyExecute(cursor, "INSERT INTO " + self.metaTable + " VALUES (%s,%s,%s,%s,%s,%s,%s,%s)" , metaArgs)
 
-        # Split the list of input files in bunches of maximum MAX_FILES files
-        inputFilesLists = numpy.array_split(self.inputFiles, int(math.ceil(float(len(self.inputFiles))/float(MAX_FILES))))
-        
         l2colCols = []
         for c in self.columns:
             l2colCols.append(self.DM_LAS2COL[c])
-            
 
-        for i in range(len(inputFilesLists)):
-            # Create the file with the list of PC files
-            listFile =  self.tempDir + '/' + str(i) + '_listFile'
-            outputFile = open(listFile, 'w')
-            for f in inputFilesLists[i]:
-                outputFile.write(f + '\n')
-            outputFile.close()
+        if self.partitioning:
+            for m in sorted(self.tilesFiles):
+                # Split the list of input files in bunches of maximum MAX_FILES files
+                inputFilesLists = numpy.array_split(self.tilesFiles[m], int(math.ceil(float(len(self.tilesFiles[m]))/float(MAX_FILES))))
+                for i in range(len(inputFilesLists)):
+                    # Create the file with the list of PC files
+                    listFile =  self.tempDir + '/' + str(m) + '_' + str(i) + '_listFile'
+                    outputFile = open(listFile, 'w')
+                    for f in inputFilesLists[i]:
+                        outputFile.write(f + '\n')
+                    outputFile.close()
+                    
+                    # Generate the command for the NLeSC Binary converter
+                    inputArg = '-f ' + listFile
+                    tempFile =  self.tempDir + '/' + str(m) + '_' + str(i) + '_tempFile'    
+                    c = 'las2col ' + inputArg + ' ' + tempFile + ' --parse ' + ''.join(l2colCols)
+                    if 'k' in self.columns:
+                        c += ' --moffset ' + str(int(self.minX / self.scaleX)) + ','+ str(int(self.minY / self.scaleY)) + ' --check ' + str(self.scaleX) + ',' + str(self.scaleY)
+                    # Execute the converter
+                    logging.info(c)
+                    os.system(c)
+                
+                    #The different binary files have a pre-defined name 
+                    bs = []
+                    for col in self.columns:
+                        bs.append("'" + tempFile + "_col_" + col + ".dat'")
+                    
+                    if not self.imprints:
+                        ftName = self.tempFlatTable
+                    else:
+                        ftName = self.flatTable
+                        
+                    monetdbops.mogrifyExecute(cursor, "COPY BINARY INTO " + ftName + str(m) + " from (" + ','.join(bs) + ")")
+        else:     
+    
+            # Split the list of input files in bunches of maximum MAX_FILES files
+            inputFilesLists = numpy.array_split(self.inputFiles, int(math.ceil(float(len(self.inputFiles))/float(MAX_FILES))))
             
-            # Generate the command for the NLeSC Binary converter
-            inputArg = '-f ' + listFile
-            tempFile =  self.tempDir + '/' + str(i) + '_tempFile'    
-            c = 'las2col ' + inputArg + ' ' + tempFile + ' --parse ' + ''.join(l2colCols)
-            if 'k' in self.columns:
-                c += ' --moffset ' + str(int(self.minX / self.scaleX)) + ','+ str(int(self.minY / self.scaleY)) + ' --check ' + str(self.scaleX) + ',' + str(self.scaleY)
-            # Execute the converter
-            logging.info(c)
-            os.system(c)
-            
-            # The different binary files have a pre-defined name 
-            bs = []
-            for col in self.columns:
-                bs.append("'" + tempFile + "_col_" + col + ".dat'")
-            
-            if not self.imprints:
-                ftName = self.tempFlatTable
-            else:
-                ftName = self.flatTable
-            
-            # Import the binary data in the tables
-            if self.partitioning:
-                partitionName = ftName + str(i)
-                monetdbops.mogrifyExecute(cursor, "CREATE TABLE " + partitionName + " (" + (',\n'.join(self.getDBColumns())) + ")")
-                monetdbops.mogrifyExecute(cursor, "COPY BINARY INTO " + partitionName + " from (" + ','.join(bs) + ")")
-                self.numPartitions += 1
-            else:
+            for i in range(len(inputFilesLists)):
+                # Create the file with the list of PC files
+                listFile =  self.tempDir + '/' + str(i) + '_listFile'
+                outputFile = open(listFile, 'w')
+                for f in inputFilesLists[i]:
+                    outputFile.write(f + '\n')
+                outputFile.close()
+                
+                # Generate the command for the NLeSC Binary converter
+                inputArg = '-f ' + listFile
+                tempFile =  self.tempDir + '/' + str(i) + '_tempFile'    
+                c = 'las2col ' + inputArg + ' ' + tempFile + ' --parse ' + ''.join(l2colCols)
+                if 'k' in self.columns:
+                    c += ' --moffset ' + str(int(self.minX / self.scaleX)) + ','+ str(int(self.minY / self.scaleY)) + ' --check ' + str(self.scaleX) + ',' + str(self.scaleY)
+                # Execute the converter
+                logging.info(c)
+                os.system(c)
+                
+                # The different binary files have a pre-defined name 
+                bs = []
+                for col in self.columns:
+                    bs.append("'" + tempFile + "_col_" + col + ".dat'")
+                
+                if not self.imprints:
+                    ftName = self.tempFlatTable
+                else:
+                    ftName = self.flatTable
+                
                 monetdbops.mogrifyExecute(cursor, "COPY BINARY INTO " + ftName + " from (" + ','.join(bs) + ")")
         connection.close()

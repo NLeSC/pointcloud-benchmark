@@ -20,6 +20,8 @@ class CommonMonetDB():
 
         self.inputFolder = configuration.get('Load','Folder')
         self.srid = configuration.get('Load','SRID')
+        self.numProcessesLoad = configuration.getint('Load','NumberProcesses')
+
         self.createDB = configuration.getboolean('Load','CreateDB')
         self.columns = configuration.get('Load','Columns')
         self.index = configuration.get('Load','Index')
@@ -28,6 +30,8 @@ class CommonMonetDB():
             self.imprints = True
         
         self.partitioning = configuration.getboolean('Load','Partitioning')
+        self.numPartitions = configuration.getboolean('Load','NumberPartitions')
+        self.decimalDigits = configuration.getboolean('Load','DecimalDigits')
         
         self.flatTable = configuration.get('Load','FlatTable').lower()
         self.metaTable = configuration.get('Load','MetaTable').lower()
@@ -38,9 +42,9 @@ class CommonMonetDB():
         
         # Dimensions mapping for DB names and types
         self.DM_FLAT = {
-            'x': ('x','DOUBLE PRECISION'),
-            'y': ('y','DOUBLE PRECISION'),
-            'z': ('z','DOUBLE PRECISION'),
+            'x': ('x','DECIMAL'),
+            'y': ('y','DECIMAL'),
+            'z': ('z','DECIMAL'),
             'X': ('ux','INTEGER'),
             'Y': ('uy','INTEGER'),
             'Z': ('uz','INTEGER'),
@@ -59,6 +63,10 @@ class CommonMonetDB():
             't': ('time','DOUBLE PRECISION'),
             'k': ('morton2D','BIGINT'),
         }
+        for k in self.DM_FLAT:
+            if self.DM_FLAT[k][1] == 'DECIMAL':
+                self.DM_FLAT[k][1] += '(' + self.decimalDigits + ')'
+        
         utils.checkDimensionMapping(self.DM_FLAT)
         
         # Dimensions mapping for las2col tool

@@ -8,6 +8,7 @@ from shapely.wkt import loads
 from shapely.geometry import box
 from de9im.patterns import intersects, contains, pattern
 excluding_interiors = pattern('F********')
+import morton
 
 # maximum number of bits for X and Y
 MAX_NUMBITS = 31
@@ -194,27 +195,12 @@ class QuadTree:
                 omranges.append(code[-1])
         return (imranges, omranges)
     
-    def Compact(self, m):
-        m &= 0x5555555555555555                   # m = -f-e -d-c -b-a -9-8 -7-6 -5-4 -3-2 -1-0 -f-e -d-c -b-a -9-8 -7-6 -5-4 -3-2 -1-0
-        m = (m ^ (m >> 1))  & 0x3333333333333333  # m = --fe --dc --ba --98 --76 --54 --32 --10 --fe --dc --ba --98 --76 --54 --32 --10
-        m = (m ^ (m >> 2))  & 0x0f0f0f0f0f0f0f0f  # m = ---- fedc ---- ba98 ---- 7654 ---- 3210 ---- fedc ---- ba98 ---- 7654 ---- 3210
-        m = (m ^ (m >> 4))  & 0x00ff00ff00ff00ff  # m = ---- ---- fedc ba98 ---- ---- 7654 3210 ---- ---- fedc ba98 ---- ---- 7654 3210
-        m = (m ^ (m >> 8))  & 0x0000ffff0000ffff  # m = ---- ---- ---- ---- fedc ba98 7654 3210 ---- ---- ---- ---- fedc ba98 7654 3210
-        m = (m ^ (m >> 16)) & 0x00000000ffffffff  # m = ---- ---- ---- ---- ---- ---- ---- ---- fedc ba98 7654 3210 fedc ba98 7654 3210
-        return m
-
-    def DecodeMorton2DX(self, mortonCode):
-        return self.Compact(mortonCode >> 1)
-
-    def DecodeMorton2DY(self, mortonCode):
-        return self.Compact(mortonCode)
-    
     def getCoords(self, mortonRange):
         (minr, maxr) = mortonRange
-        minx = self.DecodeMorton2DX(minr)
-        miny = self.DecodeMorton2DY(minr)
-        maxx = self.DecodeMorton2DX(maxr)
-        maxy = self.DecodeMorton2DY(maxr)
+        minx = morton.DecodeMorton2DX(minr)
+        miny = morton.DecodeMorton2DY(minr)
+        maxx = morton.DecodeMorton2DX(maxr)
+        maxy = morton.DecodeMorton2DY(maxr)
         return (minx,miny,maxx+1,maxy+1)
     
     def getMortonRanges(self, wkt, distinctIn = False, numLevels = None, maxRanges = None):

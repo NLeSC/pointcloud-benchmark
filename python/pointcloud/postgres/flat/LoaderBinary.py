@@ -19,7 +19,9 @@ class LoaderBinary(AbstractLoader):
         self.createFlatTable(cursor, self.flatTable, self.tableSpace, self.columns)
         
         logging.info('Getting files, extent and SRID from input folder ' + self.inputFolder)
-        (self.inputFiles, _, _, self.minX, self.minY, _, self.maxX, self.maxY, _, self.scaleX, self.scaleY, _) = lasops.getPCFolderDetails(self.inputFolder, numProc = self.numProcessesLoad)
+        (self.inputFiles, _, _, _, boundingCube, scales) = lasops.getPCFolderDetails(self.inputFolder, numProc = self.numProcessesLoad)
+        (self.minX, self.minY, _, self.maxX, self.maxY, _) = boundingCube
+        (self.scaleX, self.scaleY, _) = scales
         
         # Create meta table to save the extent of the PC
         self.createMetaTable(cursor, self.metaTable)

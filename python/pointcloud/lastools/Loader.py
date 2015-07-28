@@ -21,7 +21,8 @@ class Loader(AbstractLoader,CommonLASTools):
         os.system('mkdir -p ' + self.dataFolder)
         
         logging.info('Getting files and SRID from input folder ' + self.inputFolder)
-        (self.inputFiles, _, _, _, _, _, _, _, _, _, _, _) = lasops.getPCFolderDetails(self.inputFolder, numProc = self.numProcessesLoad)
+        (self.inputFiles, _, _, _, _, _) = lasops.getPCFolderDetails(self.inputFolder, numProc = self.numProcessesLoad)
+        
         
     def process(self):
         logging.info('Starting data preparation (' + str(self.numProcessesLoad) + ' processes) from ' + self.inputFolder + ' to ' + self.dataFolder)
@@ -81,7 +82,7 @@ class Loader(AbstractLoader,CommonLASTools):
                 connString = self.getConnectionString(False, True)
                 return int(os.popen('psql ' + connString + ' -c "select sum(num) from ' + self.lasIndexTableName + '" -t -A').read())
             else:
-                return int(lasops.getPCFolderDetails(self.dataFolder, numProc = self.numProcessesLoad)[2])    
+                return int(lasops.getPCFolderDetails(self.dataFolder, numProc = self.numProcessesLoad)[3])    
         except Exception, msg: 
             logging.error(msg)
             return 0

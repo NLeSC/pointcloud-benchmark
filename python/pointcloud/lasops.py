@@ -82,8 +82,12 @@ def getPCFolderDetails(absPath, srid = None, numProc = 1):
     tasksQueue = multiprocessing.Queue() # The queue of tasks
     detailsQueue = multiprocessing.Queue() # The queue of results/details
     
+    inputFilesAbsPath = []
+    inputFilesBoundingCube = []
     for i in range(numInputFiles):
-        tasksQueue.put(inputFiles[i])
+        inputFilesAbsPath.append(None)
+        inputFilesBoundingCube.append(None)
+        tasksQueue.put((i,inputFiles[i]))
     for i in range(numProc): #we add as many None jobs as numProc to tell them to terminate (queue is FIFO)
         tasksQueue.put(None)
     
@@ -96,7 +100,10 @@ def getPCFolderDetails(absPath, srid = None, numProc = 1):
         
     for i in range(numInputFiles):
         sys.stdout.write('\r')
-        (srid, count, minx, miny, minz, maxx, maxy, maxz, scalex, scaley, scalez, _, _, _) = detailsQueue.get()
+        (inputFileIndex, inputFileAbsPath, srid, count, minx, miny, minz, maxx, maxy, maxz, scalex, scaley, scalez, _, _, _) = detailsQueue.get()
+        inputFilesAbsPath[inputFileIndex] = inputFileAbsPath
+        inputFilesBoundingCube[inputFileIndex] = (minx, miny, minz, maxx, maxy, maxz)
+        
         if i == 0:
             (tscalex, tscaley, tscalez) = (scalex, scaley, scalez)
             tsrid = srid
@@ -125,7 +132,7 @@ def getPCFolderDetails(absPath, srid = None, numProc = 1):
         workers[i].join()
     
     print
-    return (inputFiles, tsrid, tcount, tminx, tminy, tminz, tmaxx, tmaxy, tmaxz, tscalex, tscaley, tscalez)
+    return (inputFilesAbsPath, inputFilesBoundingCube, tsrid, tcount, (tminx, tminy, tminz, tmaxx, tmaxy, tmaxz), (tscalex, tscaley, tscalez))
 
 def runProcGetPCFolderDetailsWorker(tasksQueue, detailsQueue, srid):
     kill_received = False
@@ -140,4 +147,5 @@ def runProcGetPCFolderDetailsWorker(tasksQueue, detailsQueue, srid):
         if job == None:
             kill_received = True
         else:            
-            detailsQueue.put(getPCFileDetails(job, srid))
+            (inputFileIndex, inputFileAbsPath) = job
+            detailsQueue.put((inputFileIndex, inputFileAbsPath,) + getPCFileDetails(inputFileAbsPath, srid))
