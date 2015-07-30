@@ -30,10 +30,13 @@ class LoaderBinary(ALoader, CommonMonetDB):
         
             connection = self.getConnection()
             cursor = connection.cursor()
+            
+#            monetdbops.mogrifyExecute(cursor, """CREATE FUNCTION GetX(morton BIGINT, scaleX DOUBLE, globalOffset BIGINT) RETURNS DOUBLE external name geom."GetX";""")
+#            monetdbops.mogrifyExecute(cursor, """CREATE FUNCTION GetY(morton BIGINT, scaleY DOUBLE, globalOffset BIGINT) RETURNS DOUBLE external name geom."GetY";""")
         
         logging.info('Getting files, extent and SRID from input folder ' + self.inputFolder)        
         (self.inputFiles, inputFilesBoundingCube, _, _, boundingCube, scales) = lasops.getPCFolderDetails(self.inputFolder, numProc = self.numProcessesLoad)
-        (self.minX, self.minY, self.minZ, self.maxX, self.maxY, se.f.maxZ) = boundingCube
+        (self.minX, self.minY, self.minZ, self.maxX, self.maxY, self.maxZ) = boundingCube
         (self.scaleX, self.scaleY, _) = scales
         
         if not self.imprints:
@@ -227,7 +230,7 @@ class LoaderBinary(ALoader, CommonMonetDB):
                     # Generate the command for the NLeSC Binary converter
                     inputArg = '-f ' + listFile
                     tempFile =  self.tempDir + '/' + str(m) + '_' + str(i) + '_tempFile'    
-                    c = 'las2col ' + inputArg + ' ' + tempFile + ' --parse ' + ''.join(l2colCols)
+                    c = 'las2colDec ' + inputArg + ' ' + tempFile + ' --parse ' + ''.join(l2colCols)
                     if 'k' in self.columns:
                         c += ' --moffset ' + str(int(self.minX / self.scaleX)) + ','+ str(int(self.minY / self.scaleY)) + ' --check ' + str(self.scaleX) + ',' + str(self.scaleY)
                     # Execute the converter
@@ -261,7 +264,7 @@ class LoaderBinary(ALoader, CommonMonetDB):
                 # Generate the command for the NLeSC Binary converter
                 inputArg = '-f ' + listFile
                 tempFile =  self.tempDir + '/' + str(i) + '_tempFile'    
-                c = 'las2col ' + inputArg + ' ' + tempFile + ' --parse ' + ''.join(l2colCols)
+                c = 'las2colDec ' + inputArg + ' ' + tempFile + ' --parse ' + ''.join(l2colCols)
                 if 'k' in self.columns:
                     c += ' --moffset ' + str(int(self.minX / self.scaleX)) + ','+ str(int(self.minY / self.scaleY)) + ' --check ' + str(self.scaleX) + ',' + str(self.scaleY)
                 # Execute the converter

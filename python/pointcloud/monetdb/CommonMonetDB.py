@@ -30,8 +30,8 @@ class CommonMonetDB():
             self.imprints = True
         
         self.partitioning = configuration.getboolean('Load','Partitioning')
-        self.numPartitions = configuration.getboolean('Load','NumberPartitions')
-        self.decimalDigits = configuration.getboolean('Load','DecimalDigits')
+        self.numPartitions = configuration.getint('Load','NumberPartitions')
+        self.decimalDigits = configuration.get('Load','DecimalDigits')
         
         self.flatTable = configuration.get('Load','FlatTable').lower()
         self.metaTable = configuration.get('Load','MetaTable').lower()
@@ -65,7 +65,7 @@ class CommonMonetDB():
         }
         for k in self.DM_FLAT:
             if self.DM_FLAT[k][1] == 'DECIMAL':
-                self.DM_FLAT[k][1] += '(' + self.decimalDigits + ')'
+                self.DM_FLAT[k] = (self.DM_FLAT[k][0], self.DM_FLAT[k][1] + '(' + self.decimalDigits + ')')
         
         utils.checkDimensionMapping(self.DM_FLAT)
         

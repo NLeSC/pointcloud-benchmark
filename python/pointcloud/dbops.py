@@ -164,8 +164,7 @@ def getSelect(queryParameters, flatTable, addContainsConditionMethod, columnsNam
     yname = columnsNameDict['y'][0]
     zname = columnsNameDict['z'][0]
     if queryParameters.queryType in ('rectangle', 'generic'):
-        if queryParameters.queryType == 'rectangle' or queryParameters.db != 'mon':
-            bBoxCondition = addBBoxCondition(queryParameters, xname, yname, queryArgs)
+        bBoxCondition = addBBoxCondition(queryParameters, xname, yname, queryArgs)
     else:
         bBoxCondition = addBBoxCircleCondition(queryParameters, xname, yname, queryArgs)
     zCondition = addZCondition(queryParameters, zname, queryArgs)
@@ -180,13 +179,11 @@ def getSelect(queryParameters, flatTable, addContainsConditionMethod, columnsNam
         query = "SELECT "  + cols + " FROM (select " + hints + "* FROM " + flatTable  + getWhereStatement([bBoxCondition,zCondition]) + ") b " + getWhereStatement(specificCondition)
     elif queryParameters.queryType == 'generic':
         (queryTable, specificCondition) = addContainsConditionMethod(queryParameters, queryArgs, xname, yname)
-        if queryParameters.db == 'psql':
+        if queryParameters.db != 'ora':
             tables = ['ftf']
             if queryTable != None:
                 tables.append(queryTable)
             query = "SELECT " + cols + " FROM ( SELECT * FROM " + flatTable + getWhereStatement([bBoxCondition,zCondition]) + ") " + ",".join(tables) + getWhereStatement(specificCondition)
-        elif queryParameters.db == 'mon':
-            query = "SELECT " + cols + " FROM " + flatTable + " " + getWhereStatement([zCondition, specificCondition])
         else:
             query = "SELECT " + cols + " from table ( sdo_PointInPolygon ( cursor ( select " + hints + "* FROM " + flatTable + getWhereStatement([bBoxCondition,zCondition]) + " ), " + specificCondition + "))"
     elif queryParameters.queryType == 'nn' :
