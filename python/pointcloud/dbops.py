@@ -103,10 +103,10 @@ def addBBoxCondition(queryParameters, xColumnName, yColumnName, queryArgs):
 
 def addBBoxCircleCondition(queryParameters, xColumnName, yColumnName, queryArgs):
     if queryParameters.hardcode:
-        return "(" + xColumnName + " between " + str(queryParameters.cx) + "-" + str(queryParameters.rad) + " and " + str(queryParameters.cx) + "+" + str(queryParameters.rad) + ") and (" + yColumnName + " between " + str(queryParameters.cy) + "-" + str(queryParameters.rad) + " and " + str(queryParameters.cy) + "+" + str(queryParameters.rad) + ")"
+        return "(" + xColumnName + " between " + str(queryParameters.cx - queryParameters.rad) + " and " + str(queryParameters.cx + queryParameters.rad) + ") and (" + yColumnName + " between " + str(queryParameters.cy - queryParameters.rad) + " and " + str(queryParameters.cy + queryParameters.rad) + ")"
     else:
-        queryArgs.extend([queryParameters.cx,queryParameters.rad,queryParameters.cx,queryParameters.rad,queryParameters.cy,queryParameters.rad,queryParameters.cy,queryParameters.rad])
-        return "(" + xColumnName + " between " + queryParameters.pattern + "-" + queryParameters.pattern + " and " + queryParameters.pattern + "+" + queryParameters.pattern + ") and (" + yColumnName + " between " + queryParameters.pattern + "-" + queryParameters.pattern + " and " + queryParameters.pattern + "+" + queryParameters.pattern + ")"
+        queryArgs.extend([queryParameters.cx - queryParameters.rad,queryParameters.cx + queryParameters.rad,queryParameters.cy - queryParameters.rad,queryParameters.cy + queryParameters.rad])
+        return "(" + xColumnName + " between " + queryParameters.pattern + " and " + queryParameters.pattern + ") and (" + yColumnName + " between " + queryParameters.pattern + " and " + queryParameters.pattern + ")"
     
 def addCircleCondition(queryParameters, xColumnName, yColumnName, queryArgs):
     if queryParameters.hardcode:
