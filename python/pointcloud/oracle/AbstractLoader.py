@@ -229,7 +229,7 @@ parameters ('tablespace=""" + indexTableSpace + """ work_tablespace=""" + workTa
         
                 
     def loadInc(self, fileAbsPath, objId, blockTable, blockSeq, blockSize, batchSize):
-        javaPart = 'java -classpath ${ORACLE_HOME}/jdbc/lib/ojdbc6.jar:${ORACLE_HOME}/md/jlib/sdoutl.jar oracle.spatial.util.Las2SqlLdrIndep'
+        javaPart = 'java -Djava.security.egd=file:///dev/urandom -classpath ${ORACLE_HOME}/jdbc/lib/ojdbc6.jar:${ORACLE_HOME}/md/jlib/sdoutl.jar oracle.spatial.util.Las2SqlLdrIndep'
         (userPass, hostPortName) = self.getConnectionString().split("@//")
         (userName,userPass) = userPass.split('/')
         
