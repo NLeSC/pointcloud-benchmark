@@ -230,7 +230,7 @@ class LoaderBinary(ALoader, CommonMonetDB):
                     # Generate the command for the NLeSC Binary converter
                     inputArg = '-f ' + listFile
                     tempFile =  self.tempDir + '/' + str(m) + '_' + str(i) + '_tempFile'    
-                    c = 'las2colDec ' + inputArg + ' ' + tempFile + ' --parse ' + ''.join(l2colCols)
+                    c = 'las2col ' + inputArg + ' ' + tempFile + ' --parse ' + ''.join(l2colCols) + ' --num_read_threads ' + str(self.numProcessesLoad)
                     if 'k' in self.columns:
                         c += ' --moffset ' + str(int(self.minX / self.scaleX)) + ','+ str(int(self.minY / self.scaleY)) + ' --check ' + str(self.scaleX) + ',' + str(self.scaleY)
                     # Execute the converter
@@ -264,7 +264,7 @@ class LoaderBinary(ALoader, CommonMonetDB):
                 # Generate the command for the NLeSC Binary converter
                 inputArg = '-f ' + listFile
                 tempFile =  self.tempDir + '/' + str(i) + '_tempFile'    
-                c = 'las2colDec ' + inputArg + ' ' + tempFile + ' --parse ' + ''.join(l2colCols)
+                c = 'las2col ' + inputArg + ' ' + tempFile + ' --parse ' + ''.join(l2colCols) + ' --num_read_threads ' + str(self.numProcessesLoad)
                 if 'k' in self.columns:
                     c += ' --moffset ' + str(int(self.minX / self.scaleX)) + ','+ str(int(self.minY / self.scaleY)) + ' --check ' + str(self.scaleX) + ',' + str(self.scaleY)
                 # Execute the converter

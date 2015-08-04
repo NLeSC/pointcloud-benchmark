@@ -71,12 +71,12 @@ class CommonMonetDB():
         
         # Dimensions mapping for las2col tool
         self.DM_LAS2COL = {
-            'x': 'x',
-            'y': 'y',
-            'z': 'z',
-            'X': 'X',
-            'Y': 'Y',
-            'Z': 'Z',
+            'x': 'X',
+            'y': 'Y',
+            'z': 'Z',
+            'X': '-', #the normal x is already stored as an integer so this does not apply
+            'Y': '-', #the normal x is already stored as an integer so this does not apply
+            'Z': '-', #the normal x is already stored as an integer so this does not apply
             'i': 'i',
             'r': 'r',
             'n': 'n',
