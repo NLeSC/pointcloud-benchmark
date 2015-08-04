@@ -41,21 +41,21 @@ for folder in inputFolders:
             someUsage = True
             all_results[folder]['usage'] = utils.parseUsage(folder + '/loading.usage')
 
-h = ('Approach', 'Total[s]', 'Init.[s]' , 'Load[s]', 'Close[s]', 'Total[MB]', 'Index[MB]', 'Points', 'Points/s')
+h = ('Approach', 'Total[s]', 'Init.[s]' , 'Load[s]', 'Close[s]', 'Total[MB]', 'Index[MB]', 'Points', 'Points/s', 'Points/MB')
 
 tex = """
 \\begin{table}[!ht]
 \\centering
 \\begin{tabular}{|lrrrrrrrrr|}
 \\hline
-\multirow{2}{*}{Approach} & \multicolumn{4}{c}{Time[s]} & \multicolumn{2}{c}{Size[MB]} & \multirow{2}{*}{Points} & \multirow{2}{*}{Points/s}\\\\  
-& Total & Init. & Load & Close & Total & Index & & \\\\ 
+\multirow{2}{*}{Approach} & \multicolumn{4}{c}{Time[s]} & \multicolumn{2}{c}{Size[MB]} & \multirow{2}{*}{Points}  & \multirow{2}{*}{Points/s} & \multirow{2}{*}{Points/MB}\\\\  
+& Total & Init. & Load & Close & Total & Index & & & \\\\ 
 \\hline
 """
 rows = []
 for folder in inputFolders:
     aux = []
-    for k in ('time', 'initialize','load', 'close','totalsize','indexsize', 'npoints', 'npointspers'):
+    for k in ('time', 'initialize','load', 'close','totalsize','indexsize', 'npoints', 'npointspers', 'npointpermb'):
         f = None
         try:
             if k == 'npoints':
@@ -68,6 +68,11 @@ for folder in inputFolders:
                 if 'npoints' in all_results[folder]:
                     np = float(all_results[folder]['npoints'])
                 f = '%d' % int(round((np / float(all_results[folder]['time']))))
+            elif k == 'npointpermb':
+                np = 0.
+                if 'npoints' in all_results[folder]:
+                    np = float(all_results[folder]['npoints'])
+                f = '%d' % int(round((np / float(all_results[folder]['totalsize']))))
             else:
                 f = '%.2f' % float(all_results[folder][k])
         except:
