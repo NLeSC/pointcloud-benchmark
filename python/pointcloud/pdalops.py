@@ -62,7 +62,7 @@ def OracleWriter(xmlFile, inputFileAbsPath, connectionString, dimensionsNames, b
 """
     utils.writeToFile(xmlFile, xmlContent)
 
-def OracleReaderLAS(xmlFile, outputFileAbsPath, connectionString, blockTable, baseTable, srid, wkt):
+def OracleReaderLAS(xmlFile, outputFileAbsPath, connectionString, blockTable, baseTable, srid, wkt, queryTable, queryIndex):
     xmlContent = """
 <?xml version="1.0" encoding="utf-8"?>
 <Pipeline version="1.0">
@@ -77,11 +77,11 @@ SELECT l."OBJ_ID", l."BLK_ID", l."BLK_EXTENT",
        l."PCBLK_MAX_RES", l."NUM_POINTS",
        l."NUM_UNSORTED_POINTS", l."PT_SORT_DIM",
        l."POINTS", b.pc
-FROM """ + blockTable + """ l, """ + baseTable + """ b
+FROM """ + blockTable + """ l, """ + baseTable + """ b, """ + queryTable + """ g 
 WHERE
     l.obj_id = b.id
     AND
-    SDO_FILTER(l.blk_extent,SDO_GEOMETRY('""" + wkt + """', """ + str(srid) + """)) = 'TRUE'
+    SDO_FILTER(l.blk_extent,g.geom) = 'TRUE' AND g.id = """ + str(queryIndex) + """
           </Option>
           <Option name="connection">""" + connectionString + """</Option>
           <Option name="spatialreference">EPSG:""" + str(srid) + """</Option>
@@ -92,7 +92,7 @@ WHERE
 """
     utils.writeToFile(xmlFile, xmlContent)
 
-def OracleReaderStdOut(xmlFile, connectionString, blockTable, baseTable, srid, wkt):
+def OracleReaderStdOut(xmlFile, connectionString, blockTable, baseTable, srid, wkt, queryTable, queryIndex):
     xmlContent = """
 <?xml version="1.0" encoding="utf-8"?>
 <Pipeline version="1.0">
@@ -108,11 +108,11 @@ def OracleReaderStdOut(xmlFile, connectionString, blockTable, baseTable, srid, w
            l."PCBLK_MAX_RES", l."NUM_POINTS",
            l."NUM_UNSORTED_POINTS", l."PT_SORT_DIM",
            l."POINTS", b.pc
-    FROM """ + blockTable + """ l, """ + baseTable + """ b
+    FROM """ + blockTable + """ l, """ + baseTable + """ b, """ + queryTable + """ g
     WHERE
         l.obj_id = b.id
         AND
-        SDO_FILTER(l.blk_extent,SDO_GEOMETRY('""" + wkt + """', """ + str(srid) + """)) = 'TRUE'
+        SDO_FILTER(l.blk_extent,g.geom) = 'TRUE' AND g.id = """ + str(queryIndex) + """
           </Option>
               <Option name="connection">""" + connectionString + """</Option>
               <Option name="spatialreference">EPSG:""" + str(srid) + """</Option>

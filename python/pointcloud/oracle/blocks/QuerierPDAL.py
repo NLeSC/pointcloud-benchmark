@@ -20,13 +20,16 @@ class QuerierPDAL(AbstractQuerier):
         self.srid = cursor.fetchone()[0]
         
         # Create table to store the query geometries
-        #oracleops.dropTable(cursor, self.queryTable, check = True)
-        #oracleops.mogrifyExecute(cursor, "CREATE TABLE " + self.queryTable + " ( id number primary key, geom sdo_geometry) TABLESPACE " + self.tableSpace + " pctfree 0 nologging")
+        oracleops.dropTable(cursor, self.queryTable, check = True)
+        oracleops.mogrifyExecute(cursor, "CREATE TABLE " + self.queryTable + " ( id number primary key, geom sdo_geometry) TABLESPACE " + self.tableSpace + " pctfree 0 nologging")
         connection.close()
          
     def query(self, queryId, iterationId, queriesParameters):    
-        (eTime, result) = (-1, None)    
-        self.prepareQuery(None, queryId, queriesParameters, False)
+        (eTime, result) = (-1, None)   
+        connection = self.getConnection()
+        cursor = connection.cursor() 
+        self.prepareQuery(cursor, queryId, queriesParameters, iterationId == 0)
+        connection.close()
         
         if self.qp.queryMethod == 'stat' or self.qp.queryType == 'nn' or self.qp.minz != None or self.qp.maxz != None:
             # PDAL can not generate stats or run NN queries or Z queries 
@@ -34,9 +37,9 @@ class QuerierPDAL(AbstractQuerier):
         xmlFile = 'pdal' +  str(self.queryIndex) + '.xml'
         if self.qp.queryMethod != 'stream':
             outputFileAbsPath = 'output' +  str(self.queryIndex) + '.las'
-            pdalops.OracleReaderLAS(xmlFile, outputFileAbsPath, self.getConnectionString(), self.blockTable, self.baseTable, self.srid, self.qp.wkt)
+            pdalops.OracleReaderLAS(xmlFile, outputFileAbsPath, self.getConnectionString(), self.blockTable, self.baseTable, self.srid, self.qp.wkt, self.queryTable, self.queryIndex)
         else:
-            pdalops.OracleReaderStdOut(xmlFile, self.getConnectionString(), self.blockTable, self.baseTable, self.srid, self.qp.wkt)
+            pdalops.OracleReaderStdOut(xmlFile, self.getConnectionString(), self.blockTable, self.baseTable, self.srid, self.qp.wkt, self.queryTable, self.queryIndex)
             
         t0 = time.time()
         if self.qp.queryMethod != 'stream': # disk or stat
