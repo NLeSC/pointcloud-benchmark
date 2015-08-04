@@ -260,6 +260,8 @@ void* readFile(void *arg) {
     double file_scale_x = LASHeader_GetScaleX(header);
     double file_scale_y = LASHeader_GetScaleY(header);
     double file_scale_z = LASHeader_GetScaleZ(header);
+    //printf("The scales are x:%lf y:%lf z:%lf\n", file_scale_x, file_scale_y, file_scale_z);
+
 	/* scaled offsets to add for the morton encoding */
 	int64_t factorX =  ((int64_t) (LASHeader_GetOffsetX(header) / file_scale_x)) - rTA->global_offset_x;
 	int64_t factorY =  ((int64_t) (LASHeader_GetOffsetY(header) / file_scale_y)) - rTA->global_offset_y;
@@ -314,23 +316,24 @@ void* readFile(void *arg) {
 
             LASColorH color = NULL;
             for (j = 0; j < rTA->num_of_entries; j++) {
+                uint64_t res;
                 switch (entries[j]) {
                     case ENTRY_x:
                     case ENTRY_y:
                     case ENTRY_z:
                         ((double*) dataWriteTT[j].values)[index] = entriesFunc[j](p);
+                        //printf(" Point is:%lf\n", ((double*) dataWriteTT[j].values)[index]);
                         break;
                     case ENTRY_X:
-                        ((int*) dataWriteTT[j].values)[index] = entriesFunc[j](p) * file_scale_x;
+                        ((int*) dataWriteTT[j].values)[index] = entriesFunc[j](p) / file_scale_x;
                         break;
                     case ENTRY_Y:
-                        ((int*) dataWriteTT[j].values)[index] = entriesFunc[j](p) * file_scale_y;
+                        ((int*) dataWriteTT[j].values)[index] = entriesFunc[j](p) / file_scale_y;
                         break;
                     case ENTRY_Z:
-                        ((int*) dataWriteTT[j].values)[index] = entriesFunc[j](p) * file_scale_z;
+                        ((int*) dataWriteTT[j].values)[index] = entriesFunc[j](p) / file_scale_z;
                         break;
                     case ENTRY_k:
-                        uint64_t res;
                         entriesFunc[j](&res, p, factorX, factorY);
                         ((int64_t*)dataWriteTT[j].values)[index] = res;
                         break;
