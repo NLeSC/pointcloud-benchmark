@@ -68,9 +68,9 @@ void usage()
     fprintf(stderr,"   x - x coordinate as a double\n");
     fprintf(stderr,"   y - y coordinate as a double\n");
     fprintf(stderr,"   z - z coordinate as a double\n");
-    fprintf(stderr,"   X - x coordinate as unscaled integer (NOT SUPPORTED)\n");
-    fprintf(stderr,"   Y - y coordinate as unscaled integer (NOT SUPPORTED)\n");
-    fprintf(stderr,"   Z - z coordinate as unscaled integer (NOT SUPPORTED)\n");
+    fprintf(stderr,"   X - x coordinate as decimal)\n");
+    fprintf(stderr,"   Y - y coordinate as decimal)\n");
+    fprintf(stderr,"   Z - z coordinate as decimal)\n");
     fprintf(stderr,"   a - scan angle\n");
     fprintf(stderr,"   i - intensity\n");
     fprintf(stderr,"   n - number of returns for given pulse\n");
@@ -131,6 +131,9 @@ typedef enum {
     ENTRY_x,
     ENTRY_y,
     ENTRY_z,
+    ENTRY_X,
+    ENTRY_Y,
+    ENTRY_Z,
     ENTRY_t,
     ENTRY_i,
     ENTRY_a,
@@ -226,6 +229,7 @@ void* readFile(void *arg) {
         reader = LASReader_Create(file_name_in);
         if (!reader) {
             LASError_Print("Unable to read file");
+            MT_unset_lock(&dataLock);
             exit(1);
         }
         MT_unset_lock(&dataLock);
@@ -255,6 +259,7 @@ void* readFile(void *arg) {
     /*Compute factors to add to X and Y and cehck sanity of generated codes*/
     double file_scale_x = LASHeader_GetScaleX(header);
     double file_scale_y = LASHeader_GetScaleY(header);
+    double file_scale_z = LASHeader_GetScaleZ(header);
 	/* scaled offsets to add for the morton encoding */
 	int64_t factorX =  ((int64_t) (LASHeader_GetOffsetX(header) / file_scale_x)) - rTA->global_offset_x;
 	int64_t factorY =  ((int64_t) (LASHeader_GetOffsetY(header) / file_scale_y)) - rTA->global_offset_y;
@@ -309,24 +314,37 @@ void* readFile(void *arg) {
 
             LASColorH color = NULL;
             for (j = 0; j < rTA->num_of_entries; j++) {
-                if (entries[j] != ENTRY_R && entries[j] != ENTRY_G && entries[j] != ENTRY_B && entries[j] != ENTRY_M && entries[j] != ENTRY_k) {
-                    ((double*) dataWriteTT[j].values)[index] = entriesFunc[j](p);
-                } else {
-                    if (entries[j] == ENTRY_R || entries[j] == ENTRY_G || entries[j] == ENTRY_B) {
+                switch (entries[j]) {
+                    case ENTRY_x:
+                    case ENTRY_y:
+                    case ENTRY_z:
+                        ((double*) dataWriteTT[j].values)[index] = entriesFunc[j](p);
+                        break;
+                    case ENTRY_X:
+                        ((int*) dataWriteTT[j].values)[index] = entriesFunc[j](p) * file_scale_x;
+                        break;
+                    case ENTRY_Y:
+                        ((int*) dataWriteTT[j].values)[index] = entriesFunc[j](p) * file_scale_y;
+                        break;
+                    case ENTRY_Z:
+                        ((int*) dataWriteTT[j].values)[index] = entriesFunc[j](p) * file_scale_z;
+                        break;
+                    case ENTRY_k:
+                        uint64_t res;
+                        entriesFunc[j](&res, p, factorX, factorY);
+                        ((int64_t*)dataWriteTT[j].values)[index] = res;
+                        break;
+                    case ENTRY_R:
+                    case ENTRY_G:
+                    case ENTRY_B:
                         color = (color == NULL) ? LASPoint_GetColor(p) : color;
-                        dataWriteTT[j].values[index] = entriesFunc[j](color);
-                    } else {
-                        if (entries[j] == ENTRY_M)
-                            dataWriteTT[j].values[index] = index;
-                        else {//entries[j] == ENTRY_k
-	                        /*Changes for Oscar's new Morton code function*/
-                            //int64_t res;
-                            uint64_t res;
-                            entriesFunc[j](&res, p, factorX, factorY);
-                            ((int64_t*)dataWriteTT[j].values)[index] = res;
-                        }
-
-                    }
+                        dataWriteTT[j].values[index] = (double) entriesFunc[j](color);
+                        break;
+                    case ENTRY_M:
+                        dataWriteTT[j].values[index] = index;
+                        break;
+                    default:
+                        LASError_Print("las2col:readFile: Invalid Entry.");
                 }
             }
             if (color != NULL)
@@ -597,7 +615,7 @@ int main(int argc, char *argv[])
     {
         switch (parse_string[i])
         {
-            /* // the morton code on xy */
+                /* // the morton code on xy */
             case 'k':
                 entries[i] = ENTRY_k;
                 entriesType[i] = sizeof(int64_t);
@@ -605,22 +623,40 @@ int main(int argc, char *argv[])
                 //entriesFunc[i] = (void*)morton2D_encode;
                 entriesFunc[i] = (void*)morton2D_encodeOscar;
                 break;
-            /* // the x coordinate */
+                /* // the x coordinate  double*/
             case 'x':
                 entries[i] = ENTRY_x;
                 entriesType[i] = sizeof(double);
                 entriesFunc[i] = (void*)LASPoint_GetX;
                 break;
-                /* // the y coordinate */
+                /* // the y coordinate double*/
             case 'y':
                 entries[i] = ENTRY_y;
                 entriesType[i] = sizeof(double);
                 entriesFunc[i] = (void*)LASPoint_GetY;
                 break;
-                /* // the z coordinate */
+                /* // the z coordinate double*/
             case 'z':
                 entries[i] = ENTRY_z;
                 entriesType[i] = sizeof(double);
+                entriesFunc[i] = (void*)LASPoint_GetZ;
+                break;
+                /* // the X coordinate decimal*/
+            case 'X':
+                entries[i] = ENTRY_X;
+                entriesType[i] = sizeof(int);
+                entriesFunc[i] = (void*)LASPoint_GetX;
+                break;
+                /* // the y coordinate decimal*/
+            case 'Y':
+                entries[i] = ENTRY_Y;
+                entriesType[i] = sizeof(int);
+                entriesFunc[i] = (void*)LASPoint_GetY;
+                break;
+                /* // the z coordinate decimal*/
+            case 'Z':
+                entries[i] = ENTRY_Z;
+                entriesType[i] = sizeof(int);
                 entriesFunc[i] = (void*)LASPoint_GetZ;
                 break;
                 /* // the gps-time */
