@@ -1,8 +1,8 @@
 #!/bin/bash
-export LIBLAS_HOME=/home/oscar/sw/liblas/build
-export LASZIP_HOME=/home/oscar/sw/laszip-2.1.0/build
-export BOOST_HOME=/usr/local
-export GDAL_HOME=/home/oscar/sw/gdal-trunk/build
+export LIBLAS_HOME=
+export LASZIP_HOME=
+export BOOST_HOME=
+export GDAL_HOME=
 
 export LASNLESC_HOME=`pwd`
 export BOOST_ROOT=$BOOST_HOME
