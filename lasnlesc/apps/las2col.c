@@ -21,8 +21,8 @@
 #define int64_t long long int
 
 #define NUM_OF_ENTRIES      21
-#define NUM_READ_THREADS    13
-#define NUM_FILES_IN    2000
+#define DEFAULT_NUM_READ_THREADS 16
+#define DEFAULT_NUM_INPUT_FILES 2000
 #define TOLERANCE 0.0000001
 #define MAX_INT_31 2147483648.0
 
@@ -44,21 +44,32 @@ void usage()
     fprintf(stderr,"\n");
 
     fprintf(stderr,"Convert a las file into columnar format (binary), outputs <input_file>_col_<entry_name>.dat (for all entries):\n");
-    fprintf(stderr,"  las2col <input_file>.las\n");
+    fprintf(stderr,"  las2col -i <input_file>.las\n");
     fprintf(stderr,"\n");
 
     fprintf(stderr,"Convert a las file into columnar format (binary), outputs <ouput_name>_col_<entry_name>.dat:\n");
-    fprintf(stderr,"  las2col <input_file>.las <output_name>\n");
+    fprintf(stderr,"  las2col -i <input_file>.las <output_dir_path/prefix>\n");
     fprintf(stderr,"\n");
 
-    fprintf(stderr,"Convert to columnar with a specified format, outputs <input_file>_col_<entry_name>.dat (only for xyziar entries) :\n");
-    fprintf(stderr,"  las2col --parse xyziar <input_file>.las\n");
+    fprintf(stderr,"Convert a las file into columnar format (binary), outputs <input_file>_col_<entry_name>.dat (only for xyziar entries) :\n");
+    fprintf(stderr,"  las2col --parse xyziar -i <input_file>.las\n");
     fprintf(stderr,"\n");
 
+    fprintf(stderr,"Convert a list of las files into columnar format (binary), outputs <input_file>_col_<entry_name>.dat (only for xyziar entries) :\n");
+    fprintf(stderr,"  las2col -f <file_with_the_list_las_files> --parse xyziar <input_file>.las\n");
+    fprintf(stderr,"\n");
+
+    fprintf(stderr,"Convert a list of las files into columnar format (binary), outputs <input_file>_col_<entry_name>.dat (only for xyziar entries) :\n");
+    fprintf(stderr,"  las2col -i <las_file_1> -i <las_file_2> --parse xyziar <input_file>.las\n");
+    fprintf(stderr,"\n");
+
+    fprintf(stderr,"Convert a list of las files into columnar format (binary) using <num_read_threads> threads (default is 16), outputs <input_file>_col_<entry_name>.dat (only for xyziar entries) :\n");
+    fprintf(stderr,"  las2col --num_read_threads <number_of_threads> -i <las_file_1> -i <las_file_2> --parse xyziar <input_file>.las\n");
+    fprintf(stderr,"\n");
 
     fprintf(stderr,"----------------------------------------------------------\n");
-    fprintf(stderr," The '--parse txyz' flag specifies how to format each\n");
-    fprintf(stderr," each line of the ASCII file. For example, 'txyzia'\n");
+    fprintf(stderr," The '--parse txyz' flag specifies each entries of the LAS\n");
+    fprintf(stderr," will be extracted. For example, 'txyzia'\n");
     fprintf(stderr," means that the first number of each line should be the\n");
     fprintf(stderr," gpstime, the next three numbers should be the x, y, and\n");
     fprintf(stderr," z coordinate, the next number should be the intensity\n");
@@ -68,9 +79,9 @@ void usage()
     fprintf(stderr,"   x - x coordinate as a double\n");
     fprintf(stderr,"   y - y coordinate as a double\n");
     fprintf(stderr,"   z - z coordinate as a double\n");
-    fprintf(stderr,"   X - x coordinate as decimal)\n");
-    fprintf(stderr,"   Y - y coordinate as decimal)\n");
-    fprintf(stderr,"   Z - z coordinate as decimal)\n");
+    fprintf(stderr,"   X - x coordinate as a decimal)\n");
+    fprintf(stderr,"   Y - y coordinate as a decimal)\n");
+    fprintf(stderr,"   Z - z coordinate as a decimal)\n");
     fprintf(stderr,"   a - scan angle\n");
     fprintf(stderr,"   i - intensity\n");
     fprintf(stderr,"   n - number of returns for given pulse\n");
@@ -119,7 +130,7 @@ MT_Cond mainCond, writeTCond, readCond;
 int entries[NUM_OF_ENTRIES];
 double (*entriesFunc[NUM_OF_ENTRIES])();
 int entriesType[NUM_OF_ENTRIES];
-char *files_name_in[NUM_FILES_IN];
+char **files_name_in = NULL;
 int files_in_index = 0 ;
 int skip_invalid = FALSE;
 int verbose = FALSE;
@@ -164,6 +175,7 @@ struct writeT {
 
 struct readThreadArgs {
     int id;
+    int num_read_threads;
     int num_of_entries;
     int check;
     int64_t global_offset_x;
@@ -194,7 +206,6 @@ void* writeFile(void *arg) {
         free(dataWriteT[wTA->id].values);
         dataWriteT[wTA->id].values = NULL;
         MT_unset_lock(&dataLock);
-        //fsync(wTA->out);
         fflush(wTA->out);
 
         /*Wake up the main*/
@@ -222,7 +233,7 @@ void* readFile(void *arg) {
             MT_unset_lock(&dataLock);
             return NULL;
         }
-        read_index = (files_in_index % NUM_READ_THREADS);
+        read_index = (files_in_index % rTA->num_read_threads);
         files_in_index++;
 
         struct writeT *dataWriteTT = (struct writeT*) malloc(sizeof(struct writeT)*rTA->num_of_entries);
@@ -453,10 +464,10 @@ int main(int argc, char *argv[])
     int len, j;
     int64_t mortonkey = 0;
     unsigned int index = 0;
-    int num_files_in = 0, num_files_out = 0, num_files, num_of_entries=0, check = 0;
+    int num_files_in = 0, num_files_out = 0, num_files, num_of_entries=0, check = 0, num_read_threads = DEFAULT_NUM_READ_THREADS;
     int i;
     pthread_t *writeThreads = NULL;
-    pthread_t readThreads[NUM_READ_THREADS];
+    pthread_t *readThreads = NULL;
     struct readThreadArgs *dataRead = NULL;
     boolean input_file = FALSE;
     int64_t global_offset_x = 0;
@@ -470,6 +481,9 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
+    /*Allocate space for input files*/
+    files_name_in = (char**) malloc(sizeof(char*)*DEFAULT_NUM_INPUT_FILES);
+
     for (i = 1; i < argc; i++)
     {
         if (    strcmp(argv[i],"-h") == 0 ||
@@ -477,77 +491,81 @@ int main(int argc, char *argv[])
            )
         {
             usage();
-	    exit(0);
-	}
-	else if (   strcmp(argv[i],"-v") == 0 ||
-			strcmp(argv[i],"--verbose") == 0
-		)
-	{
-		verbose = TRUE;
-	}
-	else if (   strcmp(argv[i],"-s") == 0 ||
-			strcmp(argv[i],"--skip_invalid") == 0
-		)
-	{
-		skip_invalid = TRUE;
-	}
-	else if (   strcmp(argv[i], "--parse") == 0 ||
-			strcmp(argv[i], "-parse") == 0
-		)
-	{
-		i++;
-		parse_string = argv[i];
-	}
-	else if (   strcmp(argv[i], "--moffset") == 0 ||
-			strcmp(argv[i], "-moffset") == 0
-		)
-	{
-		i++;
-		buffer = strtok (argv[i], ",");
-		j = 0;
-		while (buffer) {
-			if (j == 0) {
-				global_offset_x = S64(buffer);
-			}
-			else if (j == 1) {
-				global_offset_y = S64(buffer);
-			}
-			j++;
-			buffer = strtok (NULL, ",");
-			while (buffer && *buffer == '\040')
-				buffer++;
-		}
-		if (j != 2){
-			fprintf(stderr, "Only two int64_t are required in moffset option!\n");
-			exit(1);
-		}
+            exit(0);
+        }
+        else if (   strcmp(argv[i],"-v") == 0 ||
+                strcmp(argv[i],"--verbose") == 0
+                )
+        {
+            verbose = TRUE;
+        }
+        else if ( strcmp(argv[i],"--num_read_threads") == 0)
+        {
+            num_read_threads = atoi(argv[++i]);
+        }
+        else if (   strcmp(argv[i],"-s") == 0 ||
+                strcmp(argv[i],"--skip_invalid") == 0
+                )
+        {
+            skip_invalid = TRUE;
+        }
+        else if (   strcmp(argv[i], "--parse") == 0 ||
+                strcmp(argv[i], "-parse") == 0
+                )
+        {
+            i++;
+            parse_string = argv[i];
+        }
+        else if (   strcmp(argv[i], "--moffset") == 0 ||
+                strcmp(argv[i], "-moffset") == 0
+                )
+        {
+            i++;
+            buffer = strtok (argv[i], ",");
+            j = 0;
+            while (buffer) {
+                if (j == 0) {
+                    global_offset_x = S64(buffer);
+                }
+                else if (j == 1) {
+                    global_offset_y = S64(buffer);
+                }
+                j++;
+                buffer = strtok (NULL, ",");
+                while (buffer && *buffer == '\040')
+                    buffer++;
+            }
+            if (j != 2){
+                fprintf(stderr, "Only two int64_t are required in moffset option!\n");
+                exit(1);
+            }
 
-	}
-	else if (   strcmp(argv[i], "--check") == 0 ||
-			strcmp(argv[i], "-check") == 0
-		)
-	{
-		i++;
-		check = 1;
-		buffer = strtok (argv[i], ",");
-		j = 0;
-		while (buffer) {
-			if (j == 0) {
-				sscanf(buffer, "%lf", &scale_x);
-			}
-			else if (j == 1) {
-				sscanf(buffer, "%lf", &scale_y);
-			}
-			j++;
-			buffer = strtok (NULL, ",");
-			while (buffer && *buffer == '\040')
-				buffer++;
-		}
-		if (j != 2){
-			fprintf(stderr, "Only two doubles are required in moffset option!\n");
-			exit(1);
-		}
-	}
+        }
+        else if (   strcmp(argv[i], "--check") == 0 ||
+                strcmp(argv[i], "-check") == 0
+                )
+        {
+            i++;
+            check = 1;
+            buffer = strtok (argv[i], ",");
+            j = 0;
+            while (buffer) {
+                if (j == 0) {
+                    sscanf(buffer, "%lf", &scale_x);
+                }
+                else if (j == 1) {
+                    sscanf(buffer, "%lf", &scale_y);
+                }
+                j++;
+                buffer = strtok (NULL, ",");
+                while (buffer && *buffer == '\040')
+                    buffer++;
+            }
+            if (j != 2){
+                fprintf(stderr, "Only two doubles are required in moffset option!\n");
+                exit(1);
+            }
+        }
         else if (   strcmp(argv[i],"--input") == 0  ||
                 strcmp(argv[i],"-input") == 0   ||
                 strcmp(argv[i],"-i") == 0       ||
@@ -556,10 +574,9 @@ int main(int argc, char *argv[])
         {
             i++;
             files_name_in[num_files_in++] = argv[i];
-            if (num_files_in == NUM_FILES_IN) {
-                fprintf(stderr, "ERROR: number of input files exceeded maximum of NUM_FILES_IN %d\n", NUM_FILES_IN);
-                exit(1);
-            }
+
+            if (num_files_in % DEFAULT_NUM_INPUT_FILES)
+                files_name_in = (char**) realloc(files_name_in, (num_files_in*2)*sizeof(char*));
         }
         else if (strcmp(argv[i],"--file") == 0  ||
                 strcmp(argv[i],"-file") == 0   ||
@@ -571,11 +588,6 @@ int main(int argc, char *argv[])
             char line_buffer[BUFSIZ];
             FILE* in = NULL;
 
-            if (num_files_in == NUM_FILES_IN) {
-                fprintf(stderr, "ERROR: the maximum number of files was exceeded %d\n", NUM_FILES_IN);
-                exit(1);
-            }
-
             in = fopen(argv[i], "r");
             if (!in) {
                 fprintf(stderr, "ERROR: the path for file containing the input files is invalid %s\n", argv[i]);
@@ -584,13 +596,12 @@ int main(int argc, char *argv[])
             while (fgets(line_buffer, sizeof(line_buffer), in)) {
                 line_buffer[strlen(line_buffer)-1]='\0';
                 files_name_in[num_files_in++] = strdup(line_buffer);
+
+                if (num_files_in % DEFAULT_NUM_INPUT_FILES)
+                    files_name_in = (char**) realloc(files_name_in, (num_files_in*2)*sizeof(char*));
             }
             fclose(in);
-	    input_file = TRUE;
-        }
-        else if (num_files_in == 0 && num_files_out == 0)
-        {
-            files_name_in[num_files_in++] = argv[i];
+            input_file = TRUE;
         }
         else if ((num_files_in != 0) && num_files_out == 0)
         {
@@ -787,14 +798,16 @@ int main(int argc, char *argv[])
     free(str);
 
     /*Initialize structures for the reading threads*/
-    //data = (struct writeT**) malloc(NUM_READ_THREADS*sizeof(struct writeT*)); //Malloc is more efficient than calloc
-    data = (struct writeT**) calloc(NUM_READ_THREADS, sizeof(struct writeT*));
+    //data = (struct writeT**) malloc(num_read_threads*sizeof(struct writeT*)); //Malloc is more efficient than calloc
+    data = (struct writeT**) calloc(num_read_threads, sizeof(struct writeT*));
 
-    dataRead = (struct readThreadArgs*) malloc(sizeof(struct readThreadArgs)*NUM_READ_THREADS);
+    dataRead = (struct readThreadArgs*) malloc(sizeof(struct readThreadArgs)*num_read_threads);
     /* Launch read Threads */
     stop = 0;
-    for (i=0; i<NUM_READ_THREADS; i++) {
+    readThreads = (pthread_t*) malloc(sizeof(pthread_t)*num_read_threads);
+    for (i=0; i < num_read_threads; i++) {
         dataRead[i].id = i;
+        dataRead[i].num_read_threads = num_read_threads;
         dataRead[i].num_of_entries = num_of_entries;
         dataRead[i].check = check;
         dataRead[i].global_offset_x = global_offset_x;
@@ -838,7 +851,7 @@ int main(int argc, char *argv[])
 
         /*Keep looping*/
         writeIndex++;
-        writeIndex = (writeIndex % NUM_READ_THREADS);
+        writeIndex = (writeIndex % num_read_threads);
 
         MT_set_lock(&dataLock);
         while (done == 0) {
@@ -883,14 +896,21 @@ int main(int argc, char *argv[])
         fflush(files_out[i]);
         if (verbose)
             printf("close file %d\n", i);
+        fsync(files_out[i]);
         fclose(files_out[i]);
     }
     free(files_out);
-    if (input_file)
+    if (input_file) {
         for (i=0 ; i < num_files_in; i++)
             free(files_name_in[i]);
 
+        free(files_name_in);
+    }
+
     free(dataRead);
+
+    if (readThreads)
+        free(readThreads);
 
     return 0;
 }
