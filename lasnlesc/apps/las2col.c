@@ -159,6 +159,7 @@ struct writeThreadArgs {
 struct writeT {
     long num_points;
     char* values;
+    int type;
 };
 
 struct readThreadArgs {
@@ -188,7 +189,7 @@ void* writeFile(void *arg) {
             return NULL;
         }
 
-        fwrite(dataWriteT[wTA->id].values, sizeof(double), dataWriteT[wTA->id].num_points, wTA->out);
+        fwrite(dataWriteT[wTA->id].values, dataWriteT[wTA->id].type, dataWriteT[wTA->id].num_points, wTA->out);
         MT_set_lock(&dataLock);
         free(dataWriteT[wTA->id].values);
         dataWriteT[wTA->id].values = NULL;
@@ -250,6 +251,7 @@ void* readFile(void *arg) {
 	for (i = 0; i < rTA->num_of_entries; i++) {
 		dataWriteTT[i].num_points = num_points;
 		dataWriteTT[i].values = malloc(entriesType[i]*num_points);
+		dataWriteTT[i].type = entriesType[i];
 	}
 
 	/*Changes for Oscar's new Morton code function*/
