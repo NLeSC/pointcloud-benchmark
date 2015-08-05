@@ -15,10 +15,10 @@ def OracleWriter(xmlFile, inputFileAbsPath, connectionString, dimensionsNames, b
     
     offsetScale = ''
     if useOffsetScale:
-        (_, _, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(inputFileAbsPath)
-        offsetScale = """<Option name="offset_x">""" + str(offsetX) + """</Option>
-   <Option name="offset_y">""" + str(offsetY) + """</Option>
-   <Option name="offset_z">""" + str(offsetZ) + """</Option>
+        (_, _, minX, minY, minZ, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(inputFileAbsPath)
+        offsetScale = """<Option name="offset_x">""" + str(minX) + """</Option>
+   <Option name="offset_y">""" + str(minY) + """</Option>
+   <Option name="offset_z">""" + str(minZ) + """</Option>
    <Option name="scale_x">""" + str(scaleX) + """</Option>
    <Option name="scale_y">""" + str(scaleY) + """</Option>
    <Option name="scale_z">""" + str(scaleZ) + """</Option>"""
@@ -125,7 +125,7 @@ def OracleReaderStdOut(xmlFile, connectionString, blockTable, baseTable, srid, w
 
 def PostgreSQLWriter(xmlFile, inputFileAbsPath, connectionString, pcid, dimensionsNames, blockTable, srid, blockSize, compression):
     """ Create a XML file to load the data, in the given file, into the DB """
-    (_, _, _, _, _, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(inputFileAbsPath)  
+    (_, _, minX, minY, minZ, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(inputFileAbsPath)  
 
     xmlContent = """<?xml version="1.0" encoding="utf-8"?>
 <Pipeline version="1.0">
@@ -139,9 +139,9 @@ def PostgreSQLWriter(xmlFile, inputFileAbsPath, connectionString, pcid, dimensio
     <Option name="capacity">""" + str(blockSize) + """</Option>
     <Option name="compression">""" + compression + """</Option>
     <Option name="output_dims">""" + ",".join(dimensionsNames) + """</Option>
-    <Option name="offset_x">""" + str(offsetX) + """</Option>
-    <Option name="offset_y">""" + str(offsetY) + """</Option>
-    <Option name="offset_z">""" + str(offsetZ) + """</Option>
+    <Option name="offset_x">""" + str(minX) + """</Option>
+    <Option name="offset_y">""" + str(minY) + """</Option>
+    <Option name="offset_z">""" + str(minZ) + """</Option>
     <Option name="scale_x">""" + str(scaleX) + """</Option>
     <Option name="scale_y">""" + str(scaleY) + """</Option>
     <Option name="scale_z">""" + str(scaleZ) + """</Option>

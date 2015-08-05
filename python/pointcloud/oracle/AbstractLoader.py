@@ -134,7 +134,7 @@ fields terminated by ','
         
         oracleops.mogrifyExecute(cursor,"""
 DECLARE
-    ptn_params varchar2(80) := 'blk_capacity=""" + str(blockSize) + """, work_tablespace=""" + workTableSpace + """';
+    ptn_params varchar2(80) := 'blk_capacity=""" + str(blockSize) + """';
     extent     sdo_geometry := sdo_geometry(2003,""" + str(srid) + """,NULL,sdo_elem_info_array(1,1003,3),sdo_ordinate_array(""" + str(minX) + """,""" + str(minY) + """,""" + str(maxX) + """,""" + str(maxY) + """));
     ptcld      sdo_pc;
 BEGIN
