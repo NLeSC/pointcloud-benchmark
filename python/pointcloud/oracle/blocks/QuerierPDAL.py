@@ -21,7 +21,7 @@ class QuerierPDAL(AbstractQuerier):
         
         # Create table to store the query geometries
         oracleops.dropTable(cursor, self.queryTable, check = True)
-        oracleops.mogrifyExecute(cursor, "CREATE TABLE " + self.queryTable + " ( id number primary key, geom sdo_geometry) TABLESPACE " + self.tableSpace + " pctfree 0 nologging")
+        oracleops.mogrifyExecute(cursor, "CREATE TABLE " + self.queryTable + " ( id number primary key, geom sdo_geometry) " + self.getTableSpaceString(self.tableSpace) + " pctfree 0 nologging")
         connection.close()
          
     def query(self, queryId, iterationId, queriesParameters):    

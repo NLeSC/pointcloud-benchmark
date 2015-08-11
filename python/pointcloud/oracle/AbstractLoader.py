@@ -53,12 +53,6 @@ class AbstractLoader(ALoader, CommonOracle):
         oracleops.mogrifyExecute(cursor,"""
 CREATE TABLE """ + tableName + """ (""" + (',\n'.join(self.getDBColumns(columns, True))) + """) """ + self.getTableSpaceString(tableSpace) + """ pctfree 0 nologging""")
 
-    def getTableSpaceString(self, tableSpace):
-        if tableSpace != None and tableSpace != '':
-            return " TABLESPACE " + tableSpace + " "
-        else: 
-            return ""
-
     def createBlocksTable(self, cursor, blockTable, tableSpace, compression, baseTable = None, includeBlockId = False):    
         """ Create the blocks table and meta-data table"""
         oracleops.dropTable(cursor, blockTable, True)

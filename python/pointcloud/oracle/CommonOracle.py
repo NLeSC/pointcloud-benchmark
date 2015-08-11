@@ -220,3 +220,9 @@ class CommonOracle():
             else:
                 columnsNamesDict[column] = (cName,cType)
         return columnsNamesDict
+    
+    def getTableSpaceString(self, tableSpace):
+        if tableSpace != None and tableSpace != '':
+            return " TABLESPACE " + tableSpace + " "
+        else: 
+            return ""
