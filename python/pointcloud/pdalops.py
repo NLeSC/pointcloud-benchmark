@@ -16,9 +16,9 @@ def OracleWriter(xmlFile, inputFileAbsPath, connectionString, dimensionsNames, b
     offsetScale = ''
     if useOffsetScale:
         (_, _, minX, minY, minZ, _, _, _, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ) = lasops.getPCFileDetails(inputFileAbsPath)
-        offsetScale = """<Option name="offset_x">""" + str(minX) + """</Option>
-   <Option name="offset_y">""" + str(minY) + """</Option>
-   <Option name="offset_z">""" + str(minZ) + """</Option>
+        offsetScale = """<Option name="offset_x">""" + str(offsetX) + """</Option>
+   <Option name="offset_y">""" + str(offsetY) + """</Option>
+   <Option name="offset_z">""" + str(offsetZ) + """</Option>
    <Option name="scale_x">""" + str(scaleX) + """</Option>
    <Option name="scale_y">""" + str(scaleY) + """</Option>
    <Option name="scale_z">""" + str(scaleZ) + """</Option>"""

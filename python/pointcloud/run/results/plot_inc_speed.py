@@ -46,34 +46,36 @@ ys = nums / times
 avg = ys[ys != numpy.inf].mean()
 print 'Avg. = ' + ('%.2f' % avg)
 print 'Last = ' + ('%.2f' % ys[-1])
-ax1.plot(xs, ys, alpha=0.6, linestyle = '-', color=utils.PCOLORS[i], label = plots[i][0])
-rects.append(plt.Rectangle((0, 0), 1, 1, fc=utils.PCOLORS[i]))    
-labels.append('Mpts/s per file')
+ax1.plot(xs, ys, alpha=0.6, linestyle = '-', color=utils.PCOLORS[0], label = 'pts/s per file')
+rects.append(plt.Rectangle((0, 0), 1, 1, fc=utils.PCOLORS[0]))    
+labels.append('pts/s per file')
 
 ax1.set_xlabel('File counter')
-ax1.set_ylabel('Mpts/s')
+ax1.set_ylabel('pts/s')
 
 if len(sys.argv) > 2:
     (miny,maxy) = sys.argv[2].split(',')
     ax1.set_ylim([float(miny), float(maxy)])
+else:
+    ax1.autoscale(axis='y', tight=True)
 ax1.autoscale(axis='x', tight=True)
 
-def cumulative_sum(values, start=0): 
-    for v in values: 
-        start += v 
-        yield start 
+#def cumulative_sum(values, start=0): 
+#    for v in values: 
+#        start += v 
+#        yield start 
         
-anums =  list(cumulative_sum(nums)) 
-ax2.plot(anums, anums) # Create a dummy plot
-ax2.cla()
-ax2.set_xlabel("#Mpts")
-ax2.autoscale(axis='x', tight=True)
+#anums =  list(cumulative_sum(nums)) 
+#ax2.plot(anums, anums) # Create a dummy plot
+#ax2.cla()
+#ax2.set_xlabel("pts")
+#ax2.autoscale(axis='x', tight=True)
 
-title = ax1.set_title("Oracle blocks loading")
-title.set_y(1.1)
-fig.subplots_adjust(top=0.85)
+#title = ax1.set_title("Incremental loading")
+#title.set_y(1.1)
+#fig.subplots_adjust(top=0.85)
 
-plt.legend(rects, labels)
+#plt.legend(rects, labels)
 
 #fig.gca().legend()
 fig.savefig(inputFile+ '.png')

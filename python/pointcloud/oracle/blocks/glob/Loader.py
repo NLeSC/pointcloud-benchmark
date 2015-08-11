@@ -33,7 +33,7 @@ class Loader(AbstractLoader):
         self.flatTable = self.blockTable + '_STAGING'
         
         # Create the flat table
-        self.createFlatTable(cursor, self.flatTable, self.columns)
+        self.createFlatTable(cursor, self.flatTable, self.tableSpace, self.columns)
         # Create blocks table and base table
         self.createBlocksTable(cursor, self.blockTable, self.tableSpace, self.compression, self.baseTable)
         

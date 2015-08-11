@@ -46,12 +46,18 @@ class AbstractLoader(ALoader, CommonOracle):
             cols.append(' '.join(self.getDBColumn(columns, i, includeType, hilbertColumnName)))
         return cols
     
-    def createFlatTable(self, cursor, tableName, columns):
+    def createFlatTable(self, cursor, tableName, tableSpace, columns):
         """ Creates a empty flat table"""
         oracleops.dropTable(cursor, tableName, True)
 
         oracleops.mogrifyExecute(cursor,"""
-CREATE TABLE """ + tableName + """ (""" + (',\n'.join(self.getDBColumns(columns, True))) + """) TABLESPACE """ + self.tableSpace + """ pctfree 0 nologging""")
+CREATE TABLE """ + tableName + """ (""" + (',\n'.join(self.getDBColumns(columns, True))) + """) """ + self.getTableSpaceString(tableSpace) + """ pctfree 0 nologging""")
+
+    def getTableSpaceString(self, tableSpace):
+        if tableSpace != None and tableSpace != '':
+            return " TABLESPACE " + tableSpace + " "
+        else: 
+            return ""
 
     def createBlocksTable(self, cursor, blockTable, tableSpace, compression, baseTable = None, includeBlockId = False):    
         """ Create the blocks table and meta-data table"""
@@ -61,20 +67,17 @@ CREATE TABLE """ + tableName + """ (""" + (',\n'.join(self.getDBColumns(columns,
         
         # Tables to contain point data and point cloud metadata
         oracleops.mogrifyExecute(cursor,"""
-CREATE TABLE """ + blockTable + """
-  TABLESPACE """ + tableSpace + """ pctfree 0 nologging 
-  lob(points) store as securefile (tablespace """ + tableSpace + self.getCompressString(compression) + """ cache reads nologging)
+CREATE TABLE """ + blockTable + self.getTableSpaceString(tableSpace) + """ pctfree 0 nologging 
+  lob(points) store as securefile (""" + self.getTableSpaceString(tableSpace) + self.getCompressString(compression) + """ cache reads nologging)
 as SELECT * FROM mdsys.SDO_PC_BLK_TABLE where 0 = 1""")
         
         if baseTable != None:
             if includeBlockId:
                 oracleops.mogrifyExecute(cursor,"""
-    CREATE TABLE """ + baseTable + """ (id number, pc sdo_pc)
-      TABLESPACE """ + tableSpace + """ pctfree 0 nologging""")
+CREATE TABLE """ + baseTable + """ (id number, pc sdo_pc) """ +  self.getTableSpaceString(tableSpace) + """ pctfree 0 nologging""")
             else:
                 oracleops.mogrifyExecute(cursor,"""
-    CREATE TABLE """ + baseTable + """ (pc sdo_pc)
-      TABLESPACE """ + tableSpace + """ pctfree 0 nologging""")  
+CREATE TABLE """ + baseTable + """ (pc sdo_pc) """ +  self.getTableSpaceString(tableSpace) + """ pctfree 0 nologging""")  
          
     def las2txt_sqlldr(self, fileAbsPath, tableName, columns):
         commonFile = os.path.basename(fileAbsPath).replace(fileAbsPath.split('.')[-1],'')
@@ -88,7 +91,7 @@ as SELECT * FROM mdsys.SDO_PC_BLK_TABLE where 0 = 1""")
             column = columns[i]
             if column not in self.DM_LAS2TXT or column not in self.DM_SQLLDR:
                 raise Exception('Wrong column! ' + column)
-            sqlldrCols.append(self.getDBColumn(columns, index)[0] + ' ' + self.DM_SQLLDR[column][0] + ' external(' + str(self.DM_SQLLDR[column][1]) + ')')
+            sqlldrCols.append(self.getDBColumn(columns, i)[0] + ' ' + self.DM_SQLLDR[column][0] + ' external(' + str(self.DM_SQLLDR[column][1]) + ')')
         
         ctfile.write("""load data
 append into table """ + tableName + """
@@ -183,7 +186,7 @@ CREATE TABLE """ + iotTableName + """
 (""" + (','.join(ocols)) + """
     , constraint """ + iotTableName + """_PK primary key (""" + (','.join(kcols)) + """))
     organization index
-    tablespace """ + tableSpace + """ pctfree 0 nologging
+    """ + self.getTableSpaceString(tableSpace) + """ pctfree 0 nologging
     """ + self.getParallelString(numProcesses) + """
 as
     SELECT """ + (','.join(icols)) + """ FROM """ + tableName)
@@ -264,8 +267,7 @@ CREATE INDEX """ + tableName + """_IDX on """ + tableName + """ (""" + (','.join
     def createTableAsSelect(self, cursor, newTableName, tableName, columns, tableSpace, numProcesses):
         oracleops.dropTable(cursor, newTableName, True)
         oracleops.mogrifyExecute(cursor, """
-CREATE TABLE """ + newTableName + """
-tablespace """ + tableSpace + """ pctfree 0 nologging
+CREATE TABLE """ + newTableName + self.getTableSpaceString(tableSpace) + """ pctfree 0 nologging
 """ + self.getParallelString(numProcesses) + """
 as
 select """ + (','.join(self.getDBColumns(columns,False))) + """ from """ + tableName)

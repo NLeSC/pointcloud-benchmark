@@ -23,7 +23,7 @@ class Loader(AbstractLoader):
         cursor = connection.cursor()
         
         # Create the flat table
-        self.createFlatTable(cursor, self.flatTable, self.columns)
+        self.createFlatTable(cursor, self.flatTable, self.tableSpace, self.columns)
         self.createFlatMeta(cursor, self.metaTable)
         connection.close()
         

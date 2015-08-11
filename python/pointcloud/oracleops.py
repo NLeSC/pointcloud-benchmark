@@ -20,7 +20,13 @@ def createUser(cursorSuper, userName, password, tableSpace, tempTableSpace):
     if len(cursorSuper.fetchall()):
         cursorSuper.execute('drop user ' + userName + ' CASCADE')
         cursorSuper.connection.commit()
-    cursorSuper.execute('create user ' + userName + ' identified by ' + password + ' default tablespace ' + tableSpace + ' temporary tablespace ' + tempTableSpace)
+    tsString = ''
+    if tableSpace != None and tableSpace != '':
+        tsString += ' default tablespace ' + tableSpace + ' '
+    if tempTableSpace != None and tempTableSpace != '':
+        tsString += ' temporary tablespace ' + tempTableSpace + ' '
+
+    cursorSuper.execute('create user ' + userName + ' identified by ' + password + tsString)
     cursorSuper.execute('grant unlimited tablespace, connect, resource, create view to ' + userName)
     cursorSuper.connection.commit()
 
