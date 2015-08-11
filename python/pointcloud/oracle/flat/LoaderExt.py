@@ -74,6 +74,7 @@ class LoaderExt(AbstractLoader):
         oracleops.mogrifyExecute(cursor, "INSERT INTO " + self.metaTable + " VALUES (:1,:2,:3,:4,:5,:6,:7,:8)" , metaArgs)
         if not self.flatTableIOT:
             self.createIndex(cursor, self.flatTable, self.index, self.indexTableSpace, self.numProcessesLoad)
+        self.computeStatistics(cursor, self.flatTable)
         connection.close()
         
     def size(self):

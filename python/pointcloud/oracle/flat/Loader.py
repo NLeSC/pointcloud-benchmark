@@ -46,6 +46,7 @@ class Loader(AbstractLoader):
             oracleops.dropTable(cursor, tempFlatTable, False)
         else:
             self.createIndex(cursor, self.flatTable, self.index, self.indexTableSpace, self.numProcessesLoad)
+        self.computeStatistics(cursor, self.flatTable)
         connection.close()
         
     def size(self):

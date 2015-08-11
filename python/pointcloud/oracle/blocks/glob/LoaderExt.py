@@ -84,7 +84,7 @@ class LoaderExt(AbstractLoader):
         else: #Rtree blocking
             self.populateBlocks(cursor, self.srid, self.minX, self.minY, self.maxX, self.maxY, self.extTable, self.blockTable, self.baseTable, self.blockSize, self.columns, self.tolerance, self.workTableSpace)
             self.createBlockIdIndex(cursor, self.blockTable, self.indexTableSpace)
-            
+        self.computeStatistics(cursor, self.blockTable) 
         connection.close()
         
     def size(self):

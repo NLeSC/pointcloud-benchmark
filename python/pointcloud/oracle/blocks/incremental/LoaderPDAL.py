@@ -52,6 +52,7 @@ class LoaderPDAL(AbstractLoader):
         cursor = connection.cursor()
         self.createBlockIdIndex(cursor, self.blockTable, self.indexTableSpace)
         self.createBlockIndex(cursor, self.srid, self.minX, self.minY, self.maxX, self.maxY, self.blockTable, self.indexTableSpace, self.workTableSpace, self.numProcessesLoad)
+        self.computeStatistics(cursor, self.blockTable)
         connection.close()
         
     def size(self):
