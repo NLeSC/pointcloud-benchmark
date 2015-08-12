@@ -13,7 +13,7 @@ class Loader(AbstractLoader):
     def initialize(self):
         # Check parameters for this loader
         if self.numProcessesLoad > 1:
-            raise Exception('ERROR: multi-core is not supported!')
+            print 'WARNING: multi-core is not supported! Only used to get PC details. Rest is done with single-core'
         
         if self.blockMethod == 'hilbert':
             raise Exception('ERROR: Hilbert blocking is not supported!')
