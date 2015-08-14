@@ -143,7 +143,7 @@ for hIndex in range(len(hParams)):
         elif mode == 'csv':
             print
             print ','.join([pName,]+h)
-            for row in rows:
+            for row in rows[pName]:
                 print ','.join(row)
         else:
             print 
