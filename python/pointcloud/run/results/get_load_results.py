@@ -8,7 +8,7 @@ from pointcloud.tabulate import tabulate
 from pointcloud import utils
 
 inputFolders = sys.argv[2:]
-texmode = sys.argv[1].lower() == 'tex'
+mode = sys.argv[1].lower()
 
 all_results = {}
 
@@ -87,8 +87,12 @@ tex += """
 \\label{tab:loading}
 \\end{table}
 """
-if texmode:
+if mode == 'tex':
     print tex.replace('_','\_')
+elif mode == 'csv':
+    print ','.join(h)
+    for row in rows:
+        print ','.join(row)
 else:
     print tabulate(rows, headers=h)
 
@@ -116,7 +120,7 @@ if someUsage:
 
 for usage in usages:
     
-    h = ('Approach','Total', '' , '', 'Init.', '', '', 'Load','','','Close','','')
+    h = ('Approach','Total', 'Total-' , 'Total+', 'Init.', 'Init.-', 'Init.+', 'Load','Load-','Load+','Close','Close-','Close+')
     
     tex = """
     \\begin{table}[!ht]
@@ -174,8 +178,12 @@ for usage in usages:
     \\label{tab:loading""" + usage + """}
     \\end{table}
     """
-    if texmode:
+    if mode == 'tex':
         print tex.replace('_','\_')
+    elif mode == 'csv':
+        print ','.join(h)
+        for row in rows:
+            print ','.join(row)
     else:
         print
         print usage, 'Avg.', 'Min.', 'Max.'

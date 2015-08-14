@@ -27,7 +27,7 @@ def getField(all_results, query, folder, pKey, pExpectEqual):
 
 
 inputFolders = sys.argv[5:]
-texmode = sys.argv[1].lower() == 'tex'
+mode = sys.argv[1].lower()
 orientation = sys.argv[2]
 includes = sys.argv[3]
 userIndexes = utils.getElements(sys.argv[4])
@@ -127,7 +127,7 @@ for hIndex in range(len(hParams)):
 for hIndex in range(len(hParams)):
     (pChar, pKey, pIndex, pName, pType, pExpectEqual) = hParams[hIndex]
     if includes.count(pChar):
-        if texmode:
+        if mode == 'tex':
             cols = []
             for i in range(len(h)):
                 cols.append('r')
@@ -140,6 +140,11 @@ for hIndex in range(len(hParams)):
 \\end{table}
 """
             print tex.replace('_','\_')
+        elif mode == 'csv':
+            print
+            print ','.join([pName,]+h)
+            for row in rows:
+                print ','.join(row)
         else:
             print 
             print tabulate(rows[pName], headers=[pName,]+h)
