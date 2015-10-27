@@ -1,8 +1,8 @@
 Patches
 =======
 
-The monetdb loaders and queriers use some functionalities that are not yet available 
-(as of date April 2015) in the default repository branch.
+The MonetDB uses some functionality that is not yet available 
+(as of date April 2015) in the default repository branch. 
 
 In this folder you can find the patch to be applied that will add this functionalities.
 
