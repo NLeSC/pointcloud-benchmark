@@ -623,6 +623,7 @@ int main(int argc, char *argv[])
         usage();
         exit(1);
     }
+    files_name_in[num_files_in] = NULL;
     num_files = num_files_in;
 
     /*Entries metadata*/
