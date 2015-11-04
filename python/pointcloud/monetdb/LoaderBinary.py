@@ -239,7 +239,7 @@ class LoaderBinary(ALoader, CommonMonetDB):
                 
                     #The different binary files have a pre-defined name 
                     bs = []
-                    for col in self.columns:
+                    for col in l2colCols:
                         bs.append("'" + tempFile + "_col_" + col + ".dat'")
                     
                     if not self.imprints:
@@ -273,7 +273,7 @@ class LoaderBinary(ALoader, CommonMonetDB):
                 
                 # The different binary files have a pre-defined name 
                 bs = []
-                for col in self.columns:
+                for col in l2colCols:
                     bs.append("'" + tempFile + "_col_" + col + ".dat'")
                 
                 if not self.imprints:
