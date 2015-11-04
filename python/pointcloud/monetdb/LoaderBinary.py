@@ -50,10 +50,38 @@ class LoaderBinary(ALoader, CommonMonetDB):
         connection = self.getConnection()
         cursor = connection.cursor()
         if self.partitioning:
+            # Get initial number of tiles in X and Y
             rangeX = self.maxX - self.minX
             rangeY = self.maxY - self.minY
+            # We scale the number of tiles in each dimension according to the ration between the axis extents
             nX = int(math.ceil(math.sqrt(self.numPartitions) * (float(rangeX)/float(rangeY))))
-            nY = int(math.ceil(math.sqrt(self.numPartitions) / (float(rangeX)/float(rangeY))))
+            nY = int(math.ceil(math.sqrt(self.numPartitions) * (float(rangeY)/float(rangeX))))
+            
+            # Previous nX*nY will for sure be higher than desired number of partitions
+            # Now we refine nX and nY to have a number of partitions as close to the desrired by the user
+            correctNP = False
+            if nX >= nY:
+                modX = True
+            else:
+                modX = False
+            while not correctNP:
+                nP = nX * nY
+                if nP == self.numPartitions:
+                    correctNP = True
+                elif nP > self.numPartitions:
+                    if modX:
+                        nX = nX - 1
+                        modX = False
+                    else:
+                        nY = nY - 1
+                        modX = True
+                else:
+                    correctNP = True
+                    if modX:
+                        nY = nY + 1
+                    else:
+                        nX = nX + 1
+                    
             
             self.tilesFiles = {}
             for i in range(len(self.inputFiles)):
@@ -239,7 +267,7 @@ class LoaderBinary(ALoader, CommonMonetDB):
                 
                     #The different binary files have a pre-defined name 
                     bs = []
-                    for col in self.columns:
+                    for col in l2colCols:
                         bs.append("'" + tempFile + "_col_" + col + ".dat'")
                     
                     if not self.imprints:
@@ -273,7 +301,7 @@ class LoaderBinary(ALoader, CommonMonetDB):
                 
                 # The different binary files have a pre-defined name 
                 bs = []
-                for col in self.columns:
+                for col in l2colCols:
                     bs.append("'" + tempFile + "_col_" + col + ".dat'")
                 
                 if not self.imprints:
