@@ -5,7 +5,7 @@ python-dev swig libjpeg-turbo8-dev libbz2-dev zlib1g-dev git libxml2-dev \
 python-numpy libflann-dev libsqlite3-dev libopenmpi-dev subversion \
 libcurl4-openssl-dev libxerces-c-dev unixodbc-dev libjson-c-dev libpcre3-dev \
 ant libbison-dev gettext libtool libreadline-dev unzip libfreetype6 \
-libfreetype6-dev libxslt1-dev python-pip \
+libfreetype6-dev libxslt1-dev python-pip python-gdal \
 libgeos-dev libtiff5-dev libgeotiff-dev libboost1.55-dev libgdal-dev liblas-dev
 
 # LASTOOLS (open-source part, i.e. no wine is required)
@@ -19,8 +19,6 @@ RUN make -j4
 RUN cp -R bin/* /usr/local/bin/
 
 RUN pip install --upgrade pip
-
-RUN apt-get install python-gdal
 
 # python packages
 RUN pip install lxml psutil psycopg2 matplotlib numpy
