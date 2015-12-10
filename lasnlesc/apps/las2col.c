@@ -87,7 +87,7 @@ void usage()
     fprintf(stderr,"   n - number of returns for given pulse\n");
     fprintf(stderr,"   r - number of this return\n");
     fprintf(stderr,"   c - classification number\n");
-    fprintf(stderr,"   C - classification name\n");
+    //fprintf(stderr,"   C - classification name\n");
     fprintf(stderr,"   u - user data (does not currently work)\n");
     fprintf(stderr,"   p - point source ID\n");
     fprintf(stderr,"   e - edge of flight line\n");
