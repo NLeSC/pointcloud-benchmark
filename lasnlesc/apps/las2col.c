@@ -133,7 +133,7 @@ int entriesType[NUM_OF_ENTRIES];
 char **files_name_in = NULL;
 int files_in_index = 0 ;
 int skip_invalid = FALSE;
-int verbose = FALSE;
+int verbose = TRUE;
 struct writeT **data = NULL;
 struct writeT *dataWriteT = NULL;
 int stop;
@@ -334,6 +334,7 @@ void* readFile(void *arg) {
                     case ENTRY_x:
                     case ENTRY_y:
                     case ENTRY_z:
+                    case ENTRY_t:
                         ((double*) dataWriteTT[j].values)[index] = entriesFunc[j](p);
                         //printf(" Point is:%lf\n", ((double*) dataWriteTT[j].values)[index]);
                         break;
@@ -345,6 +346,17 @@ void* readFile(void *arg) {
                         break;
                     case ENTRY_Z:
                         ((int*) dataWriteTT[j].values)[index] = entriesFunc[j](p) / file_scale_z;
+                        break;
+                    case ENTRY_i:
+                    case ENTRY_a:
+                    case ENTRY_r:
+                    case ENTRY_c:
+                    case ENTRY_u:
+                    case ENTRY_n:
+                    case ENTRY_p:
+                    case ENTRY_e:
+                    case ENTRY_d:
+                        ((int*) dataWriteTT[j].values)[index] = entriesFunc[j](p);
                         break;
                     case ENTRY_k:
                         entriesFunc[j](&res, p, factorX, factorY);
