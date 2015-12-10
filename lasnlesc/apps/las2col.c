@@ -128,7 +128,10 @@ typedef void (*f_ptr)( void );
 MT_Lock dataLock;
 MT_Cond mainCond, writeTCond, readCond;
 int entries[NUM_OF_ENTRIES];
-double (*entriesFunc[NUM_OF_ENTRIES])();
+double (*entriesFuncD[NUM_OF_ENTRIES])();
+int (*entriesFuncI[NUM_OF_ENTRIES])();
+short (*entriesFuncS[NUM_OF_ENTRIES])();
+char (*entriesFuncC[NUM_OF_ENTRIES])();
 int entriesType[NUM_OF_ENTRIES];
 char **files_name_in = NULL;
 int files_in_index = 0 ;
@@ -185,6 +188,7 @@ struct readThreadArgs {
 };
 
 void* writeFile(void *arg) {
+    int i = 0;
     struct writeThreadArgs *wTA = (struct writeThreadArgs*) arg;
 
     /*Obtain lock over data to get the pointer*/
@@ -202,6 +206,8 @@ void* writeFile(void *arg) {
         }
 
         fwrite(dataWriteT[wTA->id].values, dataWriteT[wTA->id].type, dataWriteT[wTA->id].num_points, wTA->out);
+        //for (i = 0; i < 1000; i++)
+        //    printf("%d\n", dataWriteT[wTA->id].values[i]);
         MT_set_lock(&dataLock);
         free(dataWriteT[wTA->id].values);
         dataWriteT[wTA->id].values = NULL;
@@ -335,41 +341,43 @@ void* readFile(void *arg) {
                     case ENTRY_y:
                     case ENTRY_z:
                     case ENTRY_t:
-                        ((double*) dataWriteTT[j].values)[index] = entriesFunc[j](p);
+                        ((double*) dataWriteTT[j].values)[index] = entriesFuncD[j](p);
                         //printf(" Point is:%lf\n", ((double*) dataWriteTT[j].values)[index]);
                         break;
                     case ENTRY_X:
-                        ((int*) dataWriteTT[j].values)[index] = entriesFunc[j](p) / file_scale_x;
+                        ((int*) dataWriteTT[j].values)[index] = entriesFuncD[j](p) / file_scale_x;
                         break;
                     case ENTRY_Y:
-                        ((int*) dataWriteTT[j].values)[index] = entriesFunc[j](p) / file_scale_y;
+                        ((int*) dataWriteTT[j].values)[index] = entriesFuncD[j](p) / file_scale_y;
                         break;
                     case ENTRY_Z:
-                        ((int*) dataWriteTT[j].values)[index] = entriesFunc[j](p) / file_scale_z;
+                        ((int*) dataWriteTT[j].values)[index] = entriesFuncD[j](p) / file_scale_z;
                         break;
                     case ENTRY_i:
-                    case ENTRY_a:
                     case ENTRY_r:
-                    case ENTRY_c:
-                    case ENTRY_u:
                     case ENTRY_n:
                     case ENTRY_p:
                     case ENTRY_e:
                     case ENTRY_d:
-                        ((int*) dataWriteTT[j].values)[index] = entriesFunc[j](p);
+                        ((short*) dataWriteTT[j].values)[index] = entriesFuncS[j](p);
+                        break;
+                    case ENTRY_a:
+                    case ENTRY_c:
+                    case ENTRY_u:
+                        ((char*) dataWriteTT[j].values)[index] = entriesFuncC[j](p);
                         break;
                     case ENTRY_k:
-                        entriesFunc[j](&res, p, factorX, factorY);
+                        entriesFuncD[j](&res, p, factorX, factorY);
                         ((int64_t*)dataWriteTT[j].values)[index] = res;
                         break;
                     case ENTRY_R:
                     case ENTRY_G:
                     case ENTRY_B:
                         color = (color == NULL) ? LASPoint_GetColor(p) : color;
-                        dataWriteTT[j].values[index] = (double) entriesFunc[j](color);
+                        dataWriteTT[j].values[index] = (short) entriesFuncS[j](color);
                         break;
                     case ENTRY_M:
-                        dataWriteTT[j].values[index] = index;
+                        ((unsigned int*)dataWriteTT[j].values)[index] = index;
                         break;
                     default:
                         LASError_Print("las2col:readFile: Invalid Entry.");
@@ -475,7 +483,6 @@ int main(int argc, char *argv[])
     FILE** files_out = NULL;
     int len, j;
     int64_t mortonkey = 0;
-    unsigned int index = 0;
     int num_files_in = 0, num_files_out = 0, num_files, num_of_entries=0, check = 0, num_read_threads = DEFAULT_NUM_READ_THREADS;
     int i;
     pthread_t *writeThreads = NULL;
@@ -526,7 +533,10 @@ int main(int argc, char *argv[])
                 )
         {
             i++;
-            parse_string = argv[i];
+            if ( (parse_string = argv[i]) == NULL) {
+                usage();
+                exit(0);
+            }
         }
         else if (   strcmp(argv[i], "--moffset") == 0 ||
                 strcmp(argv[i], "-moffset") == 0
@@ -650,124 +660,124 @@ int main(int argc, char *argv[])
                 entriesType[i] = sizeof(int64_t);
 	            /*Changes for Oscar's new Morton code function*/
                 //entriesFunc[i] = (void*)morton2D_encode;
-                entriesFunc[i] = (void*)morton2D_encodeOscar;
+                entriesFuncD[i] = (void*)morton2D_encodeOscar;
                 break;
                 /* // the x coordinate  double*/
             case 'x':
                 entries[i] = ENTRY_x;
                 entriesType[i] = sizeof(double);
-                entriesFunc[i] = (void*)LASPoint_GetX;
+                entriesFuncD[i] = (void*)LASPoint_GetX;
                 break;
                 /* // the y coordinate double*/
             case 'y':
                 entries[i] = ENTRY_y;
                 entriesType[i] = sizeof(double);
-                entriesFunc[i] = (void*)LASPoint_GetY;
+                entriesFuncD[i] = (void*)LASPoint_GetY;
                 break;
                 /* // the z coordinate double*/
             case 'z':
                 entries[i] = ENTRY_z;
                 entriesType[i] = sizeof(double);
-                entriesFunc[i] = (void*)LASPoint_GetZ;
+                entriesFuncD[i] = (void*)LASPoint_GetZ;
                 break;
                 /* // the X coordinate decimal*/
             case 'X':
                 entries[i] = ENTRY_X;
                 entriesType[i] = sizeof(int);
-                entriesFunc[i] = (void*)LASPoint_GetX;
+                entriesFuncD[i] = (void*)LASPoint_GetX;
                 break;
                 /* // the y coordinate decimal*/
             case 'Y':
                 entries[i] = ENTRY_Y;
                 entriesType[i] = sizeof(int);
-                entriesFunc[i] = (void*)LASPoint_GetY;
+                entriesFuncD[i] = (void*)LASPoint_GetY;
                 break;
                 /* // the z coordinate decimal*/
             case 'Z':
                 entries[i] = ENTRY_Z;
                 entriesType[i] = sizeof(int);
-                entriesFunc[i] = (void*)LASPoint_GetZ;
+                entriesFuncD[i] = (void*)LASPoint_GetZ;
                 break;
                 /* // the gps-time */
             case 't':
                 entries[i] = ENTRY_t;
                 entriesType[i] = sizeof(double);
-                entriesFunc[i] = (void*)LASPoint_GetTime;
+                entriesFuncD[i] = (void*)LASPoint_GetTime;
                 break;
                 /* // the intensity */
             case 'i':
                 entries[i] = ENTRY_i;
-                entriesType[i] = sizeof(int);
-                entriesFunc[i] = (void*)LASPoint_GetIntensity;
+                entriesType[i] = sizeof(unsigned short);
+                entriesFuncS[i] = (void*)LASPoint_GetIntensity;
                 break;
                 /* the scan angle */
             case 'a':
                 entries[i] = ENTRY_a;
-                entriesType[i] = sizeof(int);
-                entriesFunc[i] = (void*)LASPoint_GetScanAngleRank;
+                entriesType[i] = sizeof(char);
+                entriesFuncC[i] = (void*)LASPoint_GetScanAngleRank;
                 break;
                 /* the number of the return */
             case 'r':
                 entries[i] = ENTRY_r;
-                entriesType[i] = sizeof(int);
-                entriesFunc[i] = (void*)LASPoint_GetReturnNumber;
+                entriesType[i] = sizeof(short);
+                entriesFuncS[i] = (void*)LASPoint_GetReturnNumber;
                 break;
                 /* the classification */
             case 'c':
                 entries[i] = ENTRY_c;
-                entriesType[i] = sizeof(int);
-                entriesFunc[i] = (void*)LASPoint_GetClassification;
+                entriesType[i] = sizeof(char);
+                entriesFuncC[i] = (void*)LASPoint_GetClassification;
                 break;
                 /* the user data */
             case 'u':
                 entries[i] = ENTRY_u;
-                entriesType[i] = sizeof(int);
-                entriesFunc[i] = (void*)LASPoint_GetUserData;
+                entriesType[i] = sizeof(char);
+                entriesFuncC[i] = (void*)LASPoint_GetUserData;
                 break;
                 /* the number of returns of given pulse */
             case 'n':
                 entries[i] = ENTRY_n;
-                entriesType[i] = sizeof(int);
-                entriesFunc[i] = (void*)LASPoint_GetNumberOfReturns;
+                entriesType[i] = sizeof(short);
+                entriesFuncS[i] = (void*)LASPoint_GetNumberOfReturns;
                 break;
                 /* the red channel color */
             case 'R':
                 entries[i] = ENTRY_R;
-                entriesType[i] = sizeof(int);
-                entriesFunc[i] = (void*)LASColor_GetRed;
+                entriesType[i] = sizeof(short);
+                entriesFuncS[i] = (void*)LASColor_GetRed;
                 break;
                 /* the green channel color */
             case 'G':
                 entries[i] = ENTRY_G;
-                entriesType[i] = sizeof(int);
-                entriesFunc[i] = (void*)LASColor_GetGreen;
+                entriesType[i] = sizeof(short);
+                entriesFuncS[i] = (void*)LASColor_GetGreen;
                 break;
                 /* the blue channel color */
             case 'B':
                 entries[i] = ENTRY_B;
-                entriesType[i] = sizeof(int);
-                entriesFunc[i] = (void*)LASColor_GetBlue;
+                entriesType[i] = sizeof(short);
+                entriesFuncS[i] = (void*)LASColor_GetBlue;
                 break;
             case 'M':
                 entries[i] = ENTRY_M;
-                entriesType[i] = sizeof(unsigned int);
+                entriesType[i] = sizeof(int);
                 break;
             case 'p':
                 entries[i] = ENTRY_p;
-                entriesType[i] = sizeof(int);
-                entriesFunc[i] = (void*)LASPoint_GetPointSourceId;
+                entriesType[i] = sizeof(short);
+                entriesFuncS[i] = (void*)LASPoint_GetPointSourceId;
                 break;
                 /* the edge of flight line flag */
             case 'e':
                 entries[i] = ENTRY_e;
-                entriesType[i] = sizeof(int);
-                entriesFunc[i] = (void*)LASPoint_GetFlightLineEdge;
+                entriesType[i] = sizeof(short);
+                entriesFuncS[i] = (void*)LASPoint_GetFlightLineEdge;
                 break;
                 /* the direction of scan flag */
             case 'd':
                 entries[i] = ENTRY_d;
-                entriesType[i] = sizeof(int);
-                entriesFunc[i] = (void*)LASPoint_GetScanDirection;
+                entriesType[i] = sizeof(short);
+                entriesFuncS[i] = (void*)LASPoint_GetScanDirection;
                 break;
         }
         i++;
